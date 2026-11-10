@@ -1,0 +1,31 @@
+package com.surprise.mortgagesurprise.dto.bank;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+
+public record BankOfferRequest(
+        @NotBlank(message = "Bank name is required")
+        String bankName,
+
+        @NotBlank(message = "Offer name is required")
+        String offerName,
+
+        @NotNull(message = "Annual interest rate is required")
+        @DecimalMin(value = "0.01", message = "Interest rate must be greater than 0")
+        BigDecimal annualInterestRate,
+
+        @NotNull(message = "Minimum down payment percent is required")
+        @DecimalMin(value = "0.00", message = "Down payment percent cannot be negative")
+        BigDecimal minDownPaymentPercent,
+
+        @NotNull(message = "Maximum term in months is required")
+        @Min(value = 1, message = "Maximum term must be at least 1 month")
+        Integer maxTermMonths,
+
+        BigDecimal minLoanAmount,
+        BigDecimal maxLoanAmount
+) {}

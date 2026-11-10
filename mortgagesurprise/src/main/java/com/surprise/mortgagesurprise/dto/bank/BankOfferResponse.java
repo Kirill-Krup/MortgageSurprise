@@ -1,0 +1,37 @@
+package com.surprise.mortgagesurprise.dto.bank;
+
+import com.surprise.mortgagesurprise.model.entity.BankOffer;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+
+public record BankOfferResponse(
+        UUID id,
+        String bankName,
+        String offerName,
+        BigDecimal annualInterestRate,
+        BigDecimal minDownPaymentPercent,
+        int maxTermMonths,
+        BigDecimal minLoanAmount,
+        BigDecimal maxLoanAmount,
+        boolean active,
+        Instant createdAt,
+        Instant updatedAt
+) {
+    public static BankOfferResponse from(BankOffer offer) {
+        return new BankOfferResponse(
+                offer.getId(),
+                offer.getBankName(),
+                offer.getOfferName(),
+                offer.getAnnualInterestRate(),
+                offer.getMinDownPaymentPercent(),
+                offer.getMaxTermMonths(),
+                offer.getMinLoanAmount(),
+                offer.getMaxLoanAmount(),
+                offer.isActive(),
+                offer.getCreatedAt(),
+                offer.getUpdatedAt()
+        );
+    }
+}
