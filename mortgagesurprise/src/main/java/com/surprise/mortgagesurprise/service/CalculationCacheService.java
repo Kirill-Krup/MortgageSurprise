@@ -7,5 +7,6 @@ import java.util.Optional;
 
 public interface CalculationCacheService {
     Optional<CalculationResponse> getFromCache(String calculationHash);
+    void putInCache(String calculationHash, CalculationResponse response);
     void putInCache(String calculationHash, CalculationResponse response, Duration ttl);
 }

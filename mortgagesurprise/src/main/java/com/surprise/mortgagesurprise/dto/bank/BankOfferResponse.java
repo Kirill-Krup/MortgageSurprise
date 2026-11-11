@@ -2,6 +2,7 @@ package com.surprise.mortgagesurprise.dto.bank;
 
 import com.surprise.mortgagesurprise.model.entity.BankOffer;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -18,7 +19,8 @@ public record BankOfferResponse(
         boolean active,
         Instant createdAt,
         Instant updatedAt
-) {
+) implements Serializable {
+    private static final long serialVersionUID = 1L;
     public static BankOfferResponse from(BankOffer offer) {
         return new BankOfferResponse(
                 offer.getId(),

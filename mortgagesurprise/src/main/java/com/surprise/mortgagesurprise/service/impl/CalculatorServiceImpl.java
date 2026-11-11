@@ -8,6 +8,7 @@ import com.surprise.mortgagesurprise.model.document.CalculationHistoryDocument;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.repository.mongo.CalculationHistoryMongoRepository;
 import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
+import com.surprise.mortgagesurprise.service.CalculationCacheService;
 import com.surprise.mortgagesurprise.service.CalculatorService;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -24,19 +26,28 @@ public class CalculatorServiceImpl implements CalculatorService {
     private final MortgageCalculator mortgageCalculator;
     private final PaymentScheduleMongoRepository scheduleMongoRepository;
     private final CalculationHistoryMongoRepository historyMongoRepository;
+    private final CalculationCacheService cacheService;
 
     public CalculatorServiceImpl(MortgageCalculator mortgageCalculator,
                                  PaymentScheduleMongoRepository scheduleMongoRepository,
-                                 CalculationHistoryMongoRepository historyMongoRepository) {
+                                 CalculationHistoryMongoRepository historyMongoRepository,
+                                 CalculationCacheService cacheService) {
         this.mortgageCalculator = mortgageCalculator;
         this.scheduleMongoRepository = scheduleMongoRepository;
         this.historyMongoRepository = historyMongoRepository;
+        this.cacheService = cacheService;
     }
 
     @Override
     public CalculationResponse calculateAndPersist(CalculationRequest request, UUID userId) {
-        CalculationResult result = mortgageCalculator.calculate(request);
         String hash = generateParamsHash(request);
+
+        Optional<CalculationResponse> cachedResponse = cacheService.getFromCache(hash);
+        if (cachedResponse.isPresent()) {
+            return cachedResponse.get();
+        }
+
+        CalculationResult result = mortgageCalculator.calculate(request);
 
         PaymentScheduleDocument scheduleDoc = new PaymentScheduleDocument(
                 UUID.randomUUID().toString(),
@@ -73,7 +84,7 @@ public class CalculatorServiceImpl implements CalculatorService {
         );
         historyMongoRepository.save(historyDoc);
 
-        return new CalculationResponse(
+        CalculationResponse response = new CalculationResponse(
                 savedSchedule.getId(),
                 result.propertyPrice(),
                 result.downPayment(),
@@ -89,6 +100,10 @@ public class CalculatorServiceImpl implements CalculatorService {
                 result.totalPayment(),
                 result.schedule()
         );
+
+        cacheService.putInCache(hash, response);
+
+        return response;
     }
 
     @Override

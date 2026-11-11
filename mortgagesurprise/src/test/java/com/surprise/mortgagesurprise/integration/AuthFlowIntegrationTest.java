@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthFlowIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     private MockMvc mockMvc;
 
     @Autowired
@@ -32,7 +33,6 @@ class AuthFlowIntegrationTest extends BaseIntegrationTest {
         String email = "testuser" + System.currentTimeMillis() + "@example.com";
         String password = "StrongPassword123";
 
-        // 1. Register
         RegisterRequest registerReq = new RegisterRequest(email, password, "Ivan", "Ivanov");
         MvcResult regResult = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -45,7 +45,6 @@ class AuthFlowIntegrationTest extends BaseIntegrationTest {
         assertNotNull(regResponse.refreshToken());
         assertEquals(email, regResponse.email());
 
-        // 2. Login
         LoginRequest loginReq = new LoginRequest(email, password);
         MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -58,7 +57,6 @@ class AuthFlowIntegrationTest extends BaseIntegrationTest {
         String refreshToken = loginResponse.refreshToken();
         assertNotNull(refreshToken);
 
-        // 3. Refresh token
         RefreshTokenRequest refreshReq = new RefreshTokenRequest(refreshToken);
         MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)

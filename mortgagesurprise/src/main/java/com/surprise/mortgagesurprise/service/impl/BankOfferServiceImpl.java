@@ -8,6 +8,8 @@ import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.entity.BankOffer;
 import com.surprise.mortgagesurprise.repository.jpa.BankOfferRepository;
 import com.surprise.mortgagesurprise.service.BankOfferService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class BankOfferServiceImpl implements BankOfferService {
     }
 
     @Override
+    @CacheEvict(value = "bankOffers", allEntries = true)
     public BankOfferResponse createOffer(BankOfferRequest req) {
         BankOffer offer = new BankOffer(
                 req.bankName(),
@@ -44,6 +47,7 @@ public class BankOfferServiceImpl implements BankOfferService {
     }
 
     @Override
+    @CacheEvict(value = "bankOffers", allEntries = true)
     public BankOfferResponse updateOffer(UUID id, BankOfferRequest req) {
         BankOffer offer = bankOfferRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bank offer not found: " + id));
@@ -76,6 +80,7 @@ public class BankOfferServiceImpl implements BankOfferService {
     }
 
     @Override
+    @CacheEvict(value = "bankOffers", allEntries = true)
     public void deleteOffer(UUID id) {
         BankOffer offer = bankOfferRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bank offer not found: " + id));
@@ -100,6 +105,7 @@ public class BankOfferServiceImpl implements BankOfferService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "bankOffers", key = "'active'")
     public List<BankOfferResponse> getActiveOffers() {
         return bankOfferRepository.findByActiveTrue().stream()
                 .map(BankOfferResponse::from)

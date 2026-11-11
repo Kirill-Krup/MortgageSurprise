@@ -7,6 +7,8 @@ import com.surprise.mortgagesurprise.dto.scenario.ScenarioComparisonResponse;
 import com.surprise.mortgagesurprise.dto.scenario.ScenarioResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
+import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
+import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
@@ -28,13 +30,16 @@ public class ScenarioServiceImpl implements ScenarioService {
     private final CalculationScenarioRepository scenarioRepository;
     private final MortgageCalculator mortgageCalculator;
     private final PaymentScheduleMongoRepository scheduleMongoRepository;
+    private final MessageProducer messageProducer;
 
     public ScenarioServiceImpl(CalculationScenarioRepository scenarioRepository,
                                MortgageCalculator mortgageCalculator,
-                               PaymentScheduleMongoRepository scheduleMongoRepository) {
+                               PaymentScheduleMongoRepository scheduleMongoRepository,
+                               MessageProducer messageProducer) {
         this.scenarioRepository = scenarioRepository;
         this.mortgageCalculator = mortgageCalculator;
         this.scheduleMongoRepository = scheduleMongoRepository;
+        this.messageProducer = messageProducer;
     }
 
     @Override
@@ -138,5 +143,24 @@ public class ScenarioServiceImpl implements ScenarioService {
                 .filter(s -> s.getUserId().equals(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("Scenario not found: " + scenarioId));
         scenarioRepository.delete(scenario);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void requestPdfExport(UUID userId, String userEmail, UUID scenarioId) {
+        CalculationScenario scenario = scenarioRepository.findById(scenarioId)
+                .filter(s -> s.getUserId().equals(userId))
+                .orElseThrow(() -> new ResourceNotFoundException("Scenario not found: " + scenarioId));
+
+        PdfExportEvent event = new PdfExportEvent(
+                userId,
+                userEmail,
+                scenario.getId(),
+                scenario.getTitle(),
+                scenario.getMongoScheduleId(),
+                Instant.now()
+        );
+
+        messageProducer.sendPdfExportEvent(event);
     }
 }
