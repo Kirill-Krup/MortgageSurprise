@@ -9,6 +9,8 @@ public class Sha256Encoder {
 
     private final static String ALGORITHM =  "SHA-256";
 
+    private Sha256Encoder() {}
+
     public static String toSha256(String input) {
         try {
             var hash = MessageDigest.getInstance(ALGORITHM)

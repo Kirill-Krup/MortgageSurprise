@@ -2,18 +2,31 @@ package com.surprise.mortgagesurprise.messaging.consumer;
 
 import com.surprise.mortgagesurprise.config.RabbitMQConfig;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EmailNotificationConsumer {
 
-    private static final Logger log = LoggerFactory.getLogger(EmailNotificationConsumer.class);
+    private final JavaMailSender mailSender;
+    private final String fromAddress;
+
+    public EmailNotificationConsumer(JavaMailSender mailSender,
+                                     @Value("${app.mail.from}") String fromAddress) {
+        this.mailSender = mailSender;
+        this.fromAddress = fromAddress;
+    }
 
     @RabbitListener(queues = RabbitMQConfig.EMAIL_NOTIFICATION_QUEUE)
     public void handleEmailNotification(EmailNotificationEvent event) {
-        log.info("Processing EmailNotificationEvent: to={}, subject={}", event.toEmail(), event.subject());
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromAddress);
+        message.setTo(event.toEmail());
+        message.setSubject(event.subject());
+        message.setText(event.body());
+        mailSender.send(message);
     }
 }
