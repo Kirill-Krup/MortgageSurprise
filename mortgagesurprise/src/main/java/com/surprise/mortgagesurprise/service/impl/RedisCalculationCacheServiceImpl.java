@@ -6,6 +6,7 @@ import com.surprise.mortgagesurprise.service.CalculationCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -21,7 +22,7 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    public RedisCalculationCacheServiceImpl(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
+    public RedisCalculationCacheServiceImpl(@Qualifier("redisObjectTemplate") RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
     }
