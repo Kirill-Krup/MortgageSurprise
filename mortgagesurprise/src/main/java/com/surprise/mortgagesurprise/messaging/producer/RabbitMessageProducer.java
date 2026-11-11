@@ -2,6 +2,7 @@ package com.surprise.mortgagesurprise.messaging.producer;
 
 import com.surprise.mortgagesurprise.config.RabbitMQConfig;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
+import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,20 @@ public class RabbitMessageProducer implements MessageProducer {
             );
         } catch (Exception e) {
             log.error("Failed to publish EmailNotificationEvent: {}", e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void sendPdfExportEvent(PdfExportEvent event) {
+        log.info("Publishing PdfExportEvent for scenario {}: {}", event.scenarioId(), event);
+        try {
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.EXCHANGE_NAME,
+                    RabbitMQConfig.PDF_EXPORT_ROUTING_KEY,
+                    event
+            );
+        } catch (Exception e) {
+            log.error("Failed to publish PdfExportEvent: {}", e.getMessage(), e);
         }
     }
 }
