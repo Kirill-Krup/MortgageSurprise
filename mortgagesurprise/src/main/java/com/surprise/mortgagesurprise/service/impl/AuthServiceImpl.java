@@ -133,7 +133,7 @@ public class AuthServiceImpl implements AuthService {
         if (refreshToken != null) {
             refreshTokenService.revokeRefreshToken(userId, refreshToken);
         } else {
-            refreshTokenService.revokeAllUserTokens(userId);
+            throw new BusinessException("Invalid or expired refresh token");
         }
     }
 }

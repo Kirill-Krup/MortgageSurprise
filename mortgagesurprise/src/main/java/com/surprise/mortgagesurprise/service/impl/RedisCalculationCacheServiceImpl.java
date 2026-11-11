@@ -4,6 +4,7 @@ import com.surprise.mortgagesurprise.dto.calculator.CalculationResponse;
 import com.surprise.mortgagesurprise.service.CalculationCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +19,7 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public RedisCalculationCacheServiceImpl(RedisTemplate<String, Object> redisTemplate) {
+    public RedisCalculationCacheServiceImpl(@Qualifier("redisObjectTemplate") RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
@@ -26,8 +27,7 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
     public Optional<CalculationResponse> getFromCache(String calculationHash) {
         String key = KEY_PREFIX + calculationHash;
         try {
-            // TODO: [Team Task] Cast/deserialize calculation result from Redis cache
-            Object obj = redisTemplate.opsForValue().get(key);
+            var obj = redisTemplate.opsForValue().get(key);
             if (obj instanceof CalculationResponse response) {
                 log.info("Calculation cache hit for hash: {}", calculationHash);
                 return Optional.of(response);
@@ -42,7 +42,6 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
     public void putInCache(String calculationHash, CalculationResponse response, Duration ttl) {
         String key = KEY_PREFIX + calculationHash;
         try {
-            // TODO: [Team Task] Store calculation response in Redis with TTL
             redisTemplate.opsForValue().set(key, response, ttl);
             log.info("Cached calculation response for hash: {}", calculationHash);
         } catch (Exception e) {
