@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.dto.scenario;
 
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
+import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ public record ScenarioResponse(
         int termMonths,
         BigDecimal annualInterestRate,
         PaymentType paymentType,
+        Currency currency,
         BigDecimal monthlyPayment,
         BigDecimal totalInterest,
         BigDecimal totalPayment,
@@ -35,6 +37,7 @@ public record ScenarioResponse(
                 s.getTermMonths(),
                 s.getAnnualInterestRate(),
                 s.getPaymentType(),
+                s.getCurrency() != null ? s.getCurrency() : Currency.RUB,
                 s.getMonthlyPayment(),
                 s.getTotalInterest(),
                 s.getTotalPayment(),

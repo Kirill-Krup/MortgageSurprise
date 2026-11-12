@@ -163,4 +163,27 @@ class MortgageCalculatorTest {
 
         assertThrows(IllegalArgumentException.class, () -> calculator.calculate(request));
     }
+
+    @Test
+    @DisplayName("Calculation preserves specified currency")
+    void testCalculationWithCurrency() {
+        for (com.surprise.mortgagesurprise.model.enums.Currency curr : com.surprise.mortgagesurprise.model.enums.Currency.values()) {
+            CalculationRequest request = new CalculationRequest(
+                    new BigDecimal("300000.00"),
+                    new BigDecimal("60000.00"),
+                    180,
+                    new BigDecimal("6.50"),
+                    PaymentType.ANNUITY,
+                    curr,
+                    LocalDate.now(),
+                    List.of()
+            );
+
+            CalculationResult result = calculator.calculate(request);
+
+            assertNotNull(result);
+            assertEquals(curr, result.currency());
+            assertEquals(new BigDecimal("240000.00"), result.loanAmount());
+        }
+    }
 }

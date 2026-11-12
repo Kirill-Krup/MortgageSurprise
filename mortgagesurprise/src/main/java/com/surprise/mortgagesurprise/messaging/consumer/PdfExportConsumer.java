@@ -43,13 +43,18 @@ public class PdfExportConsumer {
             byte[] pdfBytes = pdfGeneratorService.generatePaymentSchedulePdf(event.scenarioTitle(), schedule);
             log.info("PDF generated successfully for scenario {}. Size: {} bytes", event.scenarioId(), pdfBytes.length);
 
+            String safeTitle = event.scenarioTitle() != null ? event.scenarioTitle().replaceAll("[\\\\/:*?\"<>|]", "_") : "scenario";
+            String attachmentName = "График_платежей_" + safeTitle + ".pdf";
+
             EmailNotificationEvent emailEvent = new EmailNotificationEvent(
                     event.userEmail(),
-                    "Ваш PDF-график платежей готов!",
-                    String.format("График платежей по сценарию '%s' успешно сформирован (размер: %d КБ).",
-                            event.scenarioTitle(), pdfBytes.length / 1024),
+                    "Ваш PDF-график платежей готов: " + event.scenarioTitle(),
+                    String.format("Здравствуйте!\n\nГрафик платежей по сценарию '%s' успешно сформирован (размер: %d КБ).\nФайл с графиком платежей прикреплен к этому письму.\n\nС уважением,\nКоманда MortgageSurprise",
+                            event.scenarioTitle(), Math.max(1, pdfBytes.length / 1024)),
                     "PDF_EXPORT_READY",
-                    Instant.now()
+                    Instant.now(),
+                    pdfBytes,
+                    attachmentName
             );
             messageProducer.sendEmailNotification(emailEvent);
 

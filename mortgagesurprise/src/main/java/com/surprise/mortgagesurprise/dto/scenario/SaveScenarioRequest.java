@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.dto.scenario;
 
 import com.surprise.mortgagesurprise.dto.calculator.EarlyRepaymentRequest;
+import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -33,5 +34,19 @@ public record SaveScenarioRequest(
         @NotNull(message = "Payment type is required")
         PaymentType paymentType,
 
+        Currency currency,
+
         List<EarlyRepaymentRequest> earlyRepayments
-) {}
+) {
+    public SaveScenarioRequest {
+        if (currency == null) {
+            currency = Currency.RUB;
+        }
+    }
+
+    public SaveScenarioRequest(String title, BigDecimal propertyPrice, BigDecimal downPayment,
+                               Integer termMonths, BigDecimal annualInterestRate,
+                               PaymentType paymentType, List<EarlyRepaymentRequest> earlyRepayments) {
+        this(title, propertyPrice, downPayment, termMonths, annualInterestRate, paymentType, Currency.RUB, earlyRepayments);
+    }
+}

@@ -29,6 +29,7 @@ public class PaymentScheduleDocument {
     private BigDecimal monthlyPayment;
     private BigDecimal totalInterest;
     private BigDecimal totalPayment;
+    private com.surprise.mortgagesurprise.model.enums.Currency currency = com.surprise.mortgagesurprise.model.enums.Currency.RUB;
     private List<PaymentScheduleItem> items;
     private Instant calculatedAt;
 
@@ -41,6 +42,19 @@ public class PaymentScheduleDocument {
                                   PaymentType paymentType, BigDecimal monthlyPayment,
                                   BigDecimal totalInterest, BigDecimal totalPayment,
                                   List<PaymentScheduleItem> items, Instant calculatedAt) {
+        this(id, calculationHash, propertyPrice, downPayment, loanAmount, termMonths, actualTermMonths,
+                annualInterestRate, paymentType, com.surprise.mortgagesurprise.model.enums.Currency.RUB,
+                monthlyPayment, totalInterest, totalPayment, items, calculatedAt);
+    }
+
+    public PaymentScheduleDocument(String id, String calculationHash, BigDecimal propertyPrice,
+                                  BigDecimal downPayment, BigDecimal loanAmount, int termMonths,
+                                  int actualTermMonths, BigDecimal annualInterestRate,
+                                  PaymentType paymentType,
+                                  com.surprise.mortgagesurprise.model.enums.Currency currency,
+                                  BigDecimal monthlyPayment,
+                                  BigDecimal totalInterest, BigDecimal totalPayment,
+                                  List<PaymentScheduleItem> items, Instant calculatedAt) {
         this.id = id;
         this.calculationHash = calculationHash;
         this.propertyPrice = propertyPrice;
@@ -50,6 +64,7 @@ public class PaymentScheduleDocument {
         this.actualTermMonths = actualTermMonths;
         this.annualInterestRate = annualInterestRate;
         this.paymentType = paymentType;
+        this.currency = currency != null ? currency : com.surprise.mortgagesurprise.model.enums.Currency.RUB;
         this.monthlyPayment = monthlyPayment;
         this.totalInterest = totalInterest;
         this.totalPayment = totalPayment;
@@ -151,6 +166,14 @@ public class PaymentScheduleDocument {
 
     public void setTotalPayment(BigDecimal totalPayment) {
         this.totalPayment = totalPayment;
+    }
+
+    public com.surprise.mortgagesurprise.model.enums.Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(com.surprise.mortgagesurprise.model.enums.Currency currency) {
+        this.currency = currency;
     }
 
     public List<PaymentScheduleItem> getItems() {

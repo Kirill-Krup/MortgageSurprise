@@ -50,6 +50,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                 req.termMonths(),
                 req.annualInterestRate(),
                 req.paymentType(),
+                req.currency(),
                 null,
                 req.earlyRepayments()
         );
@@ -66,6 +67,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                 result.actualTermMonths(),
                 result.annualInterestRate(),
                 result.paymentType(),
+                result.currency(),
                 result.monthlyPayment(),
                 result.totalInterest(),
                 result.totalPayment(),
@@ -83,6 +85,7 @@ public class ScenarioServiceImpl implements ScenarioService {
                 result.termMonths(),
                 result.annualInterestRate(),
                 result.paymentType(),
+                result.currency(),
                 result.monthlyPayment(),
                 result.totalInterest(),
                 result.totalPayment(),

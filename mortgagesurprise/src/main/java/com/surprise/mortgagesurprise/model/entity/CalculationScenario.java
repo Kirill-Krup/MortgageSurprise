@@ -39,6 +39,10 @@ public class CalculationScenario {
     @Column(name = "payment_type", nullable = false)
     private PaymentType paymentType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "currency", nullable = false, length = 10)
+    private com.surprise.mortgagesurprise.model.enums.Currency currency = com.surprise.mortgagesurprise.model.enums.Currency.RUB;
+
     @Column(name = "monthly_payment", nullable = false, precision = 15, scale = 2)
     private BigDecimal monthlyPayment;
 
@@ -65,6 +69,17 @@ public class CalculationScenario {
                                BigDecimal annualInterestRate, PaymentType paymentType,
                                BigDecimal monthlyPayment, BigDecimal totalInterest,
                                BigDecimal totalPayment, String mongoScheduleId) {
+        this(userId, title, propertyPrice, downPayment, loanAmount, termMonths, annualInterestRate,
+                paymentType, com.surprise.mortgagesurprise.model.enums.Currency.RUB,
+                monthlyPayment, totalInterest, totalPayment, mongoScheduleId);
+    }
+
+    public CalculationScenario(UUID userId, String title, BigDecimal propertyPrice,
+                               BigDecimal downPayment, BigDecimal loanAmount, int termMonths,
+                               BigDecimal annualInterestRate, PaymentType paymentType,
+                               com.surprise.mortgagesurprise.model.enums.Currency currency,
+                               BigDecimal monthlyPayment, BigDecimal totalInterest,
+                               BigDecimal totalPayment, String mongoScheduleId) {
         this.userId = userId;
         this.title = title;
         this.propertyPrice = propertyPrice;
@@ -73,6 +88,7 @@ public class CalculationScenario {
         this.termMonths = termMonths;
         this.annualInterestRate = annualInterestRate;
         this.paymentType = paymentType;
+        this.currency = currency != null ? currency : com.surprise.mortgagesurprise.model.enums.Currency.RUB;
         this.monthlyPayment = monthlyPayment;
         this.totalInterest = totalInterest;
         this.totalPayment = totalPayment;
@@ -188,6 +204,14 @@ public class CalculationScenario {
 
     public void setMongoScheduleId(String mongoScheduleId) {
         this.mongoScheduleId = mongoScheduleId;
+    }
+
+    public com.surprise.mortgagesurprise.model.enums.Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(com.surprise.mortgagesurprise.model.enums.Currency currency) {
+        this.currency = currency;
     }
 
     public Instant getCreatedAt() {

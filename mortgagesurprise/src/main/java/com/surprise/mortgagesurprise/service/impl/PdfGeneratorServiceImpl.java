@@ -2,6 +2,7 @@ package com.surprise.mortgagesurprise.service.impl;
 
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
+import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 
 @Service
 public class PdfGeneratorServiceImpl implements PdfGeneratorService {
@@ -23,20 +25,24 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, Color.DARK_GRAY);
+            BaseFont baseFontRegular = getBaseFont(false);
+            BaseFont baseFontBold = getBaseFont(true);
+
+            Font titleFont = new Font(baseFontBold, 16, Font.NORMAL, Color.DARK_GRAY);
             Paragraph title = new Paragraph("График платежей: " + (scenarioTitle != null ? scenarioTitle : "Ипотечный расчет"), titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             title.setSpacingAfter(10);
             document.add(title);
 
-            Font summaryFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.BLACK);
+            String curr = schedule.getCurrency() != null ? schedule.getCurrency().name() : "RUB";
+            Font summaryFont = new Font(baseFontRegular, 10, Font.NORMAL, Color.BLACK);
             Paragraph summary = new Paragraph(
-                    String.format("Сумма кредита: %s руб. | Ставка: %s%% | Срок: %d мес. | Ежемесячный платеж: %s руб. | Переплата: %s руб.",
-                            schedule.getLoanAmount(),
+                    String.format("Сумма кредита: %s %s | Ставка: %s%% | Срок: %d мес. | Ежемесячный платеж: %s %s | Переплата: %s %s",
+                            schedule.getLoanAmount(), curr,
                             schedule.getAnnualInterestRate(),
                             schedule.getActualTermMonths(),
-                            schedule.getMonthlyPayment(),
-                            schedule.getTotalInterest()),
+                            schedule.getMonthlyPayment(), curr,
+                            schedule.getTotalInterest(), curr),
                     summaryFont
             );
             summary.setAlignment(Element.ALIGN_CENTER);
@@ -48,7 +54,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
             table.setWidths(new float[]{1.0f, 2.0f, 2.5f, 2.5f, 2.5f, 2.0f, 2.5f, 2.5f});
 
             String[] headers = {"№", "Дата", "Остаток начало", "Осн. долг", "Проценты", "Досрочно", "Всего платеж", "Остаток конец"};
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.WHITE);
+            Font headerFont = new Font(baseFontBold, 9, Font.NORMAL, Color.WHITE);
             for (String h : headers) {
                 PdfPCell cell = new PdfPCell(new Phrase(h, headerFont));
                 cell.setBackgroundColor(new Color(41, 128, 185)); // Синий фон
@@ -58,7 +64,7 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
                 table.addCell(cell);
             }
 
-            Font dataFont = FontFactory.getFont(FontFactory.HELVETICA, 8, Color.BLACK);
+            Font dataFont = new Font(baseFontRegular, 8, Font.NORMAL, Color.BLACK);
             boolean alternate = false;
             Color altColor = new Color(245, 247, 250);
 
@@ -83,6 +89,22 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
             return out.toByteArray();
         } catch (Exception e) {
             throw new RuntimeException("Ошибка при генерации PDF графика платежей: " + e.getMessage(), e);
+        }
+    }
+
+    private BaseFont getBaseFont(boolean bold) {
+        String resourcePath = bold ? "/fonts/arialbd.ttf" : "/fonts/arial.ttf";
+        try (InputStream is = getClass().getResourceAsStream(resourcePath)) {
+            if (is != null) {
+                byte[] fontBytes = is.readAllBytes();
+                return BaseFont.createFont(bold ? "arialbd.ttf" : "arial.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontBytes, null);
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            return BaseFont.createFont(bold ? BaseFont.HELVETICA_BOLD : BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        } catch (Exception e) {
+            throw new RuntimeException("Не удалось загрузить шрифт PDF: " + e.getMessage(), e);
         }
     }
 

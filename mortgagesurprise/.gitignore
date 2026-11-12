@@ -26,6 +26,7 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 .env
+.dockerignore
 
 ### NetBeans ###
 /nbproject/private/

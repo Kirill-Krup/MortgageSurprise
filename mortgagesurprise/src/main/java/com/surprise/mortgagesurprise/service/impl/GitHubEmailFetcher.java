@@ -13,7 +13,9 @@ import java.util.Map;
 @Component
 public class GitHubEmailFetcher {
 
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient = RestClient.builder()
+            .defaultHeader("User-Agent", "MortgageSurprise-App/1.0")
+            .build();
 
     public String fetchPrimaryVerifiedEmail(String accessToken) {
         try {
@@ -21,6 +23,7 @@ public class GitHubEmailFetcher {
                     .uri("https://api.github.com/user/emails")
                     .header("Authorization", "Bearer " + accessToken)
                     .header("Accept", "application/vnd.github+json")
+                    .header("User-Agent", "MortgageSurprise-App/1.0")
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
 
