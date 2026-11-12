@@ -1,5 +1,5 @@
 # Multi-stage build for Java 25 & Spring Boot 4
-FROM eclipse-temurin:25-jdk-alpine AS builder
+FROM eclipse-temurin:25-jdk AS builder
 
 WORKDIR /build
 

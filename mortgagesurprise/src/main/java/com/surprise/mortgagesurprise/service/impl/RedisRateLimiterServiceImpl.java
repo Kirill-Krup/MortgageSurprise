@@ -25,7 +25,13 @@ public class RedisRateLimiterServiceImpl implements RateLimiterRedisService {
 
     @Override
     public boolean allowRequest(UUID userId, String action) {
-        String key = KEY_PREFIX + action + ":" + userId.toString();
+        String clientKey = userId != null ? "user:" + userId : "anonymous";
+        return allowRequest(clientKey, action);
+    }
+
+    @Override
+    public boolean allowRequest(String clientKey, String action) {
+        String key = KEY_PREFIX + action + ":" + clientKey;
         try {
             var currentCount = redisTemplate.opsForValue().increment(key);
             if (currentCount != null && currentCount == 1L) {
@@ -33,9 +39,9 @@ public class RedisRateLimiterServiceImpl implements RateLimiterRedisService {
             }
             var isAllowed = isInLimit(currentCount);
             if (isAllowed) {
-                log.info("Allowing request for user: {}, action: {}", userId, action);
+                log.info("Allowing request for client: {}, action: {}", clientKey, action);
             } else {
-                log.warn("Rate limit exceeded for user: {}, action: {}", userId, action);
+                log.warn("Rate limit exceeded for client: {}, action: {}", clientKey, action);
             }
             return isAllowed;
         } catch (Exception e) {

@@ -59,6 +59,7 @@ public class CalculatorServiceImpl implements CalculatorService {
                 result.actualTermMonths(),
                 result.annualInterestRate(),
                 result.paymentType(),
+                result.currency(),
                 result.monthlyPayment(),
                 result.totalInterest(),
                 result.totalPayment(),
@@ -77,6 +78,7 @@ public class CalculatorServiceImpl implements CalculatorService {
                 result.termMonths(),
                 result.annualInterestRate(),
                 result.paymentType(),
+                result.currency(),
                 result.monthlyPayment(),
                 result.totalInterest(),
                 result.totalPayment(),
@@ -93,6 +95,7 @@ public class CalculatorServiceImpl implements CalculatorService {
                 result.actualTermMonths(),
                 result.annualInterestRate(),
                 result.paymentType().name(),
+                result.currency(),
                 result.monthlyPayment(),
                 result.minMonthlyPayment(),
                 result.maxMonthlyPayment(),
@@ -115,7 +118,7 @@ public class CalculatorServiceImpl implements CalculatorService {
     private String generateParamsHash(CalculationRequest r) {
         try {
             String raw = r.propertyPrice() + ":" + r.downPayment() + ":" + r.termMonths() + ":"
-                    + r.annualInterestRate() + ":" + r.paymentType() + ":" + (r.earlyRepayments() != null ? r.earlyRepayments().hashCode() : 0);
+                    + r.annualInterestRate() + ":" + r.paymentType() + ":" + r.currency() + ":" + (r.earlyRepayments() != null ? r.earlyRepayments().hashCode() : 0);
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);

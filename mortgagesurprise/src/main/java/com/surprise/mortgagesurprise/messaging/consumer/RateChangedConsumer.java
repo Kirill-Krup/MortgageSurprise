@@ -58,6 +58,7 @@ public class RateChangedConsumer {
                         scenario.getTermMonths(),
                         event.newRate(),
                         scenario.getPaymentType(),
+                        scenario.getCurrency(),
                         null,
                         List.of()
                 );
@@ -72,6 +73,7 @@ public class RateChangedConsumer {
                         result.actualTermMonths(),
                         result.annualInterestRate(),
                         result.paymentType(),
+                        result.currency(),
                         result.monthlyPayment(),
                         result.totalInterest(),
                         result.totalPayment(),

@@ -7,13 +7,15 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
+            client-id: ${GOOGLE_CLIENT_ID:dummy-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:dummy-google-client-secret}
             scope: [ email, profile ]
+            redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/login/oauth2/code/google}
           github:
-            client-id: ${GITHUB_CLIENT_ID}
-            client-secret: ${GITHUB_CLIENT_SECRET}
+            client-id: ${GITHUB_CLIENT_ID:dummy-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:dummy-github-client-secret}
             scope: [ user:email, read:user ]
+            redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:8080/login/oauth2/code/github}
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:mortgagesurprise}
     username: ${POSTGRES_USER:postgres}
@@ -36,6 +38,8 @@ spring:
 
   mongodb:
     uri: mongodb://${MONGO_HOST:localhost}:${MONGO_PORT:27017}/${MONGO_DB:mortgagesurprise}
+    representation:
+      uuid: standard
 
   data:
     redis:
@@ -73,12 +77,12 @@ spring:
 
 app:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:super-secret-jwt-token-signing-key-for-mortgagesurprise-application-needs-256-bits}
     access-token-expiration-ms: 900000
     refresh-token-expiration-ms: 604800000
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   oauth2:
-    frontend-callback-url: ${FRONTEND_URL:http://localhost:3000}/oauth2/callback
+    frontend-callback-url: ${FRONTEND_URL:http://localhost:3000}/oauth2/callback}
   mail:
     from: ${MAIL_FROM:noreply@mortgagesurprise.local}
 
@@ -93,3 +97,6 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    mail:
+      enabled: false

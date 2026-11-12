@@ -3,9 +3,12 @@ package com.surprise.mortgagesurprise.service.impl;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.model.entity.Role;
 import com.surprise.mortgagesurprise.model.entity.User;
 import com.surprise.mortgagesurprise.repository.jpa.UserRepository;
 import com.surprise.mortgagesurprise.util.Sha256Encoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -17,12 +20,16 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class MagicLinkService {
 
+    private static final Logger log = LoggerFactory.getLogger(MagicLinkService.class);
+
     private static final String KEY_PREFIX = "auth:magic-link:";
-    private static final Duration TOKEN_TTL = Duration.ofMinutes(15);
+    private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
+    private static final Duration GRACE_PERIOD = Duration.ofMinutes(2);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
@@ -41,10 +48,11 @@ public class MagicLinkService {
     }
 
     public void requestLink(String emailAddress) {
+        if (emailAddress == null || emailAddress.isBlank()) {
+            return;
+        }
         String email = emailAddress.trim().toLowerCase(Locale.ROOT);
-        userRepository.findByEmail(email)
-                .filter(User::isEnabled)
-                .ifPresent(user -> sendLink(user.getEmail()));
+        sendLink(email);
     }
 
     @Transactional
@@ -53,18 +61,45 @@ public class MagicLinkService {
             throw new BusinessException("Invalid or expired magic link");
         }
 
-        String email = redisTemplate.opsForValue().getAndDelete(key(token));
+        String hashedTokenKey = key(token);
+        String consumedKey = hashedTokenKey + ":consumed";
+
+        // If this token was recently verified within the last 2 minutes (e.g. React StrictMode,
+        // multiple clicks, browser prefetching), return the user instead of throwing an error
+        String consumedUserId = redisTemplate.opsForValue().get(consumedKey);
+        if (consumedUserId != null && !consumedUserId.isBlank()) {
+            log.info("Magic link token was recently consumed (grace period active) for userId {}", consumedUserId);
+            return userRepository.findById(UUID.fromString(consumedUserId))
+                    .orElseThrow(() -> new BusinessException("User not found"));
+        }
+
+        String email = redisTemplate.opsForValue().getAndDelete(hashedTokenKey);
         if (email == null) {
+            log.warn("Magic link token not found or already expired in Redis");
             throw new BusinessException("Invalid or expired magic link");
         }
 
         User user = userRepository.findByEmail(email)
-                .filter(User::isEnabled)
-                .orElseThrow(() -> new BusinessException("Invalid or expired magic link"));
-        if (!user.isEmailVerified()) {
-            user.setEmailVerified(true);
-            return userRepository.save(user);
-        }
+                .map(existingUser -> {
+                    if (!existingUser.isEnabled()) {
+                        throw new BusinessException("User account is disabled");
+                    }
+                    if (!existingUser.isEmailVerified()) {
+                        existingUser.setEmailVerified(true);
+                        return userRepository.save(existingUser);
+                    }
+                    return existingUser;
+                })
+                .orElseGet(() -> {
+                    User newUser = new User(email, null, null, null, Role.ROLE_USER);
+                    newUser.setEmailVerified(true);
+                    newUser.setEnabled(true);
+                    return userRepository.save(newUser);
+                });
+
+        // Set grace period of 2 minutes so double-clicks, React StrictMode, or page reloads don't fail
+        redisTemplate.opsForValue().set(consumedKey, user.getId().toString(), GRACE_PERIOD);
+
         return user;
     }
 
@@ -80,10 +115,20 @@ public class MagicLinkService {
                 .build()
                 .encode()
                 .toUriString();
+
+        String body = String.format(
+                "Здравствуйте!\n\n" +
+                "Для входа в личный кабинет MortgageSurprise перейдите по ссылке:\n%s\n\n" +
+                "Ссылка действительна в течение 30 минут.\n" +
+                "Если вы не запрашивали ссылку, просто проигнорируйте это письмо.\n\n" +
+                "Команда MortgageSurprise",
+                link
+        );
+
         messageProducer.sendEmailNotification(new EmailNotificationEvent(
                 email,
-                "Your MortgageSurprise sign-in link",
-                "Use this link within 15 minutes to sign in: " + link,
+                "Вход в личный кабинет MortgageSurprise (Magic Link)",
+                body,
                 "MAGIC_LINK",
                 Instant.now()));
     }
