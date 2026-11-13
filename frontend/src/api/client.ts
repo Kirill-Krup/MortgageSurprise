@@ -167,8 +167,8 @@ export const scenarioApi = {
 };
 
 export const bankOfferApi = {
-  getAll: async (): Promise<BankOffer[]> => {
-    const res = await apiClient.get<BankOffer[]>('/bank-offers');
+  getAll: async (all = false): Promise<BankOffer[]> => {
+    const res = await apiClient.get<BankOffer[]>(`/bank-offers${all ? '?all=true' : ''}`);
     return res.data;
   },
 
@@ -189,5 +189,31 @@ export const bankOfferApi = {
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/bank-offers/${id}`);
+  },
+};
+
+export const adminBankOfferApi = {
+  getAll: async (): Promise<BankOffer[]> => {
+    const res = await apiClient.get<BankOffer[]>('/admin/bank-offers');
+    return res.data;
+  },
+
+  getById: async (id: string): Promise<BankOffer> => {
+    const res = await apiClient.get<BankOffer>(`/admin/bank-offers/${id}`);
+    return res.data;
+  },
+
+  create: async (request: BankOfferRequest): Promise<BankOffer> => {
+    const res = await apiClient.post<BankOffer>('/admin/bank-offers', request);
+    return res.data;
+  },
+
+  update: async (id: string, request: BankOfferRequest): Promise<BankOffer> => {
+    const res = await apiClient.put<BankOffer>(`/admin/bank-offers/${id}`, request);
+    return res.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/admin/bank-offers/${id}`);
   },
 };

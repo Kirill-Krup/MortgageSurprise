@@ -75,16 +75,6 @@ spring:
           starttls:
             enable: ${SMTP_STARTTLS_ENABLE:false}
 
-  management:
-    endpoints:
-      web:
-        exposure:
-          include: health,prometheus
-    prometheus:
-      metrics:
-        export:
-          enabled: true
-
 app:
   jwt:
     secret: ${JWT_SECRET:super-secret-jwt-token-signing-key-for-mortgagesurprise-application-needs-256-bits}
@@ -110,3 +100,40 @@ management:
   health:
     mail:
       enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    export:
+      otlp:
+        enabled: false
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    resource-attributes:
+      service.name: mortgagesurprise
+      deployment.environment: ${ENVIRONMENT:development}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://tempo:4318/v1/traces}
+          transport: http
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://loki:3100/otlp/v1/logs}
+          transport: http
+  otlp:
+    metrics:
+      export:
+        enabled: false
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://tempo:4318/v1/traces}
+    logging:
+      endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://loki:3100/otlp/v1/logs}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"

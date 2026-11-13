@@ -215,6 +215,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </>
                 )}
               </button>
+
+              {mode === 'login' && (
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-semibold text-slate-700 block">Аккаунт администратора:</span>
+                    <span className="text-[11px] text-slate-500 font-mono block truncate">
+                      admin@mortgagesurprise.com / admin123
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('admin@mortgagesurprise.com');
+                      setPassword('admin123');
+                    }}
+                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg text-xs transition-colors shrink-0 cursor-pointer"
+                  >
+                    Заполнить
+                  </button>
+                </div>
+              )}
             </form>
           )}
 
