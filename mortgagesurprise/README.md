@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-25-orange.svg?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 25" />
-  <img src="https://img.shields.io/badge/Spring%20Boot-3.4.5-brightgreen.svg?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-4.1.2-brightgreen.svg?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot" />
   <img src="https://img.shields.io/badge/React-19-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/PostgreSQL-17-336791.svg?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
@@ -82,7 +82,7 @@ flowchart TD
 | Область | Технологии |
 |---|---|
 | **Язык & Core** | Java 25, Gradle 9.8 (Kotlin DSL) |
-| **Backend Framework** | Spring Boot 3.4.5, Spring Security 6, Spring Data JPA, Spring Data MongoDB, Spring AMQP |
+| **Backend Framework** | Spring Boot 4.1.2, Spring Security 6, Spring Data JPA, Spring Data MongoDB, Spring AMQP |
 | **Frontend** | React 19, TypeScript 5.7, Vite 6, Tailwind CSS 4, Lucide Icons, Axios |
 | **Базы данных** | **PostgreSQL 17** (ACID транзакции, Flyway миграции), **MongoDB 7.0** (графики платежей, история) |
 | **Кэш & Rate Limiting** | **Redis 7** (SHA-256 кэширование расчетов, refresh-токены, Sliding/Fixed Window лимитер) |
