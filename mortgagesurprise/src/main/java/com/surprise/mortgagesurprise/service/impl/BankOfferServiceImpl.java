@@ -37,7 +37,8 @@ public class BankOfferServiceImpl implements BankOfferService {
                 req.minDownPaymentPercent(),
                 req.maxTermMonths(),
                 req.minLoanAmount(),
-                req.maxLoanAmount()
+                req.maxLoanAmount(),
+                req.currency()
         );
         BankOffer saved = bankOfferRepository.save(offer);
         return BankOfferResponse.from(saved);
@@ -58,6 +59,9 @@ public class BankOfferServiceImpl implements BankOfferService {
         offer.setMaxTermMonths(req.maxTermMonths());
         offer.setMinLoanAmount(req.minLoanAmount());
         offer.setMaxLoanAmount(req.maxLoanAmount());
+        if (req.currency() != null) {
+            offer.setCurrency(req.currency());
+        }
 
         BankOffer updated = bankOfferRepository.save(offer);
 

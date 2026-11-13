@@ -13,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -64,5 +65,17 @@ public class ScenarioController {
     ) {
         scenarioService.deleteScenario(userDetails.getId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/export-pdf")
+    public ResponseEntity<Map<String, String>> exportScenarioPdf(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id
+    ) {
+        scenarioService.requestPdfExport(userDetails.getId(), userDetails.getUsername(), id);
+        return ResponseEntity.accepted().body(Map.of(
+                "status", "PROCESSING",
+                "message", "Экспорт графика платежей в PDF запущен. Уведомление будет отправлено на вашу почту."
+        ));
     }
 }

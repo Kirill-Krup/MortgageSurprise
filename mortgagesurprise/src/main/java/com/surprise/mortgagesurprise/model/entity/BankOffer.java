@@ -34,6 +34,10 @@ public class BankOffer {
     @Column(name = "max_loan_amount", precision = 15, scale = 2)
     private BigDecimal maxLoanAmount;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "currency", nullable = false, length = 10)
+    private com.surprise.mortgagesurprise.model.enums.Currency currency = com.surprise.mortgagesurprise.model.enums.Currency.RUB;
+
     @Column(nullable = false)
     private boolean active = true;
 
@@ -49,6 +53,14 @@ public class BankOffer {
     public BankOffer(String bankName, String offerName, BigDecimal annualInterestRate,
                      BigDecimal minDownPaymentPercent, int maxTermMonths,
                      BigDecimal minLoanAmount, BigDecimal maxLoanAmount) {
+        this(bankName, offerName, annualInterestRate, minDownPaymentPercent, maxTermMonths,
+                minLoanAmount, maxLoanAmount, com.surprise.mortgagesurprise.model.enums.Currency.RUB);
+    }
+
+    public BankOffer(String bankName, String offerName, BigDecimal annualInterestRate,
+                     BigDecimal minDownPaymentPercent, int maxTermMonths,
+                     BigDecimal minLoanAmount, BigDecimal maxLoanAmount,
+                     com.surprise.mortgagesurprise.model.enums.Currency currency) {
         this.bankName = bankName;
         this.offerName = offerName;
         this.annualInterestRate = annualInterestRate;
@@ -56,6 +68,7 @@ public class BankOffer {
         this.maxTermMonths = maxTermMonths;
         this.minLoanAmount = minLoanAmount;
         this.maxLoanAmount = maxLoanAmount;
+        this.currency = currency != null ? currency : com.surprise.mortgagesurprise.model.enums.Currency.RUB;
         this.active = true;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
@@ -128,6 +141,14 @@ public class BankOffer {
 
     public void setMaxLoanAmount(BigDecimal maxLoanAmount) {
         this.maxLoanAmount = maxLoanAmount;
+    }
+
+    public com.surprise.mortgagesurprise.model.enums.Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(com.surprise.mortgagesurprise.model.enums.Currency currency) {
+        this.currency = currency;
     }
 
     public boolean isActive() {

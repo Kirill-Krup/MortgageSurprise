@@ -28,6 +28,7 @@ public class CalculationHistoryDocument {
     private BigDecimal monthlyPayment;
     private BigDecimal totalInterest;
     private BigDecimal totalPayment;
+    private com.surprise.mortgagesurprise.model.enums.Currency currency = com.surprise.mortgagesurprise.model.enums.Currency.RUB;
     private Instant createdAt;
 
     public CalculationHistoryDocument() {
@@ -39,6 +40,18 @@ public class CalculationHistoryDocument {
                                       BigDecimal annualInterestRate, PaymentType paymentType,
                                       BigDecimal monthlyPayment, BigDecimal totalInterest,
                                       BigDecimal totalPayment, Instant createdAt) {
+        this(id, userId, scheduleDocumentId, propertyPrice, downPayment, loanAmount, termMonths,
+                annualInterestRate, paymentType, com.surprise.mortgagesurprise.model.enums.Currency.RUB,
+                monthlyPayment, totalInterest, totalPayment, createdAt);
+    }
+
+    public CalculationHistoryDocument(String id, UUID userId, String scheduleDocumentId,
+                                      BigDecimal propertyPrice, BigDecimal downPayment,
+                                      BigDecimal loanAmount, int termMonths,
+                                      BigDecimal annualInterestRate, PaymentType paymentType,
+                                      com.surprise.mortgagesurprise.model.enums.Currency currency,
+                                      BigDecimal monthlyPayment, BigDecimal totalInterest,
+                                      BigDecimal totalPayment, Instant createdAt) {
         this.id = id;
         this.userId = userId;
         this.scheduleDocumentId = scheduleDocumentId;
@@ -48,6 +61,7 @@ public class CalculationHistoryDocument {
         this.termMonths = termMonths;
         this.annualInterestRate = annualInterestRate;
         this.paymentType = paymentType;
+        this.currency = currency != null ? currency : com.surprise.mortgagesurprise.model.enums.Currency.RUB;
         this.monthlyPayment = monthlyPayment;
         this.totalInterest = totalInterest;
         this.totalPayment = totalPayment;
@@ -148,6 +162,14 @@ public class CalculationHistoryDocument {
 
     public void setTotalPayment(BigDecimal totalPayment) {
         this.totalPayment = totalPayment;
+    }
+
+    public com.surprise.mortgagesurprise.model.enums.Currency getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(com.surprise.mortgagesurprise.model.enums.Currency currency) {
+        this.currency = currency;
     }
 
     public Instant getCreatedAt() {
