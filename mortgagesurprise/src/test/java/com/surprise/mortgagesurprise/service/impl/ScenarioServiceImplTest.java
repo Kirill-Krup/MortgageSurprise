@@ -3,18 +3,20 @@ package com.surprise.mortgagesurprise.service.impl;
 import com.surprise.mortgagesurprise.dto.scenario.ScenarioComparisonResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
+import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
-import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.service.ScenarioComparator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -38,7 +40,10 @@ class ScenarioServiceImplTest {
     private MortgageCalculator mortgageCalculator;
 
     @Mock
-    private PaymentScheduleMongoRepository scheduleMongoRepository;
+    private PaymentScheduleService paymentScheduleService;
+
+    @Spy
+    private ScenarioComparator scenarioComparator = new ScenarioComparator();
 
     @Mock
     private MessageProducer messageProducer;

@@ -12,33 +12,39 @@ import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
-import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
+import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.service.ScenarioComparator;
 import com.surprise.mortgagesurprise.service.ScenarioService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Single responsibility: Manage calculation scenario lifecycle (CRUD, persistence orchestration, comparison delegation, export dispatching).
+ */
 @Service
 @Transactional
 public class ScenarioServiceImpl implements ScenarioService {
 
     private final CalculationScenarioRepository scenarioRepository;
     private final MortgageCalculator mortgageCalculator;
-    private final PaymentScheduleMongoRepository scheduleMongoRepository;
+    private final PaymentScheduleService paymentScheduleService;
+    private final ScenarioComparator scenarioComparator;
     private final MessageProducer messageProducer;
 
     public ScenarioServiceImpl(CalculationScenarioRepository scenarioRepository,
                                MortgageCalculator mortgageCalculator,
-                               PaymentScheduleMongoRepository scheduleMongoRepository,
+                               PaymentScheduleService paymentScheduleService,
+                               ScenarioComparator scenarioComparator,
                                MessageProducer messageProducer) {
         this.scenarioRepository = scenarioRepository;
         this.mortgageCalculator = mortgageCalculator;
-        this.scheduleMongoRepository = scheduleMongoRepository;
+        this.paymentScheduleService = paymentScheduleService;
+        this.scenarioComparator = scenarioComparator;
         this.messageProducer = messageProducer;
     }
 
@@ -56,25 +62,7 @@ public class ScenarioServiceImpl implements ScenarioService {
         );
 
         CalculationResult result = mortgageCalculator.calculate(calcRequest);
-
-        PaymentScheduleDocument scheduleDoc = new PaymentScheduleDocument(
-                UUID.randomUUID().toString(),
-                null,
-                result.propertyPrice(),
-                result.downPayment(),
-                result.loanAmount(),
-                result.termMonths(),
-                result.actualTermMonths(),
-                result.annualInterestRate(),
-                result.paymentType(),
-                result.currency(),
-                result.monthlyPayment(),
-                result.totalInterest(),
-                result.totalPayment(),
-                result.schedule(),
-                Instant.now()
-        );
-        PaymentScheduleDocument savedSchedule = scheduleMongoRepository.save(scheduleDoc);
+        PaymentScheduleDocument savedSchedule = paymentScheduleService.saveSchedule(result);
 
         CalculationScenario scenario = new CalculationScenario(
                 userId,
@@ -125,19 +113,7 @@ public class ScenarioServiceImpl implements ScenarioService {
             throw new ResourceNotFoundException("One or more scenarios were not found for this user.");
         }
 
-        List<ScenarioResponse> responses = list.stream().map(ScenarioResponse::from).toList();
-
-        UUID lowestPaymentId = list.stream()
-                .min(Comparator.comparing(CalculationScenario::getMonthlyPayment))
-                .map(CalculationScenario::getId)
-                .orElse(null);
-
-        UUID lowestInterestId = list.stream()
-                .min(Comparator.comparing(CalculationScenario::getTotalInterest))
-                .map(CalculationScenario::getId)
-                .orElse(null);
-
-        return new ScenarioComparisonResponse(responses, lowestPaymentId, lowestInterestId);
+        return scenarioComparator.compare(list);
     }
 
     @Override

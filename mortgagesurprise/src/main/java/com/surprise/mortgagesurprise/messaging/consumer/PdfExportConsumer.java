@@ -5,7 +5,7 @@ import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
 import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
-import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
+import com.surprise.mortgagesurprise.service.PaymentScheduleService;
 import com.surprise.mortgagesurprise.service.PdfGeneratorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,19 +14,22 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
+/**
+ * Single responsibility: Listen to PDF export queue and coordinate PDF generation and email sending.
+ */
 @Component
 public class PdfExportConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(PdfExportConsumer.class);
 
-    private final PaymentScheduleMongoRepository scheduleMongoRepository;
+    private final PaymentScheduleService paymentScheduleService;
     private final PdfGeneratorService pdfGeneratorService;
     private final MessageProducer messageProducer;
 
-    public PdfExportConsumer(PaymentScheduleMongoRepository scheduleMongoRepository,
+    public PdfExportConsumer(PaymentScheduleService paymentScheduleService,
                              PdfGeneratorService pdfGeneratorService,
                              MessageProducer messageProducer) {
-        this.scheduleMongoRepository = scheduleMongoRepository;
+        this.paymentScheduleService = paymentScheduleService;
         this.pdfGeneratorService = pdfGeneratorService;
         this.messageProducer = messageProducer;
     }
@@ -37,8 +40,7 @@ public class PdfExportConsumer {
                 event.scenarioId(), event.scenarioTitle(), event.mongoScheduleId());
 
         try {
-            PaymentScheduleDocument schedule = scheduleMongoRepository.findById(event.mongoScheduleId())
-                    .orElseThrow(() -> new IllegalStateException("Payment schedule not found: " + event.mongoScheduleId()));
+            PaymentScheduleDocument schedule = paymentScheduleService.getScheduleById(event.mongoScheduleId());
 
             byte[] pdfBytes = pdfGeneratorService.generatePaymentSchedulePdf(event.scenarioTitle(), schedule);
             log.info("PDF generated successfully for scenario {}. Size: {} bytes", event.scenarioId(), pdfBytes.length);
