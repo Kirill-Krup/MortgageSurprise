@@ -1,46 +1,47 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.calculator.CalculationCacheKeyGenerator;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResponse;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
-import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
-import com.surprise.mortgagesurprise.model.document.CalculationHistoryDocument;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
-import com.surprise.mortgagesurprise.repository.mongo.CalculationHistoryMongoRepository;
-import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
 import com.surprise.mortgagesurprise.service.CalculationCacheService;
+import com.surprise.mortgagesurprise.service.CalculationHistoryService;
 import com.surprise.mortgagesurprise.service.CalculatorService;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
+import com.surprise.mortgagesurprise.service.PaymentScheduleService;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Single responsibility: Orchestrate the calculation use-case (caching, calculation, schedule & history persistence).
+ */
 @Service
 public class CalculatorServiceImpl implements CalculatorService {
 
     private final MortgageCalculator mortgageCalculator;
-    private final PaymentScheduleMongoRepository scheduleMongoRepository;
-    private final CalculationHistoryMongoRepository historyMongoRepository;
+    private final PaymentScheduleService paymentScheduleService;
+    private final CalculationHistoryService historyService;
     private final CalculationCacheService cacheService;
+    private final CalculationCacheKeyGenerator cacheKeyGenerator;
 
     public CalculatorServiceImpl(MortgageCalculator mortgageCalculator,
-                                 PaymentScheduleMongoRepository scheduleMongoRepository,
-                                 CalculationHistoryMongoRepository historyMongoRepository,
-                                 CalculationCacheService cacheService) {
+                                 PaymentScheduleService paymentScheduleService,
+                                 CalculationHistoryService historyService,
+                                 CalculationCacheService cacheService,
+                                 CalculationCacheKeyGenerator cacheKeyGenerator) {
         this.mortgageCalculator = mortgageCalculator;
-        this.scheduleMongoRepository = scheduleMongoRepository;
-        this.historyMongoRepository = historyMongoRepository;
+        this.paymentScheduleService = paymentScheduleService;
+        this.historyService = historyService;
         this.cacheService = cacheService;
+        this.cacheKeyGenerator = cacheKeyGenerator;
     }
 
     @Override
     public CalculationResponse calculateAndPersist(CalculationRequest request, UUID userId) {
-        String hash = generateParamsHash(request);
+        String hash = cacheKeyGenerator.generateKey(request);
 
         Optional<CalculationResponse> cachedResponse = cacheService.getFromCache(hash);
         if (cachedResponse.isPresent()) {
@@ -49,45 +50,23 @@ public class CalculatorServiceImpl implements CalculatorService {
 
         CalculationResult result = mortgageCalculator.calculate(request);
 
-        PaymentScheduleDocument scheduleDoc = new PaymentScheduleDocument(
-                UUID.randomUUID().toString(),
-                hash,
-                result.propertyPrice(),
-                result.downPayment(),
-                result.loanAmount(),
-                result.termMonths(),
-                result.actualTermMonths(),
-                result.annualInterestRate(),
-                result.paymentType(),
-                result.currency(),
-                result.monthlyPayment(),
-                result.totalInterest(),
-                result.totalPayment(),
-                result.schedule(),
-                Instant.now()
-        );
-        PaymentScheduleDocument savedSchedule = scheduleMongoRepository.save(scheduleDoc);
+        PaymentScheduleDocument savedSchedule = paymentScheduleService.saveSchedule(result, hash);
+        historyService.recordHistory(userId, savedSchedule.getId(), result);
 
-        CalculationHistoryDocument historyDoc = new CalculationHistoryDocument(
-                UUID.randomUUID().toString(),
-                userId,
-                savedSchedule.getId(),
-                result.propertyPrice(),
-                result.downPayment(),
-                result.loanAmount(),
-                result.termMonths(),
-                result.annualInterestRate(),
-                result.paymentType(),
-                result.currency(),
-                result.monthlyPayment(),
-                result.totalInterest(),
-                result.totalPayment(),
-                Instant.now()
-        );
-        historyMongoRepository.save(historyDoc);
+        CalculationResponse response = toResponse(savedSchedule.getId(), result);
+        cacheService.putInCache(hash, response);
 
-        CalculationResponse response = new CalculationResponse(
-                savedSchedule.getId(),
+        return response;
+    }
+
+    @Override
+    public PaymentScheduleDocument getScheduleById(String scheduleId) {
+        return paymentScheduleService.getScheduleById(scheduleId);
+    }
+
+    private CalculationResponse toResponse(String scheduleId, CalculationResult result) {
+        return new CalculationResponse(
+                scheduleId,
                 result.propertyPrice(),
                 result.downPayment(),
                 result.loanAmount(),
@@ -103,27 +82,5 @@ public class CalculatorServiceImpl implements CalculatorService {
                 result.totalPayment(),
                 result.schedule()
         );
-
-        cacheService.putInCache(hash, response);
-
-        return response;
-    }
-
-    @Override
-    public PaymentScheduleDocument getScheduleById(String scheduleId) {
-        return scheduleMongoRepository.findById(scheduleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Payment schedule not found: " + scheduleId));
-    }
-
-    private String generateParamsHash(CalculationRequest r) {
-        try {
-            String raw = r.propertyPrice() + ":" + r.downPayment() + ":" + r.termMonths() + ":"
-                    + r.annualInterestRate() + ":" + r.paymentType() + ":" + r.currency() + ":" + (r.earlyRepayments() != null ? r.earlyRepayments().hashCode() : 0);
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            return UUID.randomUUID().toString();
-        }
     }
 }
