@@ -91,9 +91,9 @@ public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationSe
 
         EmailNotificationEvent notificationEvent = new EmailNotificationEvent(
                 "user-" + scenario.getUserId() + "@example.com",
-                "Ставка обновилась! Сценарий '" + scenario.getTitle() + "' пересчитан",
-                String.format("Банк %s изменил ставку с %s%% на %s%%. " +
-                                "Ваш ежемесячный платёж обновлён с %s руб на %s руб",
+                "Interest rate updated! Scenario '" + scenario.getTitle() + "' recalculated",
+                String.format("Bank %s updated interest rate from %s%% to %s%%. " +
+                                "Your monthly payment has been updated from %s to %s",
                         event.bankName(), event.oldRate(), event.newRate(),
                         oldPayment, result.monthlyPayment()),
                 "RATE_UPDATE_ALERT",

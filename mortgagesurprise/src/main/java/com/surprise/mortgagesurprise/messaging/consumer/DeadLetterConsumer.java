@@ -17,8 +17,8 @@ public class DeadLetterConsumer {
     public void processDeadLetter(Message message) {
         String body = new String(message.getBody(), StandardCharsets.UTF_8);
         var deathHeader = message.getMessageProperties().getXDeathHeader();
-        log.error("Поймано битое сообщение в очереди {}: ", RabbitMQConfig.RATE_CHANGED_DLQ);
-        log.error("Тело сообщения: {}", body);
-        log.error("Причина падения: {}", deathHeader);
+        log.error("Dead-letter message caught in queue {}: ", RabbitMQConfig.RATE_CHANGED_DLQ);
+        log.error("Message body: {}", body);
+        log.error("Failure reason: {}", deathHeader);
     }
 }

@@ -75,6 +75,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/oauth2/exchange").permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/code/**").permitAll()
                         .requestMatchers("/api/v1/calculator/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/microloan/config").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/bank-offers/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/bank-offers/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/bank-offers/**").hasRole("ADMIN")

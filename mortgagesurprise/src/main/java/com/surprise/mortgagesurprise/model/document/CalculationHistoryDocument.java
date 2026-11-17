@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.model.document;
 
+import com.surprise.mortgagesurprise.model.enums.LoanProductType;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -18,11 +19,14 @@ public class CalculationHistoryDocument {
     @Indexed
     private UUID userId;
 
+    private LoanProductType loanProductType = LoanProductType.MORTGAGE;
     private String scheduleDocumentId;
     private BigDecimal propertyPrice;
     private BigDecimal downPayment;
     private BigDecimal loanAmount;
     private int termMonths;
+    private Integer termDays;
+    private BigDecimal dailyInterestRate;
     private BigDecimal annualInterestRate;
     private PaymentType paymentType;
     private BigDecimal monthlyPayment;
@@ -66,6 +70,49 @@ public class CalculationHistoryDocument {
         this.totalInterest = totalInterest;
         this.totalPayment = totalPayment;
         this.createdAt = createdAt;
+    }
+
+    public CalculationHistoryDocument(String id, UUID userId, String scheduleDocumentId,
+                                      BigDecimal loanAmount, int termDays, BigDecimal dailyInterestRate,
+                                      BigDecimal annualInterestRate,
+                                      com.surprise.mortgagesurprise.model.enums.Currency currency,
+                                      BigDecimal totalInterest, BigDecimal totalPayment, Instant createdAt) {
+        this.id = id;
+        this.userId = userId;
+        this.loanProductType = LoanProductType.MICROLOAN;
+        this.scheduleDocumentId = scheduleDocumentId;
+        this.loanAmount = loanAmount;
+        this.termDays = termDays;
+        this.dailyInterestRate = dailyInterestRate;
+        this.annualInterestRate = annualInterestRate;
+        this.currency = currency != null ? currency : com.surprise.mortgagesurprise.model.enums.Currency.RUB;
+        this.totalInterest = totalInterest;
+        this.totalPayment = totalPayment;
+        this.createdAt = createdAt;
+    }
+
+    public LoanProductType getLoanProductType() {
+        return loanProductType;
+    }
+
+    public void setLoanProductType(LoanProductType loanProductType) {
+        this.loanProductType = loanProductType;
+    }
+
+    public Integer getTermDays() {
+        return termDays;
+    }
+
+    public void setTermDays(Integer termDays) {
+        this.termDays = termDays;
+    }
+
+    public BigDecimal getDailyInterestRate() {
+        return dailyInterestRate;
+    }
+
+    public void setDailyInterestRate(BigDecimal dailyInterestRate) {
+        this.dailyInterestRate = dailyInterestRate;
     }
 
     public String getId() {

@@ -5,6 +5,10 @@ import type {
   BankOfferRequest,
   CalculationRequest,
   CalculationResponse,
+  MicroloanCalculationRequest,
+  MicroloanCalculationResponse,
+  MicroloanConfig,
+  MicroloanConfigDTO,
   PaymentScheduleItem,
   SaveScenarioRequest,
   ScenarioComparisonResponse,
@@ -124,12 +128,45 @@ export const calculatorApi = {
     return res.data;
   },
 
+  calculateMicroloan: async (request: MicroloanCalculationRequest): Promise<MicroloanCalculationResponse> => {
+    const res = await apiClient.post<MicroloanCalculationResponse>('/calculator/microloan', request);
+    return res.data;
+  },
+
   getSchedule: async (scheduleId: string): Promise<PaymentScheduleItem[]> => {
     const res = await apiClient.get<any>(`/calculator/schedules/${scheduleId}`);
     if (Array.isArray(res.data)) {
       return res.data;
     }
     return res.data?.items || [];
+  },
+
+  getMicroloanConfig: async (): Promise<MicroloanConfig> => {
+    const res = await apiClient.get<MicroloanConfig>('/microloan/config');
+    return res.data;
+  },
+
+  updateMicroloanConfig: async (config: MicroloanConfigDTO): Promise<MicroloanConfig> => {
+    const res = await apiClient.put<MicroloanConfig>('/admin/microloan/config', config);
+    return res.data;
+  },
+
+  applyMicroloan: async (data: {
+    amount: number;
+    termDays: number;
+    purpose?: string;
+    microloanType?: string;
+    totalRepayment?: number;
+    scheduleId?: string;
+    applicationId?: string;
+    applicantFullName?: string;
+    currency?: string;
+  }): Promise<{ success: boolean; applicationId: string; status: string; message: string }> => {
+    const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string }>(
+      '/calculator/microloan/apply',
+      data
+    );
+    return res.data;
   },
 };
 

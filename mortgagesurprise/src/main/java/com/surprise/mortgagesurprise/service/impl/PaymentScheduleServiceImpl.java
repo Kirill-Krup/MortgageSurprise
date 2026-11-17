@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.service.impl;
 
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
+import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResult;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
@@ -46,6 +47,30 @@ public class PaymentScheduleServiceImpl implements PaymentScheduleService {
 
     @Override
     public PaymentScheduleDocument saveSchedule(CalculationResult result) {
+        return saveSchedule(result, null);
+    }
+
+    @Override
+    public PaymentScheduleDocument saveSchedule(MicroloanCalculationResult result, String cacheHash) {
+        PaymentScheduleDocument scheduleDoc = new PaymentScheduleDocument(
+                UUID.randomUUID().toString(),
+                cacheHash,
+                result.loanAmount(),
+                result.termDays(),
+                result.dailyInterestRate(),
+                result.annualEquivalentRate(),
+                result.totalInterest(),
+                result.totalRepayment(),
+                result.dueDate(),
+                result.currency(),
+                result.dailySchedule(),
+                Instant.now()
+        );
+        return scheduleMongoRepository.save(scheduleDoc);
+    }
+
+    @Override
+    public PaymentScheduleDocument saveSchedule(MicroloanCalculationResult result) {
         return saveSchedule(result, null);
     }
 

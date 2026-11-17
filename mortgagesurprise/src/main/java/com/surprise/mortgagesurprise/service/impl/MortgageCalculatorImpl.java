@@ -10,6 +10,7 @@ import com.surprise.mortgagesurprise.calculator.strategy.PaymentCalculationStrat
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
+import com.surprise.mortgagesurprise.model.enums.LoanProductType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
