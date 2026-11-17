@@ -1,4 +1,4 @@
-package com.surprise.mortgagesurprise.service.impl;
+package com.surprise.mortgagesurprise.security.oauth2;
 
 import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
 import com.surprise.mortgagesurprise.util.Sha256Encoder;

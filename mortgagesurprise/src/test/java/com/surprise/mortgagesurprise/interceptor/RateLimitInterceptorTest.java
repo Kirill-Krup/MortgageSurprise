@@ -1,7 +1,7 @@
 package com.surprise.mortgagesurprise.interceptor;
 
 import tools.jackson.databind.ObjectMapper;
-import com.surprise.mortgagesurprise.exception.ErrorResponse;
+import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import com.surprise.mortgagesurprise.service.RateLimiterRedisService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +14,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
