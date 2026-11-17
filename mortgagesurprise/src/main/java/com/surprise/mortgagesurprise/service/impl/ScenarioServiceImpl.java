@@ -14,8 +14,9 @@ import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
-import com.surprise.mortgagesurprise.service.ScenarioComparator;
+import com.surprise.mortgagesurprise.util.ScenarioComparator;
 import com.surprise.mortgagesurprise.service.ScenarioService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ import java.util.UUID;
  */
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class ScenarioServiceImpl implements ScenarioService {
 
     private final CalculationScenarioRepository scenarioRepository;
@@ -35,18 +37,6 @@ public class ScenarioServiceImpl implements ScenarioService {
     private final PaymentScheduleService paymentScheduleService;
     private final ScenarioComparator scenarioComparator;
     private final MessageProducer messageProducer;
-
-    public ScenarioServiceImpl(CalculationScenarioRepository scenarioRepository,
-                               MortgageCalculator mortgageCalculator,
-                               PaymentScheduleService paymentScheduleService,
-                               ScenarioComparator scenarioComparator,
-                               MessageProducer messageProducer) {
-        this.scenarioRepository = scenarioRepository;
-        this.mortgageCalculator = mortgageCalculator;
-        this.paymentScheduleService = paymentScheduleService;
-        this.scenarioComparator = scenarioComparator;
-        this.messageProducer = messageProducer;
-    }
 
     @Override
     public ScenarioResponse saveScenario(UUID userId, SaveScenarioRequest req) {

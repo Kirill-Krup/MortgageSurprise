@@ -6,6 +6,7 @@ import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -15,13 +16,10 @@ import java.util.UUID;
  * Single responsibility: Encapsulate PaymentScheduleDocument construction and persistence operations.
  */
 @Service
+@RequiredArgsConstructor
 public class PaymentScheduleServiceImpl implements PaymentScheduleService {
 
     private final PaymentScheduleMongoRepository scheduleMongoRepository;
-
-    public PaymentScheduleServiceImpl(PaymentScheduleMongoRepository scheduleMongoRepository) {
-        this.scheduleMongoRepository = scheduleMongoRepository;
-    }
 
     @Override
     public PaymentScheduleDocument saveSchedule(CalculationResult result, String cacheHash) {

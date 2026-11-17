@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.dto.auth.MagicLinkResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
@@ -47,12 +48,13 @@ public class MagicLinkService {
         this.frontendUrl = frontendUrl;
     }
 
-    public void requestLink(String emailAddress) {
+    public MagicLinkResponse requestLink(String emailAddress) {
         if (emailAddress == null || emailAddress.isBlank()) {
-            return;
+            throw new BusinessException("Invalid email address");
         }
         String email = emailAddress.trim().toLowerCase(Locale.ROOT);
         sendLink(email);
+        return new MagicLinkResponse("If an account exists for this email, a sign-in link has been sent.");
     }
 
     @Transactional
@@ -60,19 +62,14 @@ public class MagicLinkService {
         if (token == null || token.isBlank()) {
             throw new BusinessException("Invalid or expired magic link");
         }
-
         String hashedTokenKey = key(token);
         String consumedKey = hashedTokenKey + ":consumed";
-
-        // If this token was recently verified within the last 2 minutes (e.g. React StrictMode,
-        // multiple clicks, browser prefetching), return the user instead of throwing an error
         String consumedUserId = redisTemplate.opsForValue().get(consumedKey);
         if (consumedUserId != null && !consumedUserId.isBlank()) {
             log.info("Magic link token was recently consumed (grace period active) for userId {}", consumedUserId);
             return userRepository.findById(UUID.fromString(consumedUserId))
                     .orElseThrow(() -> new BusinessException("User not found"));
         }
-
         String email = redisTemplate.opsForValue().getAndDelete(hashedTokenKey);
         if (email == null) {
             log.warn("Magic link token not found or already expired in Redis");
@@ -97,7 +94,6 @@ public class MagicLinkService {
                     return userRepository.save(newUser);
                 });
 
-        // Set grace period of 2 minutes so double-clicks, React StrictMode, or page reloads don't fail
         redisTemplate.opsForValue().set(consumedKey, user.getId().toString(), GRACE_PERIOD);
 
         return user;
@@ -117,12 +113,17 @@ public class MagicLinkService {
                 .toUriString();
 
         String body = String.format(
-                "Hello!\n\n" +
-                "To sign in to your MortgageSurprise online banking account, click the following secure link:\n%s\n\n" +
-                "The link is valid for 30 minutes.\n" +
-                "If you did not request this link, please disregard this email.\n\n" +
-                "Best regards,\n" +
-                "MortgageSurprise Team",
+                """
+                        Hello!
+                        
+                        To sign in to your MortgageSurprise online banking account, click the following secure link:
+                        %s
+                        
+                        The link is valid for 30 minutes.
+                        If you did not request this link, please disregard this email.
+                        
+                        Best regards,
+                        MortgageSurprise Team""",
                 link
         );
 

@@ -13,6 +13,7 @@ import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.security.jwt.JwtTokenProvider;
 import com.surprise.mortgagesurprise.service.AuthService;
 import com.surprise.mortgagesurprise.service.RefreshTokenService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -26,6 +27,7 @@ import java.util.UUID;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -33,18 +35,6 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
-
-    public AuthServiceImpl(UserRepository userRepository,
-                           PasswordEncoder passwordEncoder,
-                           JwtTokenProvider tokenProvider,
-                           AuthenticationManager authenticationManager,
-                           RefreshTokenService refreshTokenService) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.tokenProvider = tokenProvider;
-        this.authenticationManager = authenticationManager;
-        this.refreshTokenService = refreshTokenService;
-    }
 
     @Override
     public AuthResponse register(RegisterRequest req) {

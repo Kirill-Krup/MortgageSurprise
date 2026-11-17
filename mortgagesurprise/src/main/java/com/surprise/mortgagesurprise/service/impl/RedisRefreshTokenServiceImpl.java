@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.service.impl;
 
 import com.surprise.mortgagesurprise.service.RefreshTokenService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import static com.surprise.mortgagesurprise.util.Sha256Encoder.toSha256;
 
 @Service
+@RequiredArgsConstructor
 public class RedisRefreshTokenServiceImpl implements RefreshTokenService {
 
     private static final Logger log = LoggerFactory.getLogger(RedisRefreshTokenServiceImpl.class);
@@ -24,9 +26,6 @@ public class RedisRefreshTokenServiceImpl implements RefreshTokenService {
 
     private final StringRedisTemplate redisTemplate;
 
-    public RedisRefreshTokenServiceImpl(StringRedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
 
     @Override
     public void storeRefreshToken(UUID userId, String token, Duration duration) {

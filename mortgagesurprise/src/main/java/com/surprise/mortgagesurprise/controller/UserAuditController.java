@@ -6,6 +6,7 @@ import com.surprise.mortgagesurprise.model.enums.UserAuditActionType;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.UserAuditService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,13 +17,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+@RequiredArgsConstructor
 public class UserAuditController {
 
     private final UserAuditService userAuditService;
-
-    public UserAuditController(UserAuditService userAuditService) {
-        this.userAuditService = userAuditService;
-    }
 
     @PostMapping("/audit/bank-offer-selected")
     public ResponseEntity<Map<String, Object>> logBankOfferSelected(

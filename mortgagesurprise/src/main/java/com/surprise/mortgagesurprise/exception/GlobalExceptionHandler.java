@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.exception;
 
+import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -4,6 +4,7 @@ import com.surprise.mortgagesurprise.dto.bank.BankOfferRequest;
 import com.surprise.mortgagesurprise.dto.bank.BankOfferResponse;
 import com.surprise.mortgagesurprise.service.BankOfferService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,13 +15,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/bank-offers")
+@RequiredArgsConstructor
 public class BankOfferPublicController {
 
     private final BankOfferService bankOfferService;
-
-    public BankOfferPublicController(BankOfferService bankOfferService) {
-        this.bankOfferService = bankOfferService;
-    }
 
     @GetMapping
     public ResponseEntity<List<BankOfferResponse>> getOffers(@RequestParam(value = "all", defaultValue = "false") boolean all) {

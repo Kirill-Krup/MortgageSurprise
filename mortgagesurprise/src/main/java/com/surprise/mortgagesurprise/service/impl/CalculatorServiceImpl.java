@@ -10,6 +10,7 @@ import com.surprise.mortgagesurprise.service.CalculationHistoryService;
 import com.surprise.mortgagesurprise.service.CalculatorService;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -19,6 +20,7 @@ import java.util.UUID;
  * Single responsibility: Orchestrate the calculation use-case (caching, calculation, schedule & history persistence).
  */
 @Service
+@RequiredArgsConstructor
 public class CalculatorServiceImpl implements CalculatorService {
 
     private final MortgageCalculator mortgageCalculator;
@@ -26,18 +28,6 @@ public class CalculatorServiceImpl implements CalculatorService {
     private final CalculationHistoryService historyService;
     private final CalculationCacheService cacheService;
     private final CalculationCacheKeyGenerator cacheKeyGenerator;
-
-    public CalculatorServiceImpl(MortgageCalculator mortgageCalculator,
-                                 PaymentScheduleService paymentScheduleService,
-                                 CalculationHistoryService historyService,
-                                 CalculationCacheService cacheService,
-                                 CalculationCacheKeyGenerator cacheKeyGenerator) {
-        this.mortgageCalculator = mortgageCalculator;
-        this.paymentScheduleService = paymentScheduleService;
-        this.historyService = historyService;
-        this.cacheService = cacheService;
-        this.cacheKeyGenerator = cacheKeyGenerator;
-    }
 
     @Override
     public CalculationResponse calculateAndPersist(CalculationRequest request, UUID userId) {

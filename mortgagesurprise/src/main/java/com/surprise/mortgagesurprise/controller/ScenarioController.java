@@ -7,6 +7,7 @@ import com.surprise.mortgagesurprise.dto.scenario.ScenarioResponse;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.ScenarioService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,14 +20,11 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/scenarios")
+@RequiredArgsConstructor
 @PreAuthorize("hasRole('USER')")
 public class ScenarioController {
 
     private final ScenarioService scenarioService;
-
-    public ScenarioController(ScenarioService scenarioService) {
-        this.scenarioService = scenarioService;
-    }
 
     @PostMapping
     public ResponseEntity<ScenarioResponse> saveScenario(

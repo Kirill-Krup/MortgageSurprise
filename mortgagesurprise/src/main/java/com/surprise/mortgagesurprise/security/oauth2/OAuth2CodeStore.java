@@ -1,7 +1,8 @@
-package com.surprise.mortgagesurprise.service.impl;
+package com.surprise.mortgagesurprise.security.oauth2;
 
 import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
 import com.surprise.mortgagesurprise.util.Sha256Encoder;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
@@ -12,6 +13,7 @@ import java.util.Base64;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class OAuth2CodeStore {
 
     private static final String KEY_PREFIX = "auth:oauth2:code:";
@@ -20,11 +22,6 @@ public class OAuth2CodeStore {
 
     private final StringRedisTemplate redis;
     private final ObjectMapper objectMapper;
-
-    public OAuth2CodeStore(StringRedisTemplate redis, ObjectMapper objectMapper) {
-        this.redis = redis;
-        this.objectMapper = objectMapper;
-    }
 
     public String save(AuthResponse authResponse) {
         byte[] randomCode = new byte[32];

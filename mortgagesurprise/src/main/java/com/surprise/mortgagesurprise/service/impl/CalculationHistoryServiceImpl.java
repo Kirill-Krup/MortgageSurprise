@@ -5,6 +5,7 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 import com.surprise.mortgagesurprise.model.document.CalculationHistoryDocument;
 import com.surprise.mortgagesurprise.repository.mongo.CalculationHistoryMongoRepository;
 import com.surprise.mortgagesurprise.service.CalculationHistoryService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -14,13 +15,10 @@ import java.util.UUID;
  * Single responsibility: Encapsulate CalculationHistoryDocument creation and persistence.
  */
 @Service
+@RequiredArgsConstructor
 public class CalculationHistoryServiceImpl implements CalculationHistoryService {
 
     private final CalculationHistoryMongoRepository historyMongoRepository;
-
-    public CalculationHistoryServiceImpl(CalculationHistoryMongoRepository historyMongoRepository) {
-        this.historyMongoRepository = historyMongoRepository;
-    }
 
     @Override
     public void recordHistory(UUID userId, String scheduleId, CalculationResult result) {

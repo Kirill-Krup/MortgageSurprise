@@ -10,6 +10,7 @@ import com.surprise.mortgagesurprise.model.document.UserActionAuditDocument;
 import com.surprise.mortgagesurprise.model.enums.UserAuditActionType;
 import com.surprise.mortgagesurprise.repository.mongo.UserActionAuditMongoRepository;
 import com.surprise.mortgagesurprise.service.UserAuditService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,15 +22,12 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class UserAuditServiceImpl implements UserAuditService {
 
     private static final Logger log = LoggerFactory.getLogger(UserAuditServiceImpl.class);
 
     private final UserActionAuditMongoRepository auditRepository;
-
-    public UserAuditServiceImpl(UserActionAuditMongoRepository auditRepository) {
-        this.auditRepository = auditRepository;
-    }
 
     private boolean shouldAudit(UUID userId, boolean isAdmin) {
         // Audit only authorized users who are NOT administrators

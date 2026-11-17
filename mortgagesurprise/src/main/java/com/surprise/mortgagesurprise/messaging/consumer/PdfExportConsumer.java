@@ -7,6 +7,7 @@ import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
 import com.surprise.mortgagesurprise.service.PdfGeneratorService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -14,10 +15,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
-/**
- * Single responsibility: Listen to PDF export queue and coordinate PDF generation and email sending.
- */
+
 @Component
+@RequiredArgsConstructor
 public class PdfExportConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(PdfExportConsumer.class);
@@ -26,13 +26,6 @@ public class PdfExportConsumer {
     private final PdfGeneratorService pdfGeneratorService;
     private final MessageProducer messageProducer;
 
-    public PdfExportConsumer(PaymentScheduleService paymentScheduleService,
-                             PdfGeneratorService pdfGeneratorService,
-                             MessageProducer messageProducer) {
-        this.paymentScheduleService = paymentScheduleService;
-        this.pdfGeneratorService = pdfGeneratorService;
-        this.messageProducer = messageProducer;
-    }
 
     @RabbitListener(queues = RabbitMQConfig.PDF_EXPORT_QUEUE)
     public void handlePdfExport(PdfExportEvent event) {

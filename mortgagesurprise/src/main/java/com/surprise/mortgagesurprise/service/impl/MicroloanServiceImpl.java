@@ -12,6 +12,7 @@ import com.surprise.mortgagesurprise.service.MicroloanCalculator;
 import com.surprise.mortgagesurprise.service.MicroloanConfigService;
 import com.surprise.mortgagesurprise.service.MicroloanService;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -22,6 +23,7 @@ import java.util.UUID;
  * (Redis caching, calculation, persistence of schedule in MongoDB, and history recording).
  */
 @Service
+@RequiredArgsConstructor
 public class MicroloanServiceImpl implements MicroloanService {
 
     private final MicroloanCalculator microloanCalculator;
@@ -30,20 +32,6 @@ public class MicroloanServiceImpl implements MicroloanService {
     private final CalculationCacheKeyGenerator cacheKeyGenerator;
     private final MicroloanCacheService cacheService;
     private final MicroloanConfigService configService;
-
-    public MicroloanServiceImpl(MicroloanCalculator microloanCalculator,
-                                PaymentScheduleService paymentScheduleService,
-                                CalculationHistoryService historyService,
-                                CalculationCacheKeyGenerator cacheKeyGenerator,
-                                MicroloanCacheService cacheService,
-                                MicroloanConfigService configService) {
-        this.microloanCalculator = microloanCalculator;
-        this.paymentScheduleService = paymentScheduleService;
-        this.historyService = historyService;
-        this.cacheKeyGenerator = cacheKeyGenerator;
-        this.cacheService = cacheService;
-        this.configService = configService;
-    }
 
     @Override
     public MicroloanCalculationResponse calculateAndPersist(MicroloanCalculationRequest request, UUID userId) {

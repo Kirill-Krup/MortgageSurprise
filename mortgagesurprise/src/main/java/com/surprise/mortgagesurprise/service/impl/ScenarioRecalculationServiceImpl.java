@@ -11,6 +11,7 @@ import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepositor
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
 import com.surprise.mortgagesurprise.service.ScenarioRecalculationService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.List;
  * Single responsibility: Execute scenario recalculation and notification when bank interest rates change.
  */
 @Service
+@RequiredArgsConstructor
 public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationService {
 
     private static final Logger log = LoggerFactory.getLogger(ScenarioRecalculationServiceImpl.class);
@@ -32,16 +34,6 @@ public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationSe
     private final MortgageCalculator mortgageCalculator;
     private final PaymentScheduleService paymentScheduleService;
     private final MessageProducer messageProducer;
-
-    public ScenarioRecalculationServiceImpl(CalculationScenarioRepository scenarioRepository,
-                                            MortgageCalculator mortgageCalculator,
-                                            PaymentScheduleService paymentScheduleService,
-                                            MessageProducer messageProducer) {
-        this.scenarioRepository = scenarioRepository;
-        this.mortgageCalculator = mortgageCalculator;
-        this.paymentScheduleService = paymentScheduleService;
-        this.messageProducer = messageProducer;
-    }
 
     @Override
     @Transactional

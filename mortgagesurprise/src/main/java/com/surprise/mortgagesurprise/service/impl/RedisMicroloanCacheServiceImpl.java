@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResponse;
 import com.surprise.mortgagesurprise.service.MicroloanCacheService;
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class RedisMicroloanCacheServiceImpl implements MicroloanCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(RedisMicroloanCacheServiceImpl.class);
@@ -20,11 +22,6 @@ public class RedisMicroloanCacheServiceImpl implements MicroloanCacheService {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-
-    public RedisMicroloanCacheServiceImpl(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public Optional<MicroloanCalculationResponse> getFromCache(String calculationHash) {

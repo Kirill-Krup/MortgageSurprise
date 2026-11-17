@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.service.impl;
 
 import com.surprise.mortgagesurprise.service.RateLimiterRedisService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -10,6 +11,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class RedisRateLimiterServiceImpl implements RateLimiterRedisService {
 
     private static final Logger log = LoggerFactory.getLogger(RedisRateLimiterServiceImpl.class);
@@ -18,10 +20,6 @@ public class RedisRateLimiterServiceImpl implements RateLimiterRedisService {
     private static final int TTL_DURATION_IN_MINUTES = 1;
 
     private final StringRedisTemplate redisTemplate;
-
-    public RedisRateLimiterServiceImpl(StringRedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
 
     @Override
     public boolean allowRequest(UUID userId, String action) {

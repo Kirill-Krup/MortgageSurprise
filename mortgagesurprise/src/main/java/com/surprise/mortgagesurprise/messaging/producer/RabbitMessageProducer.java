@@ -4,21 +4,19 @@ import com.surprise.mortgagesurprise.config.RabbitMQConfig;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class RabbitMessageProducer implements MessageProducer {
 
     private static final Logger log = LoggerFactory.getLogger(RabbitMessageProducer.class);
 
     private final RabbitTemplate rabbitTemplate;
-
-    public RabbitMessageProducer(RabbitTemplate rabbitTemplate) {
-        this.rabbitTemplate = rabbitTemplate;
-    }
 
     @Override
     public void sendRateChangedEvent(RateChangedEvent event) {

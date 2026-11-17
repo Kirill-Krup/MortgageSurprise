@@ -1,12 +1,17 @@
 package com.surprise.mortgagesurprise.model.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "bank_offers")
+@Getter
+@Setter
 public class BankOffer {
 
     @Id
@@ -52,13 +57,6 @@ public class BankOffer {
 
     public BankOffer(String bankName, String offerName, BigDecimal annualInterestRate,
                      BigDecimal minDownPaymentPercent, int maxTermMonths,
-                     BigDecimal minLoanAmount, BigDecimal maxLoanAmount) {
-        this(bankName, offerName, annualInterestRate, minDownPaymentPercent, maxTermMonths,
-                minLoanAmount, maxLoanAmount, com.surprise.mortgagesurprise.model.enums.Currency.RUB);
-    }
-
-    public BankOffer(String bankName, String offerName, BigDecimal annualInterestRate,
-                     BigDecimal minDownPaymentPercent, int maxTermMonths,
                      BigDecimal minLoanAmount, BigDecimal maxLoanAmount,
                      com.surprise.mortgagesurprise.model.enums.Currency currency) {
         this.bankName = bankName;
@@ -77,101 +75,5 @@ public class BankOffer {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = Instant.now();
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public String getBankName() {
-        return bankName;
-    }
-
-    public void setBankName(String bankName) {
-        this.bankName = bankName;
-    }
-
-    public String getOfferName() {
-        return offerName;
-    }
-
-    public void setOfferName(String offerName) {
-        this.offerName = offerName;
-    }
-
-    public BigDecimal getAnnualInterestRate() {
-        return annualInterestRate;
-    }
-
-    public void setAnnualInterestRate(BigDecimal annualInterestRate) {
-        this.annualInterestRate = annualInterestRate;
-    }
-
-    public BigDecimal getMinDownPaymentPercent() {
-        return minDownPaymentPercent;
-    }
-
-    public void setMinDownPaymentPercent(BigDecimal minDownPaymentPercent) {
-        this.minDownPaymentPercent = minDownPaymentPercent;
-    }
-
-    public int getMaxTermMonths() {
-        return maxTermMonths;
-    }
-
-    public void setMaxTermMonths(int maxTermMonths) {
-        this.maxTermMonths = maxTermMonths;
-    }
-
-    public BigDecimal getMinLoanAmount() {
-        return minLoanAmount;
-    }
-
-    public void setMinLoanAmount(BigDecimal minLoanAmount) {
-        this.minLoanAmount = minLoanAmount;
-    }
-
-    public BigDecimal getMaxLoanAmount() {
-        return maxLoanAmount;
-    }
-
-    public void setMaxLoanAmount(BigDecimal maxLoanAmount) {
-        this.maxLoanAmount = maxLoanAmount;
-    }
-
-    public com.surprise.mortgagesurprise.model.enums.Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(com.surprise.mortgagesurprise.model.enums.Currency currency) {
-        this.currency = currency;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
-
-    public void setActive(boolean active) {
-        this.active = active;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

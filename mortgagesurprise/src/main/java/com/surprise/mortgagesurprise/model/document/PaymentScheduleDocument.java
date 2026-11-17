@@ -4,6 +4,8 @@ import com.surprise.mortgagesurprise.dto.calculator.PaymentScheduleItem;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.DailyScheduleItem;
 import com.surprise.mortgagesurprise.model.enums.LoanProductType;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -14,6 +16,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Document(collection = "payment_schedules")
+@Getter
+@Setter
 public class PaymentScheduleDocument {
 
     @Id
@@ -98,166 +102,6 @@ public class PaymentScheduleDocument {
         this.dueDate = dueDate;
         this.currency = currency != null ? currency : com.surprise.mortgagesurprise.model.enums.Currency.RUB;
         this.dailyItems = dailyItems;
-        this.calculatedAt = calculatedAt;
-    }
-
-    public LoanProductType getLoanProductType() {
-        return loanProductType;
-    }
-
-    public void setLoanProductType(LoanProductType loanProductType) {
-        this.loanProductType = loanProductType;
-    }
-
-    public Integer getTermDays() {
-        return termDays;
-    }
-
-    public void setTermDays(Integer termDays) {
-        this.termDays = termDays;
-    }
-
-    public BigDecimal getDailyInterestRate() {
-        return dailyInterestRate;
-    }
-
-    public void setDailyInterestRate(BigDecimal dailyInterestRate) {
-        this.dailyInterestRate = dailyInterestRate;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public List<DailyScheduleItem> getDailyItems() {
-        return dailyItems;
-    }
-
-    public void setDailyItems(List<DailyScheduleItem> dailyItems) {
-        this.dailyItems = dailyItems;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getCalculationHash() {
-        return calculationHash;
-    }
-
-    public void setCalculationHash(String calculationHash) {
-        this.calculationHash = calculationHash;
-    }
-
-    public BigDecimal getPropertyPrice() {
-        return propertyPrice;
-    }
-
-    public void setPropertyPrice(BigDecimal propertyPrice) {
-        this.propertyPrice = propertyPrice;
-    }
-
-    public BigDecimal getDownPayment() {
-        return downPayment;
-    }
-
-    public void setDownPayment(BigDecimal downPayment) {
-        this.downPayment = downPayment;
-    }
-
-    public BigDecimal getLoanAmount() {
-        return loanAmount;
-    }
-
-    public void setLoanAmount(BigDecimal loanAmount) {
-        this.loanAmount = loanAmount;
-    }
-
-    public int getTermMonths() {
-        return termMonths;
-    }
-
-    public void setTermMonths(int termMonths) {
-        this.termMonths = termMonths;
-    }
-
-    public int getActualTermMonths() {
-        return actualTermMonths;
-    }
-
-    public void setActualTermMonths(int actualTermMonths) {
-        this.actualTermMonths = actualTermMonths;
-    }
-
-    public BigDecimal getAnnualInterestRate() {
-        return annualInterestRate;
-    }
-
-    public void setAnnualInterestRate(BigDecimal annualInterestRate) {
-        this.annualInterestRate = annualInterestRate;
-    }
-
-    public PaymentType getPaymentType() {
-        return paymentType;
-    }
-
-    public void setPaymentType(PaymentType paymentType) {
-        this.paymentType = paymentType;
-    }
-
-    public BigDecimal getMonthlyPayment() {
-        return monthlyPayment;
-    }
-
-    public void setMonthlyPayment(BigDecimal monthlyPayment) {
-        this.monthlyPayment = monthlyPayment;
-    }
-
-    public BigDecimal getTotalInterest() {
-        return totalInterest;
-    }
-
-    public void setTotalInterest(BigDecimal totalInterest) {
-        this.totalInterest = totalInterest;
-    }
-
-    public BigDecimal getTotalPayment() {
-        return totalPayment;
-    }
-
-    public void setTotalPayment(BigDecimal totalPayment) {
-        this.totalPayment = totalPayment;
-    }
-
-    public com.surprise.mortgagesurprise.model.enums.Currency getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(com.surprise.mortgagesurprise.model.enums.Currency currency) {
-        this.currency = currency;
-    }
-
-    public List<PaymentScheduleItem> getItems() {
-        return items;
-    }
-
-    public void setItems(List<PaymentScheduleItem> items) {
-        this.items = items;
-    }
-
-    public Instant getCalculatedAt() {
-        return calculatedAt;
-    }
-
-    public void setCalculatedAt(Instant calculatedAt) {
         this.calculatedAt = calculatedAt;
     }
 }

@@ -8,6 +8,7 @@ import com.surprise.mortgagesurprise.dto.calculator.PaymentScheduleItem;
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.model.enums.RepaymentStrategy;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -21,6 +22,7 @@ import java.util.List;
  * Single responsibility: Calculate differentiated mortgage payment schedules and statistics.
  */
 @Component
+@RequiredArgsConstructor
 public class DifferentiatedPaymentCalculationStrategy implements PaymentCalculationStrategy {
 
     public static final RoundingMode CURRENCY_ROUNDING = RoundingMode.HALF_UP;
@@ -28,10 +30,6 @@ public class DifferentiatedPaymentCalculationStrategy implements PaymentCalculat
     private static final MathContext MC = new MathContext(16, RoundingMode.HALF_UP);
 
     private final EarlyRepaymentProcessor earlyRepaymentProcessor;
-
-    public DifferentiatedPaymentCalculationStrategy(EarlyRepaymentProcessor earlyRepaymentProcessor) {
-        this.earlyRepaymentProcessor = earlyRepaymentProcessor;
-    }
 
     @Override
     public PaymentType getSupportedPaymentType() {
