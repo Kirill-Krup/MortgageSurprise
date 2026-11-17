@@ -4,12 +4,16 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
 @Table(name = "microloan_configs")
+@Getter
+@Setter
 public class MicroloanConfig {
 
     @Id
@@ -30,38 +34,6 @@ public class MicroloanConfig {
         this.id = id;
         this.baseDailyRate = baseDailyRate;
         this.vanitySurchargeRate = vanitySurchargeRate;
-        this.updatedAt = updatedAt;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public BigDecimal getBaseDailyRate() {
-        return baseDailyRate;
-    }
-
-    public void setBaseDailyRate(BigDecimal baseDailyRate) {
-        this.baseDailyRate = baseDailyRate;
-    }
-
-    public BigDecimal getVanitySurchargeRate() {
-        return vanitySurchargeRate;
-    }
-
-    public void setVanitySurchargeRate(BigDecimal vanitySurchargeRate) {
-        this.vanitySurchargeRate = vanitySurchargeRate;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
 }

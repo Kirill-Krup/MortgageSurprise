@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import java.util.Date;
 import java.util.UUID;
 
 @Component
+@Getter
 public class JwtTokenProvider {
 
     private final SecretKey secretKey;
@@ -22,8 +24,8 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.access-token-expiration-ms:900000}") long accessTokenValidityMs, // 15 mins
-            @Value("${app.jwt.refresh-token-expiration-ms:604800000}") long refreshTokenValidityMs // 7 days
+            @Value("${app.jwt.access-token-expiration-ms:900000}") long accessTokenValidityMs,
+            @Value("${app.jwt.refresh-token-expiration-ms:604800000}") long refreshTokenValidityMs
     ) {
         if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalArgumentException("JWT secret must be at least 256 bits");
@@ -91,18 +93,6 @@ public class JwtTokenProvider {
     public UUID getUserIdFromToken(String token) {
         String userIdStr = getClaims(token).get("userId", String.class);
         return UUID.fromString(userIdStr);
-    }
-
-    public String getRoleFromToken(String token) {
-        return getClaims(token).get("role", String.class);
-    }
-
-    public long getRefreshTokenValidityMs() {
-        return refreshTokenValidityMs;
-    }
-
-    public long getAccessTokenValidityMs() {
-        return accessTokenValidityMs;
     }
 
     private Claims getClaims(String token) {

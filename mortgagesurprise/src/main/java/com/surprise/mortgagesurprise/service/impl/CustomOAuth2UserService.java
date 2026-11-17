@@ -5,6 +5,7 @@ import com.surprise.mortgagesurprise.model.entity.User;
 import com.surprise.mortgagesurprise.repository.jpa.UserRepository;
 import com.surprise.mortgagesurprise.security.oauth2.OAuth2UserInfo;
 import com.surprise.mortgagesurprise.security.oauth2.OAuth2UserInfoFactory;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
@@ -21,16 +22,12 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private final DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
     private final UserRepository userRepository;
     private final GitHubEmailFetcher gitHubEmailFetcher;
-
-    public CustomOAuth2UserService(UserRepository userRepository, GitHubEmailFetcher gitHubEmailFetcher) {
-        this.userRepository = userRepository;
-        this.gitHubEmailFetcher = gitHubEmailFetcher;
-    }
 
     @Override
     @Transactional

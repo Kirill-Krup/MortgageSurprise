@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.security;
 
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 import com.surprise.mortgagesurprise.exception.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,13 +14,10 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 @Component
+@RequiredArgsConstructor
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
     private final ObjectMapper objectMapper;
-
-    public CustomAccessDeniedHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public void handle(HttpServletRequest request,

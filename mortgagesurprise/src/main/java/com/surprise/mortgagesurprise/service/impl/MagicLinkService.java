@@ -7,6 +7,7 @@ import com.surprise.mortgagesurprise.model.entity.Role;
 import com.surprise.mortgagesurprise.model.entity.User;
 import com.surprise.mortgagesurprise.repository.jpa.UserRepository;
 import com.surprise.mortgagesurprise.util.Sha256Encoder;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,8 +65,6 @@ public class MagicLinkService {
         String hashedTokenKey = key(token);
         String consumedKey = hashedTokenKey + ":consumed";
 
-        // If this token was recently verified within the last 2 minutes (e.g. React StrictMode,
-        // multiple clicks, browser prefetching), return the user instead of throwing an error
         String consumedUserId = redisTemplate.opsForValue().get(consumedKey);
         if (consumedUserId != null && !consumedUserId.isBlank()) {
             log.info("Magic link token was recently consumed (grace period active) for userId {}", consumedUserId);
@@ -97,7 +96,6 @@ public class MagicLinkService {
                     return userRepository.save(newUser);
                 });
 
-        // Set grace period of 2 minutes so double-clicks, React StrictMode, or page reloads don't fail
         redisTemplate.opsForValue().set(consumedKey, user.getId().toString(), GRACE_PERIOD);
 
         return user;

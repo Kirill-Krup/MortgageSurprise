@@ -1,5 +1,9 @@
 package com.surprise.mortgagesurprise.calculator;
 
+import com.surprise.mortgagesurprise.calculator.factory.CalculationContextFactory;
+import com.surprise.mortgagesurprise.calculator.strategy.AnnuityPaymentCalculationStrategy;
+import com.surprise.mortgagesurprise.calculator.strategy.DifferentiatedPaymentCalculationStrategy;
+import com.surprise.mortgagesurprise.calculator.strategy.PaymentCalculationStrategyRegistry;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
 import com.surprise.mortgagesurprise.dto.calculator.EarlyRepaymentRequest;
@@ -24,7 +28,15 @@ class MortgageCalculatorTest {
 
     @BeforeEach
     void setUp() {
-        calculator = new MortgageCalculatorImpl();
+        CalculationRequestValidator validator = new CalculationRequestValidator();
+        CalculationContextFactory factory = new CalculationContextFactory(validator);
+        EarlyRepaymentProcessor earlyRepaymentProcessor = new EarlyRepaymentProcessor();
+        PaymentCalculationStrategyRegistry registry = new PaymentCalculationStrategyRegistry(List.of(
+                new AnnuityPaymentCalculationStrategy(earlyRepaymentProcessor),
+                new DifferentiatedPaymentCalculationStrategy(earlyRepaymentProcessor)
+        ));
+
+        calculator = new MortgageCalculatorImpl(factory, registry);
     }
 
     @Test

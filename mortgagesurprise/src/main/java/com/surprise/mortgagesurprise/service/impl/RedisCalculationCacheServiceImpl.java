@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResponse;
 import com.surprise.mortgagesurprise.service.CalculationCacheService;
@@ -12,6 +13,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class RedisCalculationCacheServiceImpl implements CalculationCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(RedisCalculationCacheServiceImpl.class);
@@ -20,11 +22,6 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-
-    public RedisCalculationCacheServiceImpl(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public Optional<CalculationResponse> getFromCache(String calculationHash) {

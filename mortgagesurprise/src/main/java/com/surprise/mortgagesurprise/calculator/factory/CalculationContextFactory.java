@@ -6,6 +6,7 @@ import com.surprise.mortgagesurprise.calculator.util.MicroloanPurposeClassifier;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationRequest;
 import com.surprise.mortgagesurprise.model.enums.MicroloanType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -13,11 +14,9 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 
-/**
- * Factory pattern: Encapsulates creation, validation, and parameter preparation
- * for calculation contexts without polluting domain calculators or creating God Objects.
- */
+
 @Component
+@RequiredArgsConstructor
 public class CalculationContextFactory {
 
     public static final RoundingMode CURRENCY_ROUNDING = RoundingMode.HALF_UP;
@@ -28,10 +27,6 @@ public class CalculationContextFactory {
     private static final BigDecimal DAYS_IN_YEAR = new BigDecimal("365");
 
     private final CalculationRequestValidator mortgageValidator;
-
-    public CalculationContextFactory(CalculationRequestValidator mortgageValidator) {
-        this.mortgageValidator = mortgageValidator;
-    }
 
     public CalculationContext createMortgageContext(CalculationRequest request) {
         if (request == null) {
@@ -71,7 +66,6 @@ public class CalculationContextFactory {
         int termDays = request.termDays();
         String purpose = request.purpose() != null ? request.purpose().trim() : "";
 
-        // Automated determination of microloan type based on purpose
         MicroloanType type = MicroloanPurposeClassifier.classify(purpose);
         if (request.type() == MicroloanType.VANITY) {
             type = MicroloanType.VANITY;

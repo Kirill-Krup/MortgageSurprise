@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.interceptor;
 
+import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 import com.surprise.mortgagesurprise.exception.ErrorResponse;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
@@ -14,15 +15,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
+@RequiredArgsConstructor
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimiterRedisService rateLimiterService;
     private final ObjectMapper objectMapper;
 
-    public RateLimitInterceptor(RateLimiterRedisService rateLimiterService, ObjectMapper objectMapper) {
-        this.rateLimiterService = rateLimiterService;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {

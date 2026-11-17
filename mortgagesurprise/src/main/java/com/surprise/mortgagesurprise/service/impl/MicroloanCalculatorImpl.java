@@ -9,6 +9,7 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
 import com.surprise.mortgagesurprise.service.MicroloanCalculator;
 import com.surprise.mortgagesurprise.service.MicroloanConfigService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -16,19 +17,12 @@ import org.springframework.stereotype.Component;
  * CalculationContextFactory for parameter preparation, and strategy dispatch by MicroloanType.
  */
 @Component
+@RequiredArgsConstructor
 public class MicroloanCalculatorImpl implements MicroloanCalculator {
 
     private final CalculationContextFactory contextFactory;
     private final MicroloanCalculationStrategyRegistry strategyRegistry;
     private final MicroloanConfigService configService;
-
-    public MicroloanCalculatorImpl(CalculationContextFactory contextFactory,
-                                  MicroloanCalculationStrategyRegistry strategyRegistry,
-                                  MicroloanConfigService configService) {
-        this.contextFactory = contextFactory;
-        this.strategyRegistry = strategyRegistry;
-        this.configService = configService;
-    }
 
     @Override
     public MicroloanCalculationResult calculate(MicroloanCalculationRequest request) {

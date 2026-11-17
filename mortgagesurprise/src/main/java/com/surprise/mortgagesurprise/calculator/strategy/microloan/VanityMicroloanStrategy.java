@@ -36,7 +36,6 @@ public class VanityMicroloanStrategy implements MicroloanCalculationStrategy {
         int termDays = context.termDays();
         LocalDate startDate = context.startDate();
 
-        // Base daily interest
         BigDecimal dailyRateFraction = context.baseDailyRate().divide(ONE_HUNDRED, 16, RoundingMode.HALF_UP);
         BigDecimal dailyInterest = loanAmount.multiply(dailyRateFraction).setScale(SCALE, CURRENCY_ROUNDING);
 
@@ -60,7 +59,6 @@ public class VanityMicroloanStrategy implements MicroloanCalculationStrategy {
 
         BigDecimal baseTotalInterest = accumulatedInterest;
 
-        // Fixed surcharge rate applied to loan amount: loanAmount * (vanitySurchargeRate / 100)
         BigDecimal surchargeRate = context.vanitySurchargeRate() != null ? context.vanitySurchargeRate() : BigDecimal.ZERO;
         BigDecimal surchargeFraction = surchargeRate.divide(ONE_HUNDRED, 16, RoundingMode.HALF_UP);
         BigDecimal vanitySurchargeAmount = loanAmount.multiply(surchargeFraction).setScale(SCALE, CURRENCY_ROUNDING);

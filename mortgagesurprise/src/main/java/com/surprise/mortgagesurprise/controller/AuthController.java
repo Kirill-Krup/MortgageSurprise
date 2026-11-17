@@ -14,6 +14,7 @@ import com.surprise.mortgagesurprise.service.impl.MagicLinkService;
 import com.surprise.mortgagesurprise.service.impl.OAuth2CodeStore;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -26,19 +27,12 @@ import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final MagicLinkService magicLinkService;
     private final OAuth2CodeStore oAuth2CodeStore;
-
-    public AuthController(AuthService authService,
-                          MagicLinkService magicLinkService,
-                          OAuth2CodeStore oAuth2CodeStore) {
-        this.authService = authService;
-        this.magicLinkService = magicLinkService;
-        this.oAuth2CodeStore = oAuth2CodeStore;
-    }
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletResponse response) {

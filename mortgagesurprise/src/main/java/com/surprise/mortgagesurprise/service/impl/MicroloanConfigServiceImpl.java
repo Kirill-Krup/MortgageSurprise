@@ -4,6 +4,7 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanConfigDTO
 import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
 import com.surprise.mortgagesurprise.repository.jpa.MicroloanConfigRepository;
 import com.surprise.mortgagesurprise.service.MicroloanConfigService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,14 +12,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Service
+@RequiredArgsConstructor
 public class MicroloanConfigServiceImpl implements MicroloanConfigService {
 
     private static final String DEFAULT_ID = "DEFAULT";
     private final MicroloanConfigRepository repository;
-
-    public MicroloanConfigServiceImpl(MicroloanConfigRepository repository) {
-        this.repository = repository;
-    }
 
     @Override
     @Transactional(readOnly = true)

@@ -12,6 +12,7 @@ import com.surprise.mortgagesurprise.service.CalculatorService;
 import com.surprise.mortgagesurprise.service.MicroloanService;
 import com.surprise.mortgagesurprise.service.UserAuditService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,19 +22,12 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/calculator")
+@RequiredArgsConstructor
 public class CalculatorController {
 
     private final CalculatorService calculatorService;
     private final MicroloanService microloanService;
     private final UserAuditService userAuditService;
-
-    public CalculatorController(CalculatorService calculatorService,
-                                MicroloanService microloanService,
-                                UserAuditService userAuditService) {
-        this.calculatorService = calculatorService;
-        this.microloanService = microloanService;
-        this.userAuditService = userAuditService;
-    }
 
     @PostMapping({"/calculate", "/mortgage"})
     public ResponseEntity<CalculationResponse> calculate(
