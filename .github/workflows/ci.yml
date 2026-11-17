@@ -1,6 +1,12 @@
 name: CI for mortgage surprise
 
 on:
+  pull_request:
+    branches:
+      - dev
+      - master
+    types: [ opened, synchronize, reopened, ready_for_review ]
+
   workflow_call:
     inputs:
       java-version:
@@ -14,14 +20,29 @@ on:
       working-directory:
         required: false
         type: string
-        default: '.'
+        default: 'mortgagesurprise'
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      mailhog:
+        image: mailhog/mailhog:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      SPRING_MAIL_HOST: localhost
+      SPRING_MAIL_PORT: 1025
+
     defaults:
       run:
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ inputs.working-directory || 'mortgagesurprise' }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,23 +50,39 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ inputs.java-version }}
+          java-version: ${{ inputs.java-version || '25' }}
           distribution: 'temurin'
-          cache: ${{ inputs.build-tool }}
+          cache: ${{ inputs.build-tool || 'gradle' }}
+
+      - name: Wait for MailHog
+        run: |
+          for i in $(seq 1 30); do
+            (echo > /dev/tcp/localhost/1025) >/dev/null 2>&1 && echo "MailHog is up" && exit 0
+            echo "Waiting for MailHog... ($i)"
+            sleep 1
+          done
+          echo "MailHog did not start in time" && exit 1
 
       - name: Grant execute permission for wrapper
         run: |
-          if [ "${{ inputs.build-tool }}" == "gradle" ]; then chmod +x gradlew; fi
-          if [ "${{ inputs.build-tool }}" == "maven" ]; then chmod +x mvnw; fi
+          if [ "${{ inputs.build-tool || 'gradle' }}" == "gradle" ]; then chmod +x ./gradlew; fi
+          if [ "${{ inputs.build-tool || 'gradle' }}" == "maven" ]; then chmod +x ./mvnw; fi
 
       - name: Build, Test, Check and Analyze (Gradle)
-        if: ${{ inputs.build-tool == 'gradle' }}
+        if: ${{ (inputs.build-tool || 'gradle') == 'gradle' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./mortgagesurprise/gradlew build --no-daemon
+        run: ./gradlew build --no-daemon
 
       - name: Build, Test, Check and Analyze (Maven)
         if: ${{ inputs.build-tool == 'maven' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./mortgagesurprise/mvnw clean verify
+        run: ./mvnw clean verify
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: ${{ inputs.working-directory || 'mortgagesurprise' }}/build/reports/tests/test/
