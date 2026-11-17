@@ -9,7 +9,7 @@ import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
-import com.surprise.mortgagesurprise.service.ScenarioComparator;
+import com.surprise.mortgagesurprise.util.ScenarioComparator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

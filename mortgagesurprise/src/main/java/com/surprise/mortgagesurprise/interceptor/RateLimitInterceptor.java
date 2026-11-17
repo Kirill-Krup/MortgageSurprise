@@ -2,7 +2,7 @@ package com.surprise.mortgagesurprise.interceptor;
 
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
-import com.surprise.mortgagesurprise.exception.ErrorResponse;
+import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.RateLimiterRedisService;
 import jakarta.servlet.http.HttpServletRequest;

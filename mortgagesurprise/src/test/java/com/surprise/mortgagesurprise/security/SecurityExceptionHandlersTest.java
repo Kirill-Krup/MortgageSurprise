@@ -1,7 +1,7 @@
 package com.surprise.mortgagesurprise.security;
 
 import tools.jackson.databind.ObjectMapper;
-import com.surprise.mortgagesurprise.exception.ErrorResponse;
+import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

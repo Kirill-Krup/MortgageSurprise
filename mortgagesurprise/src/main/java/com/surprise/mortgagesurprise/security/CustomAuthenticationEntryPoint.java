@@ -1,8 +1,8 @@
 package com.surprise.mortgagesurprise.security;
 
+import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
-import com.surprise.mortgagesurprise.exception.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -27,11 +27,10 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
 
-        String message = authException != null && authException.getMessage() != null
-                ? authException.getMessage()
+        var message = isMessageExists(authException) ? authException.getMessage()
                 : "Full authentication is required to access this resource";
 
-        ErrorResponse errorResponse = new ErrorResponse(
+        var errorResponse = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
                 HttpStatus.UNAUTHORIZED.getReasonPhrase(),
                 message,
@@ -39,5 +38,9 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
         );
 
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
+    }
+
+    private boolean isMessageExists(AuthenticationException authException) {
+        return authException != null && authException.getMessage() != null;
     }
 }

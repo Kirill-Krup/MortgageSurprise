@@ -1,18 +1,18 @@
 package com.surprise.mortgagesurprise.config;
 
 import com.surprise.mortgagesurprise.security.jwt.JwtAuthenticationFilter;
+import com.surprise.mortgagesurprise.security.oauth2.OAuth2AuthenticationFailureHandler;
+import com.surprise.mortgagesurprise.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.surprise.mortgagesurprise.service.CustomUserDetailsService;
 import com.surprise.mortgagesurprise.service.impl.CustomOAuth2UserService;
-import com.surprise.mortgagesurprise.service.impl.OAuth2AuthenticationFailureHandler;
-import com.surprise.mortgagesurprise.service.impl.OAuth2AuthenticationSuccessHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +21,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -98,7 +99,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient<org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
+    public org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
         var client = new org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient();
         client.addHeadersConverter(grantRequest -> {
             var headers = new org.springframework.http.HttpHeaders();

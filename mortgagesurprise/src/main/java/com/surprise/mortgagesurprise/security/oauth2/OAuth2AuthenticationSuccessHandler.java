@@ -1,37 +1,57 @@
-package com.surprise.mortgagesurprise.service.impl;
+package com.surprise.mortgagesurprise.security.oauth2;
 
+import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
+import com.surprise.mortgagesurprise.model.entity.User;
+import com.surprise.mortgagesurprise.repository.jpa.UserRepository;
+import com.surprise.mortgagesurprise.service.AuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 @Component
-public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationFailureHandler {
+public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(OAuth2AuthenticationFailureHandler.class);
-
+    private final UserRepository userRepository;
+    private final AuthService authService;
+    private final OAuth2CodeStore codeStore;
     private final String frontendCallbackUrl;
 
-    public OAuth2AuthenticationFailureHandler(
+    public OAuth2AuthenticationSuccessHandler(
+            UserRepository userRepository,
+            AuthService authService,
+            OAuth2CodeStore codeStore,
             @Value("${app.oauth2.frontend-callback-url}") String frontendCallbackUrl) {
+        this.userRepository = userRepository;
+        this.authService = authService;
+        this.codeStore = codeStore;
         this.frontendCallbackUrl = frontendCallbackUrl;
+        setAlwaysUseDefaultTargetUrl(false);
     }
 
     @Override
-    public void onAuthenticationFailure(HttpServletRequest request,
+    public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
-                                        AuthenticationException exception) throws IOException {
-        log.error("OAuth2 authentication failure: {}", exception.getMessage(), exception);
+                                        Authentication authentication) throws IOException {
+        OAuth2User principal = (OAuth2User) authentication.getPrincipal();
+        UUID userId = UUID.fromString(principal.getAttribute("userId"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found after OAuth2 login"));
+
+        AuthResponse authResponse = authService.createAuthResponse(user);
+
+        String code = codeStore.save(authResponse);
 
         String targetCallbackUrl = frontendCallbackUrl;
         if (request.getCookies() != null) {
@@ -52,7 +72,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
         response.addCookie(cleanupCookie);
 
         String redirectUrl = UriComponentsBuilder.fromUriString(targetCallbackUrl)
-                .queryParam("error", exception.getLocalizedMessage() != null ? exception.getLocalizedMessage() : "Authentication failed")
+                .queryParam("code", code)
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);

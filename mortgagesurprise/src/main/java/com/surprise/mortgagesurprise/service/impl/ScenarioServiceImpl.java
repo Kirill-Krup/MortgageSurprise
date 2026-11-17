@@ -14,7 +14,7 @@ import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
-import com.surprise.mortgagesurprise.service.ScenarioComparator;
+import com.surprise.mortgagesurprise.util.ScenarioComparator;
 import com.surprise.mortgagesurprise.service.ScenarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

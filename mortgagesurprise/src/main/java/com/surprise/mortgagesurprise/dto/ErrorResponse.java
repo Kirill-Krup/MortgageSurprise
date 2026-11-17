@@ -1,4 +1,4 @@
-package com.surprise.mortgagesurprise.exception;
+package com.surprise.mortgagesurprise.dto;
 
 import java.time.Instant;
 import java.util.Map;
