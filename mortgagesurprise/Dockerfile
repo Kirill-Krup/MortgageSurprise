@@ -1,12 +1,13 @@
-FROM eclipse-temurin:25-jre-alpine
-
+FROM gradle:9-jdk25 AS builder
+WORKDIR /build
+COPY settings.gradle.kts build.gradle.kts ./
+RUN gradle --no-daemon dependencies --configuration runtimeClasspath
+COPY src ./src
+RUN gradle --no-daemon build -x test
+FROM eclipse-temurin:25-jre
 WORKDIR /app
-
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
-
-COPY build/libs/*.jar app.jar
-
+RUN addgroup --system app && adduser --system --ingroup app --no-create-home app
+COPY --from=builder --chown=app:app /build/build/libs/*.jar /app/mortgagesurprise.jar
+USER app
 EXPOSE 8080
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/mortgagesurprise.jar"]

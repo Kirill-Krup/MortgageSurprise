@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { calculatorApi, scenarioApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import type {
   BankOffer,
   CalculationRequest,
@@ -21,6 +22,7 @@ import {
   CheckCircle,
   AlertCircle,
   Coins,
+  ShieldCheck,
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
 
@@ -30,24 +32,21 @@ interface CalculatorPageProps {
   onOpenAuth: () => void;
 }
 
-const MORTGAGE_JOKES = [
-  '«Проценты не главное — главное, чтобы в квартире было уютно котику» 🐾',
-  '«Ипотека — это когда банк верит в ваше будущее сильнее, чем вы сами» 🤝',
-  '«Берёшь чужие и на пару лет, отдаёшь свои и 30 лет» ⏳',
-  '«Проценты не главное — зато своя стена, в которую можно забить гвоздь в 8 утра» 🔨',
-  '«Вторая квартира в подарок... любимому банку!» 🎁',
-  '«Каждая досрочка — маленькая слеза кредитного менеджера» 🥲',
-  '«Ипотека дисциплинирует: сразу понимаешь, зачем ходить на работу каждый день» 💼',
-  '«Проценты не главное — главное, чтобы доширак не дорожал!» 🍜',
-  '«Собственная жилплощадь: теперь ты не бездомный, ты — ипотечник!» 🏡',
-];
-
 export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   presetOffer,
   onClearPreset,
   onOpenAuth,
 }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
+
+  const bankingStandards = useMemo(() => [
+    t('standardLicense'),
+    t('standardSecurity'),
+    t('standardBasel'),
+    t('standardAsv'),
+    t('standardPrepay'),
+  ], [t]);
 
   // Currency
   const [currency, setCurrency] = useState<Currency>('RUB');
@@ -84,12 +83,12 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
-  // Humor ticker
+  // Banking standard ticker
   const [jokeIndex, setJokeIndex] = useState<number>(0);
-  const nextJoke = () => setJokeIndex((prev) => (prev + 1) % MORTGAGE_JOKES.length);
+  const nextJoke = () => setJokeIndex((prev) => (prev + 1) % 5);
 
   // Run calculation
-  const calculateMortgage = async (overrideParams?: {
+  const calculateMortgage = useCallback(async (overrideParams?: {
     price?: number;
     dp?: number;
     termY?: number;
@@ -117,11 +116,14 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
       currency: targetCurr,
       earlyRepayments: earlyRepayments.map((er) => ({
         startMonth: Number(er.startMonth),
-        endMonth: er.type === 'MONTHLY' && er.endMonth ? Number(er.endMonth) : null,
+        endMonth: (er.type === 'MONTHLY' || er.type === 'RECURRING') && er.endMonth ? Number(er.endMonth) : null,
         amount: Number(er.amount),
         strategy: er.strategy,
         type: er.type,
       })),
+      bankOfferId: presetOffer ? Number(presetOffer.id) : undefined,
+      bankName: presetOffer?.bankName,
+      offerName: presetOffer?.offerName,
     };
 
     try {
@@ -130,15 +132,14 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(
-        axiosError.response?.data?.message ||
-          'Ошибка при расчете ипотеки. Проверьте правильность введенных данных.'
+        axiosError.response?.data?.message || t('calcErrorMsg')
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, [propertyPrice, downPayment, termYears, annualRate, paymentType, currency, earlyRepayments]);
 
-  // Currency change handler with sensible defaults adaptation & bank preservation
+  // Currency change handler
   const handleCurrencyChange = (newCurrency: Currency) => {
     setCurrency(newCurrency);
     const cfg = CURRENCY_CONFIGS.find((c) => c.code === newCurrency);
@@ -147,8 +148,6 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
       const effectiveDpPercent = presetOffer?.minDownPaymentPercent ?? downPaymentPercent;
       const newDp = Math.round((newPrice * effectiveDpPercent) / 100);
 
-      // If a bank offer is currently active, preserve its interest rate!
-      // Otherwise, use sensible market rates for that currency:
       const newRate = presetOffer
         ? presetOffer.annualInterestRate
         : newCurrency === 'USD'
@@ -167,7 +166,6 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
       setAnnualRate(newRate);
       setErAmount(newErAmount);
 
-      // Immediately run calculation with fresh parameters so calculations apply instantly
       calculateMortgage({
         price: newPrice,
         dp: newDp,
@@ -182,93 +180,88 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   // Apply bank offer preset if passed
   useEffect(() => {
     if (presetOffer) {
-      const targetCurr = presetOffer.currency || currency;
-      const cfg = CURRENCY_CONFIGS.find((c) => c.code === targetCurr);
-      // Adapt property price to currency defaults if currency changes
-      const nextPrice = (targetCurr !== currency && cfg) ? cfg.defaultPrice : propertyPrice;
-      const nextRate = presetOffer.annualInterestRate;
-      const nextTermYears = presetOffer.maxTermMonths
-        ? Math.min(30, Math.floor(presetOffer.maxTermMonths / 12))
-        : termYears;
-      const nextDpPercent = presetOffer.minDownPaymentPercent || 20;
-      const nextDp = Math.round((nextPrice * nextDpPercent) / 100);
+      const offerCurr = presetOffer.currency || 'RUB';
+      setCurrency(offerCurr);
+      const cfg = CURRENCY_CONFIGS.find((c) => c.code === offerCurr);
+      const basePrice = cfg ? cfg.defaultPrice : 10_000_000;
+      const dpPercent = presetOffer.minDownPaymentPercent || 20;
+      const dpAmount = Math.round((basePrice * dpPercent) / 100);
+      const termY = Math.min(Math.round(presetOffer.maxTermMonths / 12) || 20, 30);
+      const rate = presetOffer.annualInterestRate;
 
-      setCurrency(targetCurr);
-      setAnnualRate(nextRate);
-      setTermYears(nextTermYears);
-      setPropertyPrice(nextPrice);
-      setDownPayment(nextDp);
-      setDownPaymentPercent(nextDpPercent);
+      setPropertyPrice(basePrice);
+      setDownPayment(dpAmount);
+      setDownPaymentPercent(dpPercent);
+      setTermYears(termY);
+      setAnnualRate(rate);
 
       calculateMortgage({
-        price: nextPrice,
-        dp: nextDp,
-        termY: nextTermYears,
-        rate: nextRate,
-        curr: targetCurr,
-        pType: paymentType,
+        price: basePrice,
+        dp: dpAmount,
+        termY,
+        rate,
+        curr: offerCurr,
       });
+    } else {
+      calculateMortgage();
     }
   }, [presetOffer]);
 
-  // Sync down payment and percentage
-  const handlePriceChange = (newPrice: number) => {
-    setPropertyPrice(newPrice);
-    const newDp = Math.round((newPrice * downPaymentPercent) / 100);
+  // Price change
+  const handlePriceChange = (val: number) => {
+    setPropertyPrice(val);
+    const newDp = Math.round((val * downPaymentPercent) / 100);
     setDownPayment(newDp);
   };
 
-  const handleDpChange = (newDp: number) => {
-    setDownPayment(newDp);
+  // DP change
+  const handleDpChange = (val: number) => {
+    setDownPayment(val);
     if (propertyPrice > 0) {
-      setDownPaymentPercent(Math.round((newDp / propertyPrice) * 100));
+      const pct = Math.round((val / propertyPrice) * 100);
+      setDownPaymentPercent(Math.min(pct, 99));
     }
   };
 
-  const handleDpPercentChange = (newPercent: number) => {
-    setDownPaymentPercent(newPercent);
-    const newDp = Math.round((propertyPrice * newPercent) / 100);
+  // DP % change
+  const handleDpPercentChange = (pct: number) => {
+    setDownPaymentPercent(pct);
+    const newDp = Math.round((propertyPrice * pct) / 100);
     setDownPayment(newDp);
   };
 
-  // Run calculation on initial mount only (subsequent changes use explicit calculation triggers)
-  const isInitialMount = React.useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      if (!presetOffer) {
-        calculateMortgage();
-      }
-    }
-  }, []);
-
+  // Add Early Repayment
   const addEarlyRepayment = () => {
-    const newEr: EarlyRepayment = {
-      id: Math.random().toString(36).substring(7),
+    const newItem: EarlyRepayment = {
+      id: Math.random().toString(36).substring(2, 9),
       startMonth: erStartMonth,
-      endMonth: erType === 'MONTHLY' ? erEndMonth : null,
+      endMonth: erType === 'MONTHLY' ? erEndMonth || null : null,
       amount: erAmount,
-      type: erType,
       strategy: erStrategy,
+      type: erType,
     };
-    setEarlyRepayments([...earlyRepayments, newEr]);
+    setEarlyRepayments([...earlyRepayments, newItem]);
     setShowEarlyModal(false);
   };
 
+  // Remove Early Repayment
   const removeEarlyRepayment = (index: number) => {
     setEarlyRepayments(earlyRepayments.filter((_, i) => i !== index));
   };
 
+  // Save Scenario
   const handleSaveScenario = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
       onOpenAuth();
       return;
     }
+    if (!scenarioTitle.trim()) return;
+
     setSaving(true);
     try {
       await scenarioApi.save({
-        title: scenarioTitle || `Сценарий (${currency}) ${new Date().toLocaleDateString('ru-RU')}`,
+        title: scenarioTitle.trim(),
         propertyPrice,
         downPayment,
         termMonths: termYears * 12,
@@ -289,9 +282,8 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
         setSaveModalOpen(false);
         setScenarioTitle('');
       }, 1500);
-    } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || 'Не удалось сохранить сценарий.');
+    } catch {
+      alert(t('saveScenarioError'));
     } finally {
       setSaving(false);
     }
@@ -304,28 +296,28 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   const totalPages = result?.schedule ? Math.ceil(result.schedule.length / pageSize) : 1;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-300">
       {/* Preset Offer Banner if any */}
       {presetOffer && (
-        <div className="mb-6 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white p-5 rounded-3xl shadow-lg shadow-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+        <div className="mb-6 bg-gradient-to-r from-blue-700 via-indigo-800 to-slate-900 text-white p-5 rounded-2xl shadow-md border border-blue-600/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className="text-[11px] uppercase tracking-wider font-extrabold bg-white/20 px-2.5 py-0.5 rounded-lg">
-                Выбран банк
+                {t('selectedBank')}
               </span>
               <span className="text-[11px] font-extrabold bg-amber-400 text-amber-950 px-2.5 py-0.5 rounded-lg flex items-center gap-1 shadow-xs">
                 <span>{currency}</span>
                 <span>{getCurrencySymbol(currency)}</span>
               </span>
-              <span className="text-xs text-indigo-100 italic">
-                «Проценты не главное — главное, чтобы банк одобрил!» ✨
+              <span className="text-xs text-blue-200 font-medium">
+                {t('bankTariffs')}
               </span>
             </div>
             <h3 className="text-lg font-black tracking-tight">
               {presetOffer.bankName} — {presetOffer.offerName} ({presetOffer.annualInterestRate}%)
             </h3>
-            <p className="text-xs text-indigo-200 mt-0.5">
-              Условия банка активны. Вы можете свободно переключать валюту ({currency}), сумму и срок кредита.
+            <p className="text-xs text-blue-100 mt-0.5">
+              {t('bankConditionsActive').replace('{currency}', currency)}
             </p>
           </div>
           {onClearPreset && (
@@ -333,46 +325,55 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
               onClick={onClearPreset}
               className="text-xs bg-white/20 hover:bg-white/30 active:bg-white/40 text-white font-bold px-4 py-2 rounded-xl transition-all cursor-pointer self-start sm:self-center shrink-0"
             >
-              Сбросить банк
+              {t('resetBank')}
             </button>
           )}
         </div>
       )}
 
-      {/* Humorous Quote / Easter Egg Banner */}
-      <div className="mb-6 bg-amber-50/90 border border-amber-200/80 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-amber-900 shadow-xs">
+      {/* Official Banking Standards Banner */}
+      <div className="mb-6 bg-blue-50/80 dark:bg-slate-900/90 border border-blue-200 dark:border-slate-800 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs text-blue-950 dark:text-blue-200 shadow-xs transition-colors">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-base select-none shrink-0">💡</span>
-          <span className="font-semibold italic truncate sm:overflow-visible sm:whitespace-normal">
-            {MORTGAGE_JOKES[jokeIndex]}
+          <ShieldCheck size={18} className="text-blue-600 dark:text-blue-400 shrink-0" />
+          <span className="font-semibold truncate sm:overflow-visible sm:whitespace-normal">
+            {bankingStandards[jokeIndex % bankingStandards.length]}
           </span>
         </div>
         <button
           type="button"
           onClick={nextJoke}
-          className="text-[11px] font-bold text-amber-800 hover:text-amber-950 bg-amber-200/60 hover:bg-amber-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0"
-          title="Следующая народная мудрость"
+          className="text-[11px] font-bold text-blue-800 dark:text-blue-300 hover:text-blue-950 dark:hover:text-white bg-blue-200/60 dark:bg-blue-950 px-2.5 py-1 rounded-lg border border-transparent dark:border-slate-800 transition-colors cursor-pointer shrink-0"
+          title={t('nextStandardTooltip')}
         >
-          Ещё шутка 😄
+          {t('nextYear')} &rarr;
         </button>
       </div>
+
+      {user?.role === 'ROLE_ADMIN' && (
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl flex items-start gap-3 text-amber-900 dark:text-amber-200 text-sm animate-in fade-in">
+          <ShieldCheck size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-bold">{t('adminConfigModeAlert')}</div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Calculator Parameters Form */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-sm border border-slate-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-7 shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <span className="w-2.5 h-6 bg-indigo-600 rounded-full inline-block" />
-                Параметры ипотеки
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span className="w-2.5 h-6 bg-blue-600 rounded-full inline-block" />
+                {t('mortgageParams')}
               </h2>
             </div>
 
             {/* Currency Selector Bar */}
-            <div className="mb-6 p-1.5 bg-slate-100 rounded-2xl">
-              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
-                <Coins size={14} className="text-indigo-600" />
-                Валюта расчета
+            <div className="mb-6 p-1.5 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-transparent dark:border-slate-800">
+              <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
+                <Coins size={14} className="text-blue-600 dark:text-blue-400" />
+                {t('calcCurrency')}
               </div>
               <div className="grid grid-cols-4 gap-1.5 mt-1">
                 {CURRENCY_CONFIGS.map((cfg) => {
@@ -384,8 +385,8 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                       onClick={() => handleCurrencyChange(cfg.code)}
                       className={`py-2 px-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center ${
                         isSelected
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100 scale-102'
-                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200/60'
+                          ? 'bg-blue-700 text-white shadow-xs scale-102'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-800'
                       }`}
                     >
                       <span className="text-sm font-black">{cfg.symbol}</span>
@@ -400,10 +401,10 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
               {/* Property Price */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-sm font-semibold text-slate-700">
-                    Стоимость недвижимости
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {t('propertyPrice')}
                   </label>
-                  <span className="text-sm font-bold text-indigo-600">
+                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
                     {formatCurrency(propertyPrice, currency)}
                   </span>
                 </div>
@@ -414,7 +415,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                     step={currency === 'USD' || currency === 'EUR' ? '5000' : '50000'}
                     value={propertyPrice}
                     onChange={(e) => handlePriceChange(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 text-sm"
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
                     {getCurrencySymbol(currency)}
@@ -427,17 +428,19 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                   step={currency === 'USD' || currency === 'EUR' ? 5000 : 100000}
                   value={propertyPrice}
                   onChange={(e) => handlePriceChange(Number(e.target.value))}
-                  className="w-full mt-2 accent-indigo-600 cursor-pointer"
+                  className="w-full mt-2 accent-blue-600 cursor-pointer"
                 />
               </div>
 
               {/* Down Payment */}
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-sm font-semibold text-slate-700">Первоначальный взнос</label>
-                  <div className="flex items-center gap-2 text-sm font-bold text-indigo-600">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {t('downPayment')}
+                  </label>
+                  <div className="flex items-center gap-2 text-sm font-bold text-blue-600 dark:text-blue-400">
                     <span>{formatCurrency(downPayment, currency)}</span>
-                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                       {downPaymentPercent}%
                     </span>
                   </div>
@@ -450,7 +453,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                       step={currency === 'USD' || currency === 'EUR' ? '2000' : '20000'}
                       value={downPayment}
                       onChange={(e) => handleDpChange(Number(e.target.value))}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 text-sm"
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
                       {getCurrencySymbol(currency)}
@@ -463,7 +466,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                       max="90"
                       value={downPaymentPercent}
                       onChange={(e) => handleDpPercentChange(Number(e.target.value))}
-                      className="w-full pl-3 pr-7 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm text-center"
+                      className="w-full pl-3 pr-7 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 text-sm text-center"
                     />
                     <Percent
                       size={14}
@@ -478,15 +481,15 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                   step="1"
                   value={downPaymentPercent}
                   onChange={(e) => handleDpPercentChange(Number(e.target.value))}
-                  className="w-full mt-2 accent-indigo-600 cursor-pointer"
+                  className="w-full mt-2 accent-blue-600 cursor-pointer"
                 />
               </div>
 
               {/* Term & Rate */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                    Срок кредита
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {t('loanTerm')}
                   </label>
                   <div className="relative">
                     <input
@@ -495,17 +498,17 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                       max="30"
                       value={termYears}
                       onChange={(e) => setTermYears(Number(e.target.value))}
-                      className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                      className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 text-sm"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
-                      лет
+                      {t('years')}
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                    Ставка (%)
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {t('rate')}
                   </label>
                   <div className="relative">
                     <input
@@ -515,7 +518,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                       max="40"
                       value={annualRate}
                       onChange={(e) => setAnnualRate(Number(e.target.value))}
-                      className="w-full pl-3 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                      className="w-full pl-3 pr-8 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 text-sm"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
                       %
@@ -526,80 +529,72 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
 
               {/* Payment Type */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Тип платежей
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  {t('paymentType')}
                 </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-transparent dark:border-slate-800 text-xs font-semibold">
                   <button
                     type="button"
                     onClick={() => setPaymentType('ANNUITY')}
                     className={`py-2 rounded-lg transition-all cursor-pointer ${
                       paymentType === 'ANNUITY'
-                        ? 'bg-white text-indigo-600 shadow-sm font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    Аннуитетный
+                    {t('annuity')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentType('DIFFERENTIATED')}
                     className={`py-2 rounded-lg transition-all cursor-pointer ${
                       paymentType === 'DIFFERENTIATED'
-                        ? 'bg-white text-indigo-600 shadow-sm font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
+                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs font-bold'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
-                    Дифференцированный
+                    {t('differentiated')}
                   </button>
                 </div>
               </div>
 
-              {/* Early Repayments Header & List */}
-              <div className="pt-2 border-t border-slate-100">
+              {/* Early Repayments */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-slate-800">Досрочные погашения</span>
-                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">
-                      {earlyRepayments.length}
-                    </span>
-                  </div>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {t('earlyRepayments')}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setShowEarlyModal(true)}
-                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-semibold cursor-pointer"
+                    className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 cursor-pointer"
                   >
                     <Plus size={14} />
-                    Добавить
+                    {t('add')}
                   </button>
                 </div>
 
                 {earlyRepayments.length > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-2 mb-4">
                     {earlyRepayments.map((er, idx) => (
                       <div
-                        key={idx}
-                        className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs"
+                        key={er.id || idx}
+                        className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl text-xs border border-slate-100 dark:border-slate-800"
                       >
-                        <div>
-                          <div className="font-semibold text-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
                             {formatCurrency(er.amount, currency)}
-                            <span className="ml-1.5 font-normal text-slate-500">
-                              {er.type === 'ONE_TIME'
-                                ? `в ${er.startMonth} мес.`
-                                : `с ${er.startMonth} по ${er.endMonth || 'конец'} мес.`}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            {er.strategy === 'REDUCE_TERM'
-                              ? 'Сокращение срока'
-                              : 'Уменьшение платежа'}
-                          </div>
+                          </span>
+                          <span className="text-slate-500 dark:text-slate-400">
+                            {er.type === 'ONE_TIME'
+                              ? `${t('inMonthPrefix')} ${er.startMonth}`
+                              : t('fromMonthTo').replace('{start}', String(er.startMonth)).replace('{end}', String(er.endMonth || t('untilEnd')))}
+                          </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeEarlyRepayment(idx)}
-                          className="p-1 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                          className="text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -607,8 +602,8 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic">
-                    Каждая досрочка — это слёзы банкира 🥲 Добавьте платёж, чтобы банк не расслаблялся!
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    {t('emptyEarlyRepayments')}
                   </p>
                 )}
               </div>
@@ -617,15 +612,14 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
               <button
                 type="button"
                 onClick={() => calculateMortgage()}
-                disabled={loading}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                disabled={loading || user?.role === 'ROLE_ADMIN'}
+                className="w-full py-3.5 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-bold rounded-xl shadow-md shadow-blue-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
                 ) : (
                   <span>
-                    Рассчитать ипотеку ({getCurrencySymbol(currency)}){' '}
-                    <span className="text-xs font-normal opacity-85">— Проценты не главное! 😉</span>
+                    {t('calculateMortgageBtn')} ({getCurrencySymbol(currency)})
                   </span>
                 )}
               </button>
@@ -636,7 +630,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
         {/* Right Column: Results Summary & Payment Schedule */}
         <div className="lg:col-span-7 space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm flex items-start gap-3">
+            <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300 text-sm flex items-start gap-3">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -644,18 +638,18 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
 
           {/* Results Summary Cards */}
           {result && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-sm border border-slate-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 gap-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-7 shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800 gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      Ежемесячный платеж
+                    <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      {t('financialResult')} &bull; {t('monthlyPayment')}
                     </span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                       {result.currency || currency}
                     </span>
                   </div>
-                  <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-1">
+                  <div className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mt-1">
                     {paymentType === 'ANNUITY' ? (
                       formatCurrency(result.monthlyPayment, result.currency || currency)
                     ) : (
@@ -665,82 +659,69 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-slate-400 font-medium block mt-1">
-                    «Зато своя!» — шепчет кошелёк 💳
-                  </span>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setSaveModalOpen(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold rounded-xl transition-colors cursor-pointer"
-                  >
-                    <BookmarkPlus size={18} />
-                    Сохранить сценарий
-                  </button>
-                </div>
+                {user?.role !== 'ROLE_ADMIN' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSaveModalOpen(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-sm font-semibold rounded-xl border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                    >
+                      <BookmarkPlus size={18} />
+                      {t('saveScenarioBtn')}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Grid Metrics */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6">
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between">
                   <div>
-                    <div className="text-xs text-slate-500 font-medium">Сумма кредита</div>
-                    <div className="text-base font-bold text-slate-800 mt-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('loanAmountTitle')}</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
                       {formatCurrency(result.loanAmount, result.currency || currency)}
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium mt-1">
-                    🏠 Собственное гнёздышко
-                  </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between">
                   <div>
-                    <div className="text-xs text-slate-500 font-medium">Переплата по %</div>
-                    <div className="text-base font-bold text-amber-600 mt-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('overpaymentInterest')}</div>
+                    <div className="text-base font-bold text-red-600 dark:text-red-400 mt-1">
                       {formatCurrency(result.totalInterest, result.currency || currency)}
                     </div>
                   </div>
-                  <span className="text-[10px] text-amber-600 font-medium mt-1">
-                    🎁 Вторая квартира банку
-                  </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between">
                   <div>
-                    <div className="text-xs text-slate-500 font-medium">Всего выплат</div>
-                    <div className="text-base font-bold text-slate-800 mt-1">
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('totalPaymentsSum')}</div>
+                    <div className="text-base font-bold text-slate-900 dark:text-white mt-1">
                       {formatCurrency(result.totalPayment, result.currency || currency)}
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-500 font-medium mt-1">
-                    📊 Проценты не главное!
-                  </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800/80 flex flex-col justify-between">
                   <div>
-                    <div className="text-xs text-slate-500 font-medium">Фактический срок</div>
-                    <div className="text-base font-bold text-indigo-600 mt-1">
-                      {Math.floor(result.actualTermMonths / 12)} г. {result.actualTermMonths % 12} мес.
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">{t('actualTerm')}</div>
+                    <div className="text-base font-bold text-blue-600 dark:text-blue-400 mt-1">
+                      {Math.floor(result.actualTermMonths / 12)} {t('yearUnit')} {result.actualTermMonths % 12} {t('monthUnit')}
                     </div>
                   </div>
-                  <span className="text-[10px] text-indigo-600 font-medium mt-1">
-                    🏃 Длиннее марафона
-                  </span>
                 </div>
               </div>
 
               {/* Savings hint if term was reduced */}
               {result.actualTermMonths < result.termMonths && (
-                <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-2 text-xs text-emerald-800 font-medium">
-                  <TrendingDown size={16} className="text-emerald-600 shrink-0" />
+                <div className="mt-4 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-200 font-medium">
+                  <TrendingDown size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>
-                    Благодаря досрочным погашениям срок сократился на{' '}
+                    {t('earlyRepaymentsSavings')}{' '}
                     <span className="font-bold">
-                      {Math.floor((result.termMonths - result.actualTermMonths) / 12)} лет{' '}
-                      {(result.termMonths - result.actualTermMonths) % 12} мес.
+                      {Math.floor((result.termMonths - result.actualTermMonths) / 12)} {t('years')}{' '}
+                      {(result.termMonths - result.actualTermMonths) % 12} {t('months')}
                     </span>
                   </span>
                 </div>
@@ -750,57 +731,57 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
 
           {/* Payment Schedule Table */}
           {result?.schedule && result.schedule.length > 0 && (
-            <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-sm border border-slate-200">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 sm:p-7 shadow-xs border border-slate-200 dark:border-slate-800 transition-colors">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Table size={20} className="text-indigo-600" />
-                  График платежей ({result.currency || currency})
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Table size={20} className="text-blue-600 dark:text-blue-400" />
+                  {t('scheduleTitle')} ({result.currency || currency})
                 </h3>
-                <span className="text-xs font-semibold text-slate-500">
-                  Всего платежей: {result.schedule.length}
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {t('totalPayments')}: {result.schedule.length}
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
+                    <tr className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
                       <th className="p-3 text-center">№</th>
-                      <th className="p-3">Дата</th>
-                      <th className="p-3 text-right">Остаток долга</th>
-                      <th className="p-3 text-right">Основной долг</th>
-                      <th className="p-3 text-right">Проценты</th>
-                      <th className="p-3 text-right">Досрочно</th>
-                      <th className="p-3 text-right">Платеж</th>
+                      <th className="p-3">{t('tableDate')}</th>
+                      <th className="p-3 text-right">{t('tableRemainingDebt')}</th>
+                      <th className="p-3 text-right">{t('tablePrincipalPart')}</th>
+                      <th className="p-3 text-right">{t('tableInterestPart')}</th>
+                      <th className="p-3 text-right">{t('tableEarlyRepayment')}</th>
+                      <th className="p-3 text-right">{t('tableMonthlyPayment')}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {paginatedSchedule.map((row) => (
-                      <tr key={row.monthNumber} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="p-3 text-center font-medium text-slate-400">
+                      <tr key={row.monthNumber} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="p-3 text-center font-medium text-slate-400 dark:text-slate-500">
                           {row.monthNumber}
                         </td>
-                        <td className="p-3 font-medium text-slate-700 whitespace-nowrap">
-                          {new Date(row.paymentDate).toLocaleDateString('ru-RU', {
+                        <td className="p-3 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          {new Date(row.paymentDate).toLocaleDateString(currency === 'RUB' ? 'ru-RU' : 'en-US', {
                             month: 'short',
                             year: 'numeric',
                           })}
                         </td>
-                        <td className="p-3 text-right font-medium text-slate-600 whitespace-nowrap">
+                        <td className="p-3 text-right font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           {formatCurrency(row.openingBalance, result.currency || currency)}
                         </td>
-                        <td className="p-3 text-right font-semibold text-slate-800 whitespace-nowrap">
+                        <td className="p-3 text-right font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                           {formatCurrency(row.principalPayment, result.currency || currency)}
                         </td>
-                        <td className="p-3 text-right text-amber-600 font-medium whitespace-nowrap">
+                        <td className="p-3 text-right text-red-600 dark:text-red-400 font-medium whitespace-nowrap">
                           {formatCurrency(row.interestPayment, result.currency || currency)}
                         </td>
-                        <td className="p-3 text-right text-emerald-600 font-semibold whitespace-nowrap">
+                        <td className="p-3 text-right text-emerald-600 dark:text-emerald-400 font-semibold whitespace-nowrap">
                           {row.earlyPayment > 0
                             ? formatCurrency(row.earlyPayment, result.currency || currency)
                             : '—'}
                         </td>
-                        <td className="p-3 text-right font-bold text-indigo-600 whitespace-nowrap">
+                        <td className="p-3 text-right font-bold text-blue-700 dark:text-blue-400 whitespace-nowrap">
                           {formatCurrency(row.totalMonthlyPayment, result.currency || currency)}
                         </td>
                       </tr>
@@ -815,19 +796,19 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                   >
-                    Назад (год {currentPage - 1})
+                    {t('prevYear')} ({t('year')} {currentPage - 1})
                   </button>
-                  <span className="text-xs text-slate-500 font-medium">
-                    Год {currentPage} из {totalPages}
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t('year')} {currentPage} {t('of')} {totalPages}
                   </span>
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 disabled:opacity-40 hover:bg-slate-50 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                   >
-                    Вперед (год {currentPage + 1})
+                    {t('nextYear')} ({t('year')} {currentPage + 1})
                   </button>
                 </div>
               )}
@@ -838,40 +819,44 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
 
       {/* Add Early Repayment Modal */}
       {showEarlyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Добавить досрочное погашение</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white transition-colors">
+            <h3 className="text-lg font-bold mb-4">{t('addEarlyModalTitle')}</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                  Тип погашения
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                  {t('repaymentType')}
                 </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-transparent dark:border-slate-800 text-xs font-semibold">
                   <button
                     type="button"
                     onClick={() => setErType('ONE_TIME')}
                     className={`py-2 rounded-lg cursor-pointer ${
-                      erType === 'ONE_TIME' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                      erType === 'ONE_TIME'
+                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    Разовое
+                    {t('oneTime')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setErType('MONTHLY')}
                     className={`py-2 rounded-lg cursor-pointer ${
-                      erType === 'MONTHLY' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                      erType === 'MONTHLY'
+                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    Ежемесячное
+                    {t('monthly')}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                  Сумма погашения ({getCurrencySymbol(currency)})
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                  {t('repaymentAmount')} ({getCurrencySymbol(currency)})
                 </label>
                 <input
                   type="number"
@@ -879,14 +864,14 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                   step={currency === 'USD' || currency === 'EUR' ? '500' : '5000'}
                   value={erAmount}
                   onChange={(e) => setErAmount(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                    {erType === 'ONE_TIME' ? 'Месяц выплаты' : 'С месяца'}
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                    {erType === 'ONE_TIME' ? t('repaymentMonth') : t('fromMonth')}
                   </label>
                   <input
                     type="number"
@@ -894,43 +879,41 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                     max={termYears * 12}
                     value={erStartMonth}
                     onChange={(e) => setErStartMonth(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
                   />
                 </div>
 
                 {erType === 'MONTHLY' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                      По месяц (опционально)
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                      {t('toMonth')}
                     </label>
                     <input
                       type="number"
                       min={erStartMonth}
                       max={termYears * 12}
                       value={erEndMonth || ''}
-                      placeholder="До конца"
+                      placeholder={t('untilEnd')}
                       onChange={(e) =>
                         setErEndMonth(e.target.value ? Number(e.target.value) : undefined)
                       }
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
                     />
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                  Стратегия досрочки
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                  {t('earlyStrategy')}
                 </label>
                 <select
                   value={erStrategy}
                   onChange={(e) => setErStrategy(e.target.value as RepaymentStrategy)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
                 >
-                  <option value="REDUCE_TERM">Сократить срок кредита (меньше переплата)</option>
-                  <option value="REDUCE_PAYMENT">
-                    Уменьшить ежемесячный платеж (меньше нагрузка)
-                  </option>
+                  <option value="REDUCE_TERM">{t('reduceTermDesc')}</option>
+                  <option value="REDUCE_PAYMENT">{t('reducePaymentDesc')}</option>
                 </select>
               </div>
 
@@ -938,16 +921,16 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowEarlyModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-sm rounded-xl transition-colors cursor-pointer"
                 >
-                  Отмена
+                  {t('cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={addEarlyRepayment}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all cursor-pointer"
+                  className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm rounded-xl shadow-md transition-all cursor-pointer"
                 >
-                  Добавить
+                  {t('add')}
                 </button>
               </div>
             </div>
@@ -957,32 +940,31 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
 
       {/* Save Scenario Modal */}
       {saveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Сохранить сценарий</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Сценарий будет сохранен с выбранной валютой ({currency}) и доступен для сравнения и
-              экспорта в PDF.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white transition-colors">
+            <h3 className="text-lg font-bold mb-2">{t('saveScenarioModalTitle')}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              {t('saveScenarioModalDesc')}
             </p>
 
             {saveSuccess ? (
-              <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl flex items-center gap-2 text-sm font-semibold">
-                <CheckCircle size={18} className="text-emerald-600" />
-                <span>Сценарий успешно сохранен!</span>
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 rounded-xl flex items-center gap-2 text-sm font-semibold border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle size={18} className="text-emerald-600 dark:text-emerald-400" />
+                <span>{t('scenarioSavedSuccess')}</span>
               </div>
             ) : (
               <form onSubmit={handleSaveScenario} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                    Название сценария
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase mb-1">
+                    {t('scenarioName')}
                   </label>
                   <input
                     type="text"
                     required
                     value={scenarioTitle}
                     onChange={(e) => setScenarioTitle(e.target.value)}
-                    placeholder={`Например: 2-к кв (${currency}) на 20 лет`}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    placeholder={t('scenarioPlaceholder').replace('{currency}', currency)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
                   />
                 </div>
 
@@ -990,16 +972,16 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                   <button
                     type="button"
                     onClick={() => setSaveModalOpen(false)}
-                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-sm rounded-xl transition-colors cursor-pointer"
                   >
-                    Отмена
+                    {t('cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-70"
+                    className="flex-1 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-semibold text-sm rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-70"
                   >
-                    {saving ? 'Сохранение...' : 'Сохранить'}
+                    {saving ? t('saving') : t('save')}
                   </button>
                 </div>
               </form>

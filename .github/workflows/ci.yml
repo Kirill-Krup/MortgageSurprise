@@ -1,0 +1,51 @@
+name: CI for mortgage surprise
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        required: false
+        type: string
+        default: '25'
+      build-tool:
+        required: false
+        type: string
+        default: 'gradle'
+      working-directory:
+        required: false
+        type: string
+        default: '.'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ inputs.java-version }}
+          distribution: 'temurin'
+          cache: ${{ inputs.build-tool }}
+
+      - name: Grant execute permission for wrapper
+        run: |
+          if [ "${{ inputs.build-tool }}" == "gradle" ]; then chmod +x gradlew; fi
+          if [ "${{ inputs.build-tool }}" == "maven" ]; then chmod +x mvnw; fi
+
+      - name: Build, Test, Check and Analyze (Gradle)
+        if: ${{ inputs.build-tool == 'gradle' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./mortgagesurprise/gradlew build --no-daemon
+
+      - name: Build, Test, Check and Analyze (Maven)
+        if: ${{ inputs.build-tool == 'maven' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./mortgagesurprise/mvnw clean verify

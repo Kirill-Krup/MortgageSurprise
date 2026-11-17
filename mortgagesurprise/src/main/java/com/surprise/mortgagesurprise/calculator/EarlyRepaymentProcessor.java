@@ -30,7 +30,7 @@ public class EarlyRepaymentProcessor {
             boolean applies = false;
             if (er.type() == EarlyRepaymentType.ONE_TIME) {
                 applies = (er.startMonth() == month);
-            } else if (er.type() == EarlyRepaymentType.RECURRING) {
+            } else if (er.type() == EarlyRepaymentType.RECURRING || er.type() == EarlyRepaymentType.MONTHLY) {
                 boolean afterOrAtStart = month >= er.startMonth();
                 boolean beforeOrAtEnd = er.endMonth() == null || month <= er.endMonth();
                 applies = afterOrAtStart && beforeOrAtEnd;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { authApi } from '../api/client';
 import { X, Lock, Mail, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 
@@ -15,6 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   initialMode = 'login',
 }) => {
   const { login, register } = useAuth();
+  const { t } = useLanguage();
   const [mode, setMode] = useState<'login' | 'register' | 'magic'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,8 +55,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(
-        axiosError.response?.data?.message ||
-          'Произошла ошибка при выполнении запроса. Пожалуйста, попробуйте снова.'
+        axiosError.response?.data?.message || t('authErrorDefault')
       );
     } finally {
       setLoading(false);
@@ -63,24 +64,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-100">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative border border-slate-100 dark:border-slate-800">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-800">
-            {mode === 'login' && 'Вход в аккаунт'}
-            {mode === 'register' && 'Регистрация'}
-            {mode === 'magic' && 'Вход по волшебной ссылке'}
+        <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+            {mode === 'login' && t('authLoginTitle')}
+            {mode === 'register' && t('authRegisterTitle')}
+            {mode === 'magic' && t('authMagicTitle')}
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Tab switchers */}
-        <div className="flex border-b border-slate-100 bg-slate-50 p-1 text-sm font-medium">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-1 text-sm font-medium">
           <button
             type="button"
             onClick={() => {
@@ -90,11 +91,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-lg text-center transition-all ${
               mode === 'login'
-                ? 'bg-white text-indigo-600 shadow-sm font-semibold'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Вход
+            {t('authTabLogin')}
           </button>
           <button
             type="button"
@@ -105,11 +106,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-lg text-center transition-all ${
               mode === 'register'
-                ? 'bg-white text-indigo-600 shadow-sm font-semibold'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Регистрация
+            {t('authTabRegister')}
           </button>
           <button
             type="button"
@@ -119,18 +120,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`flex-1 py-2 rounded-lg text-center transition-all ${
               mode === 'magic'
-                ? 'bg-white text-indigo-600 shadow-sm font-semibold'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Magic Link
+            {t('authTabMagic')}
           </button>
         </div>
 
         {/* Form Body */}
         <div className="p-6">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700 text-sm">
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3 text-red-700 dark:text-red-300 text-sm">
               <AlertCircle size={18} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -138,26 +139,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {magicSent ? (
             <div className="text-center py-6">
-              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 size={32} />
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Ссылка отправлена!</h3>
-              <p className="text-slate-600 text-sm mb-6">
-                Мы отправили ссылку для входа на адрес <span className="font-semibold text-slate-800">{email}</span>. Перейдите по ней для автоматического входа.
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t('authMagicSentTitle')}</h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm mb-6">
+                {t('authMagicSentDesc')} <span className="font-semibold text-slate-800 dark:text-white">{email}</span>. {t('authMagicSentHint')}
               </p>
               <button
                 type="button"
                 onClick={() => setMagicSent(false)}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors"
+                className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition-colors cursor-pointer"
               >
-                Отправить другую ссылку
+                {t('authSendAnotherLink')}
               </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Email
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  {t('authEmailLabel')}
                 </label>
                 <div className="relative">
                   <Mail
@@ -170,15 +171,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="user@example.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-950 text-sm"
                   />
                 </div>
               </div>
 
               {mode !== 'magic' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
-                    Пароль
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                    {t('authPasswordLabel')}
                   </label>
                   <div className="relative">
                     <Lock
@@ -191,7 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-sm"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-950 text-sm"
                     />
                   </div>
                 </div>
@@ -200,27 +201,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
+                className="w-full mt-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all flex items-center justify-center gap-2 disabled:opacity-70 cursor-pointer"
               >
                 {loading ? (
                   <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
                 ) : mode === 'login' ? (
-                  'Войти'
+                  t('authSignInBtn')
                 ) : mode === 'register' ? (
-                  'Зарегистрироваться'
+                  t('authSignUpBtn')
                 ) : (
                   <>
                     <Sparkles size={18} />
-                    <span>Отправить Magic Link</span>
+                    <span>{t('authSendMagicBtn')}</span>
                   </>
                 )}
               </button>
 
               {mode === 'login' && (
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center justify-between gap-2">
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <span className="font-semibold text-slate-700 block">Аккаунт администратора:</span>
-                    <span className="text-[11px] text-slate-500 font-mono block truncate">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 block">{t('authAdminAccountNotice')}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block truncate">
                       admin@mortgagesurprise.com / admin123
                     </span>
                   </div>
@@ -230,9 +231,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setEmail('admin@mortgagesurprise.com');
                       setPassword('admin123');
                     }}
-                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg text-xs transition-colors shrink-0 cursor-pointer"
+                    className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold rounded-lg text-xs transition-colors shrink-0 cursor-pointer"
                   >
-                    Заполнить
+                    {t('authAdminFillBtn')}
                   </button>
                 </div>
               )}
@@ -240,14 +241,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {!magicSent && (
-            <div className="mt-5 pt-4 border-t border-slate-100">
+            <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
               <div className="relative mb-4">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200" />
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2.5 text-slate-400 font-semibold tracking-wider">
-                    или войдите через
+                  <span className="bg-white dark:bg-slate-900 px-2.5 text-slate-400 font-semibold tracking-wider">
+                    {t('authOrSignInWith')}
                   </span>
                 </div>
               </div>
@@ -256,7 +257,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOAuthLogin('google')}
-                  className="flex items-center justify-center gap-2.5 px-3 py-2.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer active:scale-98"
+                  className="flex items-center justify-center gap-2.5 px-3 py-2.5 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer active:scale-98"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                     <path
@@ -282,9 +283,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOAuthLogin('github')}
-                  className="flex items-center justify-center gap-2.5 px-3 py-2.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer active:scale-98"
+                  className="flex items-center justify-center gap-2.5 px-3 py-2.5 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer active:scale-98"
                 >
-                  <svg className="w-4 h-4 shrink-0 text-slate-900 fill-current" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 shrink-0 text-slate-900 dark:text-white fill-current" viewBox="0 0 24 24">
                     <path
                       fillRule="evenodd"
                       clipRule="evenodd"

@@ -17,6 +17,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(rateLimitInterceptor)
-                .addPathPatterns("/api/v1/calculator/calculate");
+                .addPathPatterns("/api/v1/calculator/calculate", "/api/v1/calculator/microloan", "/api/v1/calculator/mortgage");
     }
 }

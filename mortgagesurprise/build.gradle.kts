@@ -50,9 +50,10 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.testcontainers:junit-jupiter:1.20.4")
-	testImplementation("org.testcontainers:postgresql:1.20.4")
-	testImplementation("org.testcontainers:mongodb:1.20.4")
-	testImplementation("org.testcontainers:rabbitmq:1.20.4")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:testcontainers-mongodb")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation("org.testcontainers:testcontainers-rabbitmq")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

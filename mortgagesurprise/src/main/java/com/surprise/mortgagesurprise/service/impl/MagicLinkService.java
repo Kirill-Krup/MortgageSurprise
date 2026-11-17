@@ -117,17 +117,18 @@ public class MagicLinkService {
                 .toUriString();
 
         String body = String.format(
-                "Здравствуйте!\n\n" +
-                "Для входа в личный кабинет MortgageSurprise перейдите по ссылке:\n%s\n\n" +
-                "Ссылка действительна в течение 30 минут.\n" +
-                "Если вы не запрашивали ссылку, просто проигнорируйте это письмо.\n\n" +
-                "Команда MortgageSurprise",
+                "Hello!\n\n" +
+                "To sign in to your MortgageSurprise online banking account, click the following secure link:\n%s\n\n" +
+                "The link is valid for 30 minutes.\n" +
+                "If you did not request this link, please disregard this email.\n\n" +
+                "Best regards,\n" +
+                "MortgageSurprise Team",
                 link
         );
 
         messageProducer.sendEmailNotification(new EmailNotificationEvent(
                 email,
-                "Вход в личный кабинет MortgageSurprise (Magic Link)",
+                "Sign In to MortgageSurprise (Magic Link)",
                 body,
                 "MAGIC_LINK",
                 Instant.now()));

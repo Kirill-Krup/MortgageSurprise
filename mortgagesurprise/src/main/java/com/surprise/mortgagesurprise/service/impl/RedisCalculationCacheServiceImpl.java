@@ -33,11 +33,11 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
             String json = redisTemplate.opsForValue().get(key);
             if (json != null && !json.isBlank()) {
                 CalculationResponse response = objectMapper.readValue(json, CalculationResponse.class);
-                log.info("Redis Cache HIT: найден расчет для хэша {}", calculationHash);
+                log.info("Redis Cache HIT: calculation found for hash {}", calculationHash);
                 return Optional.of(response);
             }
         } catch (Exception e) {
-            log.error("Ошибка при чтении из кэша Redis для ключа {}: {}", key, e.getMessage());
+            log.error("Error reading from Redis cache for key {}: {}", key, e.getMessage());
         }
         return Optional.empty();
     }
@@ -53,9 +53,9 @@ public class RedisCalculationCacheServiceImpl implements CalculationCacheService
         try {
             String json = objectMapper.writeValueAsString(response);
             redisTemplate.opsForValue().set(key, json, ttl);
-            log.info("Redis Cache PUT: расчет сохранен в кэш (хэш={}, ttl={})", calculationHash, ttl);
+            log.info("Redis Cache PUT: calculation cached (hash={}, ttl={})", calculationHash, ttl);
         } catch (Exception e) {
-            log.error("Ошибка при сохранении в кэш Redis для ключа {}: {}", key, e.getMessage());
+            log.error("Error saving to Redis cache for key {}: {}", key, e.getMessage());
         }
     }
 }

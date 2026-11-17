@@ -36,7 +36,11 @@ public record CalculationRequest(
         LocalDate startDate,
 
         @Valid
-        List<EarlyRepaymentRequest> earlyRepayments
+        List<EarlyRepaymentRequest> earlyRepayments,
+
+        Long bankOfferId,
+        String bankName,
+        String offerName
 ) {
     public CalculationRequest {
         if (currency == null) {
@@ -52,7 +56,16 @@ public record CalculationRequest(
 
     public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
                               BigDecimal annualInterestRate, PaymentType paymentType,
+                              Currency currency, LocalDate startDate,
+                              List<EarlyRepaymentRequest> earlyRepayments) {
+        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
+                currency, startDate, earlyRepayments, null, null, null);
+    }
+
+    public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
+                              BigDecimal annualInterestRate, PaymentType paymentType,
                               LocalDate startDate, List<EarlyRepaymentRequest> earlyRepayments) {
-        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType, Currency.RUB, startDate, earlyRepayments);
+        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
+                Currency.RUB, startDate, earlyRepayments, null, null, null);
     }
 }

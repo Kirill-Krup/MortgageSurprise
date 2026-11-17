@@ -1,21 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Navbar } from './components/Navbar';
+import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { Navbar, type NavTab } from './components/Navbar';
 import { AuthModal } from './components/AuthModal';
 import { CalculatorPage } from './pages/CalculatorPage';
+import { MicroloanCalculatorPage } from './pages/MicroloanCalculatorPage';
 import { ComparePage } from './pages/ComparePage';
 import { BankOffersPage } from './pages/BankOffersPage';
 import { MyScenariosPage } from './pages/MyScenariosPage';
 import type { BankOffer } from './types';
-import { Shield, Sparkles, AlertCircle } from 'lucide-react';
+import { Shield, Sparkles, AlertCircle, Landmark } from 'lucide-react';
 
 export const MainApp: React.FC = () => {
-  const { loginWithOAuth2Code, loginWithMagicLink } = useAuth();
-  const [activeTab, setActiveTab] = useState<'calculator' | 'compare' | 'offers' | 'scenarios'>('calculator');
+  const { user, loginWithOAuth2Code, loginWithMagicLink } = useAuth();
+  const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<NavTab>('calculator');
   const [presetOffer, setPresetOffer] = useState<BankOffer | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authNotice, setAuthNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const handledAuthRef = React.useRef<string | null>(null);
+
+  // If user is Admin, switch activeTab to offers (admin configuration & catalog)
+  useEffect(() => {
+    if (
+      user?.role === 'ROLE_ADMIN' &&
+      (activeTab === 'calculator' || activeTab === 'microloan' || activeTab === 'compare' || activeTab === 'scenarios')
+    ) {
+      setActiveTab('offers');
+    }
+  }, [user, activeTab]);
 
   // Handle OAuth2 code or Magic Link token on mount
   useEffect(() => {
@@ -30,14 +44,14 @@ export const MainApp: React.FC = () => {
     }
     handledAuthRef.current = authKey;
 
-    // Immediately clean the URL query string so subsequent re-renders or reloads don't re-run
+    // Clean query string
     const cleanPath = window.location.pathname === '/oauth2/callback' ? '/' : window.location.pathname;
     window.history.replaceState({}, document.title, cleanPath);
 
     if (authError) {
       setAuthNotice({
         type: 'error',
-        text: `Ошибка авторизации: ${authError}`,
+        text: `${t('authErrorNotice')} ${authError}`,
       });
       setTimeout(() => setAuthNotice(null), 6000);
       return;
@@ -46,12 +60,12 @@ export const MainApp: React.FC = () => {
     if (oauthCode) {
       loginWithOAuth2Code(oauthCode)
         .then(() => {
-          setAuthNotice({ type: 'success', text: 'Успешная авторизация через социальную сеть!' });
+          setAuthNotice({ type: 'success', text: t('authSuccessNotice') });
         })
         .catch(() => {
           setAuthNotice({
             type: 'error',
-            text: 'Ошибка при авторизации через соцсеть или срок действия кода истек.',
+            text: t('authSocialError'),
           });
         })
         .finally(() => {
@@ -60,12 +74,12 @@ export const MainApp: React.FC = () => {
     } else if (magicToken) {
       loginWithMagicLink(magicToken)
         .then(() => {
-          setAuthNotice({ type: 'success', text: 'Успешный вход по волшебной ссылке!' });
+          setAuthNotice({ type: 'success', text: t('magicLinkSuccess') });
         })
         .catch(() => {
           setAuthNotice({
             type: 'error',
-            text: 'Неверная или просроченная ссылка для входа.',
+            text: t('magicLinkInvalid'),
           });
         })
         .finally(() => {
@@ -81,7 +95,7 @@ export const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -94,14 +108,14 @@ export const MainApp: React.FC = () => {
           <div
             className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-semibold border ${
               authNotice.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : 'bg-red-50 border-red-200 text-red-800'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
             }`}
           >
             {authNotice.type === 'success' ? (
-              <Sparkles size={18} className="text-emerald-600 shrink-0" />
+              <Sparkles size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
             ) : (
-              <AlertCircle size={18} className="text-red-600 shrink-0" />
+              <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0" />
             )}
             <span>{authNotice.text}</span>
           </div>
@@ -113,6 +127,12 @@ export const MainApp: React.FC = () => {
           <CalculatorPage
             presetOffer={presetOffer}
             onClearPreset={() => setPresetOffer(null)}
+            onOpenAuth={() => setAuthModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'microloan' && (
+          <MicroloanCalculatorPage
             onOpenAuth={() => setAuthModalOpen(true)}
           />
         )}
@@ -136,24 +156,31 @@ export const MainApp: React.FC = () => {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-8 text-xs text-slate-500">
+      {/* Official Banking Footer */}
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 text-xs text-slate-500 dark:text-slate-400 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
-              M
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg bg-blue-700 flex items-center justify-center text-white font-bold">
+              <Landmark size={15} />
             </div>
-            <span className="font-semibold text-slate-700">MortgageSurprise &copy; {new Date().getFullYear()}</span>
+            <div>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                Mortgage<span className="text-blue-600 dark:text-blue-400">Surprise</span> {t('bankFooter')}
+              </span>
+              <span className="ml-2 text-[10px] text-slate-400">
+                &copy; {new Date().getFullYear()} {t('allRightsReserved')}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-6">
-            <span className="flex items-center gap-1.5 text-slate-600">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-[11px]">
+            <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
               <Shield size={14} className="text-emerald-500" />
-              Безопасная сессия (httpOnly cookies)
+              {t('securitySession')} (httpOnly cookies & TLS)
             </span>
-            <span className="hidden md:inline text-slate-300">|</span>
-            <span className="hidden md:inline">
-              Расчеты носят информационный характер
+            <span className="hidden md:inline text-slate-300 dark:text-slate-700">|</span>
+            <span className="hidden md:inline text-slate-500 dark:text-slate-400">
+              {t('bankLicense')}
             </span>
           </div>
         </div>
@@ -169,8 +196,12 @@ export const MainApp: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <MainApp />
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   );
 }

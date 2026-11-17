@@ -1,6 +1,6 @@
 export type PaymentType = 'ANNUITY' | 'DIFFERENTIATED';
 
-export type EarlyRepaymentType = 'ONE_TIME' | 'MONTHLY';
+export type EarlyRepaymentType = 'ONE_TIME' | 'MONTHLY' | 'RECURRING';
 
 export type RepaymentStrategy = 'REDUCE_TERM' | 'REDUCE_PAYMENT';
 
@@ -24,6 +24,9 @@ export interface CalculationRequest {
   currency?: Currency;
   startDate?: string;
   earlyRepayments?: EarlyRepayment[];
+  bankOfferId?: number;
+  bankName?: string;
+  offerName?: string;
 }
 
 export interface PaymentScheduleItem {
@@ -53,6 +56,59 @@ export interface CalculationResponse {
   totalInterest: number;
   totalPayment: number;
   schedule: PaymentScheduleItem[];
+}
+
+export type MicroloanType = 'BASIC_NEEDS' | 'VANITY';
+
+export interface MicroloanCalculationRequest {
+  amount: number;
+  termDays: number;
+  type?: MicroloanType;
+  purpose?: string;
+  dailyInterestRate?: number;
+  startDate?: string;
+  currency?: Currency;
+}
+
+export interface DailyScheduleItem {
+  dayNumber: number;
+  date: string;
+  principalBalance: number;
+  dailyInterest: number;
+  accumulatedInterest: number;
+  totalDue: number;
+}
+
+export interface MicroloanCalculationResponse {
+  scheduleId: string;
+  loanAmount: number;
+  termDays: number;
+  microloanType?: MicroloanType;
+  purpose?: string;
+  baseDailyRate?: number;
+  vanitySurchargeRate?: number;
+  vanitySurchargeAmount?: number;
+  effectiveDailyRate?: number;
+  dailyInterestRate?: number;
+  annualEquivalentRate: number;
+  totalInterest: number;
+  totalRepayment: number;
+  startDate: string;
+  dueDate: string;
+  currency: Currency;
+  dailySchedule: DailyScheduleItem[];
+}
+
+export interface MicroloanConfig {
+  id: string;
+  baseDailyRate: number;
+  vanitySurchargeRate: number;
+  updatedAt: string;
+}
+
+export interface MicroloanConfigDTO {
+  baseDailyRate: number;
+  vanitySurchargeRate: number;
 }
 
 export interface BankOffer {

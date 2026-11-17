@@ -9,6 +9,7 @@ import com.surprise.mortgagesurprise.service.ScenarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/scenarios")
+@PreAuthorize("hasRole('USER')")
 public class ScenarioController {
 
     private final ScenarioService scenarioService;
@@ -75,7 +77,7 @@ public class ScenarioController {
         scenarioService.requestPdfExport(userDetails.getId(), userDetails.getUsername(), id);
         return ResponseEntity.accepted().body(Map.of(
                 "status", "PROCESSING",
-                "message", "Экспорт графика платежей в PDF запущен. Уведомление будет отправлено на вашу почту."
+                "message", "Payment schedule PDF export initiated. An email notification will be sent to your mailbox."
         ));
     }
 }
