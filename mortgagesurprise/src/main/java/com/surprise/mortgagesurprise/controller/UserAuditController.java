@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -33,15 +34,41 @@ public class UserAuditController {
         return ResponseEntity.ok(Map.of("success", true, "logged", userDetails != null && !isAdmin(userDetails)));
     }
 
+    @GetMapping("/profile/activity")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<UserActionAuditDocument>> getMyActivity(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) UserAuditActionType action
+    ) {
+        if (userDetails == null || userDetails.getId() == null) {
+            return ResponseEntity.ok(List.of());
+        }
+        List<UserActionAuditDocument> audits = userAuditService.getAuditsForUser(userDetails.getId());
+        if (audits == null) {
+            audits = List.of();
+        }
+        if (action != null) {
+            final UserAuditActionType canonicalTarget = action.canonical();
+            audits = audits.stream()
+                    .filter(a -> a != null && a.getActionType() != null &&
+                            (a.getActionType() == action || a.getActionType().canonical() == canonicalTarget))
+                    .toList();
+        }
+        return ResponseEntity.ok(audits);
+    }
+
     @GetMapping("/admin/audit/logs")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserActionAuditDocument>> getAdminAuditLogs(
             @RequestParam(required = false) UserAuditActionType action
     ) {
+        List<UserActionAuditDocument> audits;
         if (action != null) {
-            return ResponseEntity.ok(userAuditService.getAuditsByAction(action));
+            audits = userAuditService.getAuditsByAction(action);
+        } else {
+            audits = userAuditService.getAllAudits();
         }
-        return ResponseEntity.ok(userAuditService.getAllAudits());
+        return ResponseEntity.ok(audits != null ? audits : List.of());
     }
 
     private boolean isAdmin(CustomUserDetails userDetails) {

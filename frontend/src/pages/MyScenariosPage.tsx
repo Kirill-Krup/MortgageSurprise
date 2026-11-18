@@ -24,7 +24,7 @@ export const MyScenariosPage: React.FC<MyScenariosPageProps> = ({
   onOpenAuth,
   onNavigateToCalculator,
 }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { t, language } = useLanguage();
   const isAdmin = user?.role === 'ROLE_ADMIN';
 
@@ -42,6 +42,7 @@ export const MyScenariosPage: React.FC<MyScenariosPageProps> = ({
   const [loadingSchedule, setLoadingSchedule] = useState(false);
 
   const fetchScenarios = async () => {
+    if (authLoading) return;
     if (!user || isAdmin) {
       setLoading(false);
       return;
@@ -59,7 +60,7 @@ export const MyScenariosPage: React.FC<MyScenariosPageProps> = ({
 
   useEffect(() => {
     fetchScenarios();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, authLoading]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm(t('confirmDeleteScenario'))) return;
@@ -102,6 +103,15 @@ export const MyScenariosPage: React.FC<MyScenariosPageProps> = ({
       setLoadingSchedule(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center text-slate-400 dark:text-slate-500 animate-in fade-in">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-3 border-blue-600 border-t-transparent" />
+        <p className="mt-2 text-sm">{t('loadingScenarios')}</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

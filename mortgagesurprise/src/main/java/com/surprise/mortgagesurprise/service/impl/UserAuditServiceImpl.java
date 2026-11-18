@@ -289,16 +289,44 @@ public class UserAuditServiceImpl implements UserAuditService {
 
     @Override
     public List<UserActionAuditDocument> getAllAudits() {
-        return auditRepository.findAllByOrderByTimestampDesc();
+        try {
+            List<UserActionAuditDocument> list = auditRepository.findAllByOrderByTimestampDesc();
+            return list != null ? list : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch all audits", e);
+            return List.of();
+        }
     }
 
     @Override
     public List<UserActionAuditDocument> getAuditsByAction(UserAuditActionType actionType) {
-        return auditRepository.findByActionTypeOrderByTimestampDesc(actionType);
+        if (actionType == null) {
+            return getAllAudits();
+        }
+        try {
+            UserAuditActionType canonical = actionType.canonical();
+            List<UserActionAuditDocument> list = auditRepository.findByActionTypeOrderByTimestampDesc(canonical);
+            if ((list == null || list.isEmpty()) && canonical != actionType) {
+                list = auditRepository.findByActionTypeOrderByTimestampDesc(actionType);
+            }
+            return list != null ? list : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch audits by action {}", actionType, e);
+            return List.of();
+        }
     }
 
     @Override
     public List<UserActionAuditDocument> getAuditsForUser(UUID userId) {
-        return auditRepository.findByUserIdOrderByTimestampDesc(userId);
+        if (userId == null) {
+            return List.of();
+        }
+        try {
+            List<UserActionAuditDocument> list = auditRepository.findByUserIdOrderByTimestampDesc(userId);
+            return list != null ? list : List.of();
+        } catch (Exception e) {
+            log.error("Failed to fetch audits for user {}", userId, e);
+            return List.of();
+        }
     }
 }

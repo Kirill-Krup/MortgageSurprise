@@ -40,7 +40,7 @@ public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {
         var userEmail = userDetails != null ? userDetails.getUsername() : null;
         var isAdmin = isAdmin(userDetails);
         var response = calculatorService.calculateAndPersist(request, userId);
-        if (userDetails != null && !isAdmin) {
+        if (userDetails != null && !isAdmin && Boolean.TRUE.equals(request.audit())) {
             userAuditService.auditMortgageCalculation(userId, userEmail, false, request, response);
         }
         return response;
@@ -54,7 +54,13 @@ public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {
             );
         }
         var userId = userDetails != null ? userDetails.getId() : null;
-        return microloanService.calculateAndPersist(request, userId);
+        var userEmail = userDetails != null ? userDetails.getUsername() : null;
+        var isAdmin = isAdmin(userDetails);
+        var response = microloanService.calculateAndPersist(request, userId);
+        if (userDetails != null && !isAdmin) {
+            userAuditService.auditMicroloanCalculation(userId, userEmail, false, request, response);
+        }
+        return response;
     }
 
     @Override
