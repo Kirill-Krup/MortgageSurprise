@@ -1,8 +1,7 @@
 package com.surprise.mortgagesurprise.controller;
 
+import com.surprise.mortgagesurprise.adapter.MicroloanConfigAdapterService;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanConfigDTO;
-import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
-import com.surprise.mortgagesurprise.service.MicroloanConfigService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,16 +13,16 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class MicroloanConfigController {
 
-    private final MicroloanConfigService configService;
+    private final MicroloanConfigAdapterService configService;
 
     @GetMapping("/microloan/config")
-    public ResponseEntity<MicroloanConfig> getConfig() {
+    public ResponseEntity<MicroloanConfigDTO> getConfig() {
         return ResponseEntity.ok(configService.getConfig());
     }
 
     @PutMapping("/admin/microloan/config")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<MicroloanConfig> updateConfig(@Valid @RequestBody MicroloanConfigDTO dto) {
+    public ResponseEntity<MicroloanConfigDTO> updateConfig(@Valid @RequestBody MicroloanConfigDTO dto) {
         return ResponseEntity.ok(configService.updateConfig(dto));
     }
 }

@@ -49,9 +49,8 @@ public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {
     @Override
     public MicroloanCalculationResponse calculateMicroloan(MicroloanCalculationRequest request, CustomUserDetails userDetails) {
         if (isAdmin(userDetails)) {
-            throw new AccessDeniedException(
-                    "Administrator acts solely as system configurator and cannot calculate or apply for loans"
-            );
+            throw new AccessDeniedException("Administrator acts solely as system configurator and" +
+                    " cannot calculate or apply for loans");
         }
         var userId = userDetails != null ? userDetails.getId() : null;
         return microloanService.calculateAndPersist(request, userId);

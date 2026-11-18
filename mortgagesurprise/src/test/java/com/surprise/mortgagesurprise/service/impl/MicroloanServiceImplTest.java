@@ -9,11 +9,7 @@ import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.MicroloanType;
-import com.surprise.mortgagesurprise.service.CalculationHistoryService;
-import com.surprise.mortgagesurprise.service.MicroloanCacheService;
-import com.surprise.mortgagesurprise.service.MicroloanCalculator;
-import com.surprise.mortgagesurprise.service.MicroloanConfigService;
-import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.service.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +18,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -65,6 +60,7 @@ class MicroloanServiceImplTest {
         MicroloanCalculationRequest request = new MicroloanCalculationRequest(
                 new BigDecimal("15000.00"),
                 14,
+                "Test rate",
                 MicroloanType.BASIC_NEEDS,
                 "Непредвиденные расходы",
                 null,
@@ -74,9 +70,7 @@ class MicroloanServiceImplTest {
 
         when(configService.getConfig()).thenReturn(new MicroloanConfig(
                 "DEFAULT",
-                new BigDecimal("0.8000"),
-                new BigDecimal("5.0000"),
-                Instant.now()
+                new BigDecimal("2000")
         ));
 
         when(cacheKeyGenerator.generateKey(request, new BigDecimal("0.8000"), new BigDecimal("5.0000")))

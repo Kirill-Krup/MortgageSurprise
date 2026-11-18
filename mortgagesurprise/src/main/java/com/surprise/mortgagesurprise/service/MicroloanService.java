@@ -5,10 +5,8 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 
 import java.util.UUID;
 
-/**
- * Service for calculating, persisting, and orchestrating microloan operations.
- */
 public interface MicroloanService {
 
-    MicroloanCalculationResponse calculateAndPersist(MicroloanCalculationRequest request, UUID userId);
+    MicroloanCalculationResponse calculateAndPersist(MicroloanCalculationRequest request,
+                                                     UUID userId);
 }

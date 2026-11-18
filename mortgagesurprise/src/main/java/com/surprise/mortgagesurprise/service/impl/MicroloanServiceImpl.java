@@ -5,13 +5,7 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResponse;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResult;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
-import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
-import com.surprise.mortgagesurprise.service.CalculationHistoryService;
-import com.surprise.mortgagesurprise.service.MicroloanCacheService;
-import com.surprise.mortgagesurprise.service.MicroloanCalculator;
-import com.surprise.mortgagesurprise.service.MicroloanConfigService;
-import com.surprise.mortgagesurprise.service.MicroloanService;
-import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -32,11 +26,13 @@ public class MicroloanServiceImpl implements MicroloanService {
     private final CalculationCacheKeyGenerator cacheKeyGenerator;
     private final MicroloanCacheService cacheService;
     private final MicroloanConfigService configService;
+    private final MicroloanRateService microloanRateService;
 
     @Override
     public MicroloanCalculationResponse calculateAndPersist(MicroloanCalculationRequest request, UUID userId) {
-        MicroloanConfig config = configService.getConfig();
-        String hash = cacheKeyGenerator.generateKey(request, config.getBaseDailyRate(), config.getVanitySurchargeRate());
+        var config = configService.getConfig();
+        var microloanRate = microloanRateService.findByName(request.rateName());
+        String hash = cacheKeyGenerator.generateKey(request, microloanRate.getBaseDailyRate(), config.getBankInterest());
 
         Optional<MicroloanCalculationResponse> cached = cacheService.getFromCache(hash);
         if (cached.isPresent()) {

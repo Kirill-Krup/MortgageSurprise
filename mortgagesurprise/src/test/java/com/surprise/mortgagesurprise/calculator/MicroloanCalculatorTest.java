@@ -1,59 +1,75 @@
 package com.surprise.mortgagesurprise.calculator;
 
 import com.surprise.mortgagesurprise.calculator.factory.CalculationContextFactory;
+import com.surprise.mortgagesurprise.calculator.factory.MicroloanCalculationContext;
 import com.surprise.mortgagesurprise.calculator.strategy.microloan.BasicNeedsMicroloanStrategy;
 import com.surprise.mortgagesurprise.calculator.strategy.microloan.MicroloanCalculationStrategyRegistry;
 import com.surprise.mortgagesurprise.calculator.strategy.microloan.VanityMicroloanStrategy;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResult;
 import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
+import com.surprise.mortgagesurprise.model.entity.MicroloanRate;
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.MicroloanType;
 import com.surprise.mortgagesurprise.service.MicroloanConfigService;
+import com.surprise.mortgagesurprise.service.MicroloanRateService;
 import com.surprise.mortgagesurprise.service.impl.MicroloanCalculatorImpl;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class MicroloanCalculatorTest {
 
-    private MicroloanCalculatorImpl calculator;
+    @Mock
+    public MicroloanConfigService microloanConfigService;
+    @Mock
+    public BasicNeedsMicroloanStrategy basicNeedsMicroloanStrategy;
+    @Mock
+    public VanityMicroloanStrategy vanityMicroloanStrategy;
+    @Mock
+    public MicroloanCalculationStrategyRegistry microloanCalculationStrategyRegistry;
+    @Mock
+    public CalculationRequestValidator calculationRequestValidator;
+    @Mock
+    public MicroloanConfigService configService;
+    @Mock
+    public MicroloanRateService microloanRateService;
+    @Mock
     private CalculationContextFactory factory;
-    private MicroloanConfigService configService;
 
-    @BeforeEach
-    void setUp() {
-        factory = new CalculationContextFactory(new CalculationRequestValidator());
-        MicroloanCalculationStrategyRegistry registry = new MicroloanCalculationStrategyRegistry(
-                List.of(new BasicNeedsMicroloanStrategy(), new VanityMicroloanStrategy())
-        );
-        configService = mock(MicroloanConfigService.class);
-        when(configService.getConfig()).thenReturn(new MicroloanConfig(
-                "DEFAULT",
-                new BigDecimal("0.8000"),
-                new BigDecimal("5.0000"),
-                Instant.now()
-        ));
-        calculator = new MicroloanCalculatorImpl(factory, registry, configService);
-    }
+    @InjectMocks
+    private MicroloanCalculatorImpl calculator;
+
 
     @Test
     @DisplayName("Should calculate basic needs microloan with standard daily rate (0.8%)")
     void shouldCalculateBasicNeedsMicroloan() {
+        when(configService.getConfig()).thenReturn(new MicroloanConfig(
+                "DEFAULT",
+                new BigDecimal("2000")
+        ));
+        when(microloanRateService.findByName(any())).thenReturn(new MicroloanRate("Test rate",
+                new BigDecimal("0.8000"), 0, Integer.MAX_VALUE));
+        when(factory.createMicroloanContext(any(), any(), any())).thenReturn(new MicroloanCalculationContext(any(), any(),
+                anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()));
         LocalDate startDate = LocalDate.of(2026, 12, 1);
         MicroloanCalculationRequest request = new MicroloanCalculationRequest(
                 new BigDecimal("10000.00"),
                 10,
+                "Test rate",
                 MicroloanType.BASIC_NEEDS,
                 "Продукты питания",
                 null,
@@ -79,10 +95,17 @@ class MicroloanCalculatorTest {
     @Test
     @DisplayName("Should calculate vanity microloan with base daily rate (0.8%) + fixed surcharge rate (5.0%)")
     void shouldCalculateVanityMicroloan() {
+        when(configService.getConfig()).thenReturn(new MicroloanConfig(
+                "DEFAULT",
+                new BigDecimal("2000")
+        ));
+        when(microloanRateService.findByName(any())).thenReturn(new MicroloanRate("Test rate",
+                new BigDecimal("0.8000"), 0, Integer.MAX_VALUE));
         LocalDate startDate = LocalDate.of(2026, 12, 1);
         MicroloanCalculationRequest request = new MicroloanCalculationRequest(
                 new BigDecimal("10000.00"),
                 10,
+                "Test rate",
                 MicroloanType.VANITY,
                 "Покупка нового iPhone",
                 null,
@@ -109,9 +132,16 @@ class MicroloanCalculatorTest {
     @Test
     @DisplayName("Should automatically classify vanity loan based on purpose keywords")
     void shouldAutoClassifyVanityLoan() {
+        when(configService.getConfig()).thenReturn(new MicroloanConfig(
+                "DEFAULT",
+                new BigDecimal("2000")
+        ));
+        when(microloanRateService.findByName(any())).thenReturn(new MicroloanRate("Test rate",
+                new BigDecimal("0.8000"), 0, Integer.MAX_VALUE));
         MicroloanCalculationRequest request = new MicroloanCalculationRequest(
                 new BigDecimal("20000.00"),
                 14,
+                "Test rate",
                 null,
                 "Тюнинг автомобиля"
         );
@@ -127,9 +157,16 @@ class MicroloanCalculatorTest {
     @Test
     @DisplayName("Should reject invalid term days (< 7 or > 30)")
     void shouldRejectInvalidTermDays() {
+        when(configService.getConfig()).thenReturn(new MicroloanConfig(
+                "DEFAULT",
+                new BigDecimal("2000")
+        ));
+        when(microloanRateService.findByName(any())).thenReturn(new MicroloanRate("Test rate",
+                new BigDecimal("0.8000"), 0, Integer.MAX_VALUE));
         MicroloanCalculationRequest requestTooShort = new MicroloanCalculationRequest(
                 new BigDecimal("5000.00"),
                 6,
+                "Test rate",
                 MicroloanType.BASIC_NEEDS,
                 "Тест"
         );
@@ -140,6 +177,7 @@ class MicroloanCalculatorTest {
         MicroloanCalculationRequest requestTooLong = new MicroloanCalculationRequest(
                 new BigDecimal("5000.00"),
                 31,
+                "Test rate",
                 MicroloanType.BASIC_NEEDS,
                 "Тест"
         );
@@ -151,9 +189,16 @@ class MicroloanCalculatorTest {
     @Test
     @DisplayName("Should reject invalid loan amount (< 1,000 or > 100,000)")
     void shouldRejectInvalidAmount() {
+        when(configService.getConfig()).thenReturn(new MicroloanConfig(
+                "DEFAULT",
+                new BigDecimal("2000")
+        ));
+        when(microloanRateService.findByName(any())).thenReturn(new MicroloanRate("Test rate",
+                new BigDecimal("0.8000"), 0, Integer.MAX_VALUE));
         MicroloanCalculationRequest requestTooSmall = new MicroloanCalculationRequest(
                 new BigDecimal("500.00"),
                 14,
+                "Test rate",
                 MicroloanType.BASIC_NEEDS,
                 "Тест"
         );
@@ -164,6 +209,7 @@ class MicroloanCalculatorTest {
         MicroloanCalculationRequest requestTooLarge = new MicroloanCalculationRequest(
                 new BigDecimal("150000.00"),
                 14,
+                "Test rate",
                 MicroloanType.BASIC_NEEDS,
                 "Тест"
         );

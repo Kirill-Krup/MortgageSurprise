@@ -2,11 +2,7 @@ package com.surprise.mortgagesurprise.dto.calculator.microloan;
 
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.MicroloanType;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,6 +17,10 @@ public record MicroloanCalculationRequest(
         @Min(value = 7, message = "Loan term must be at least 7 days")
         @Max(value = 30, message = "Loan term cannot exceed 30 days")
         Integer termDays,
+
+        @NotNull
+        @Size(min = 3)
+        String rateName,
 
         MicroloanType type,
 
@@ -44,11 +44,11 @@ public record MicroloanCalculationRequest(
         }
     }
 
-    public MicroloanCalculationRequest(BigDecimal amount, Integer termDays, BigDecimal dailyInterestRate) {
-        this(amount, termDays, MicroloanType.BASIC_NEEDS, null, dailyInterestRate, LocalDate.now(), Currency.RUB);
+    public MicroloanCalculationRequest(BigDecimal amount, Integer termDays, String rateName, BigDecimal dailyInterestRate) {
+        this(amount, termDays, rateName, MicroloanType.BASIC_NEEDS, null, dailyInterestRate, LocalDate.now(), Currency.RUB);
     }
 
-    public MicroloanCalculationRequest(BigDecimal amount, Integer termDays, MicroloanType type, String purpose) {
-        this(amount, termDays, type, purpose, null, LocalDate.now(), Currency.RUB);
+    public MicroloanCalculationRequest(BigDecimal amount, Integer termDays, String rateName, MicroloanType type, String purpose) {
+        this(amount, termDays, rateName, type, purpose, null, LocalDate.now(), Currency.RUB);
     }
 }

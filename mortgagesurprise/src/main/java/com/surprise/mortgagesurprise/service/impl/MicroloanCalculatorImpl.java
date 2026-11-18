@@ -6,16 +6,14 @@ import com.surprise.mortgagesurprise.calculator.strategy.microloan.MicroloanCalc
 import com.surprise.mortgagesurprise.calculator.strategy.microloan.MicroloanCalculationStrategyRegistry;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResult;
-import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
 import com.surprise.mortgagesurprise.service.MicroloanCalculator;
 import com.surprise.mortgagesurprise.service.MicroloanConfigService;
+import com.surprise.mortgagesurprise.service.MicroloanRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * Single responsibility: Orchestrate microloan calculations using admin-configured rates,
- * CalculationContextFactory for parameter preparation, and strategy dispatch by MicroloanType.
- */
+import java.math.BigDecimal;
+
 @Component
 @RequiredArgsConstructor
 public class MicroloanCalculatorImpl implements MicroloanCalculator {
@@ -23,14 +21,17 @@ public class MicroloanCalculatorImpl implements MicroloanCalculator {
     private final CalculationContextFactory contextFactory;
     private final MicroloanCalculationStrategyRegistry strategyRegistry;
     private final MicroloanConfigService configService;
+    private final MicroloanRateService microloanRateService;
 
     @Override
     public MicroloanCalculationResult calculate(MicroloanCalculationRequest request) {
-        MicroloanConfig config = configService.getConfig();
+        var config = configService.getConfig();
+        var microloanRate = microloanRateService.findByName(request.rateName());
+        BigDecimal bankInterest = config.getBankInterest(); // TODO change to currency dependent variant
         MicroloanCalculationContext context = contextFactory.createMicroloanContext(
                 request,
-                config.getBaseDailyRate(),
-                config.getVanitySurchargeRate()
+                microloanRate.getBaseDailyRate(),
+                bankInterest
         );
         MicroloanCalculationStrategy strategy = strategyRegistry.getStrategy(context.microloanType());
         return strategy.calculate(context);
