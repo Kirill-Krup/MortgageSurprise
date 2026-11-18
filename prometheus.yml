@@ -7,10 +7,26 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     scrape_interval: 5s
     static_configs:
-      - targets: ['app:8080']
+      - targets: [ 'app:8080' ]
         labels:
           application: 'mortgage-surprise'
 
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: [ 'localhost:9090' ]
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: [ 'postgres-exporter:9187' ]
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: [ 'redis-exporter:9121' ]
+
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: [ 'mongodb-exporter:9216' ]
+
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: [ 'rabbitmq:15692' ]
