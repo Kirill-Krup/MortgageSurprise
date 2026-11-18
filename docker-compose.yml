@@ -47,16 +47,52 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: mortgagesurprise-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-mortgagesurprise}?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: mortgagesurprise-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.40
+    container_name: mortgagesurprise-mongodb-exporter
+    restart: unless-stopped
+    command:
+      - '--mongodb.uri=mongodb://mongodb:27017'
+      - '--collect-all'
+      - '--compatible-mode'
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: mortgagesurprise-rabbitmq
     restart: unless-stopped
+    command: >
+      sh -c "rabbitmq-plugins enable --offline rabbitmq_prometheus && rabbitmq-server"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "15692:15692"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
