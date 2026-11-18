@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.service.impl;
 
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanRateDTO;
+import com.surprise.mortgagesurprise.exception.MicroLoanRateNotFoundException;
 import com.surprise.mortgagesurprise.model.entity.MicroloanRate;
 import com.surprise.mortgagesurprise.repository.jpa.MicroloanRateRepository;
 import com.surprise.mortgagesurprise.service.MicroloanRateService;
@@ -17,7 +18,8 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
     @Override
     @Transactional(readOnly = true)
     public MicroloanRate findByName(String name) {
-        return microloanRateRepository.findByName(name).orElseThrow(MicroLoanRateNotFoundException); // TODO throw and handle exception
+        return microloanRateRepository.findByName(name)
+                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with this name not found"));
     }
 
     @Override
@@ -30,7 +32,8 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
     @Override
     @Transactional
     public MicroloanRate update(MicroloanRateDTO dto, Integer id) {
-        var existingMicroloanRate = microloanRateRepository.findById(id).orElseThrow();
+        var existingMicroloanRate = microloanRateRepository.findById(id)
+                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with this name not found"));
         existingMicroloanRate.setName(dto.name());
         existingMicroloanRate.setBaseDailyRate(dto.baseDailyRate());
         existingMicroloanRate.setMinDayRequired(dto.minDayRequired());
