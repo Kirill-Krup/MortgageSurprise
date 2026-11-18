@@ -27,6 +27,7 @@ export interface CalculationRequest {
   bankOfferId?: number;
   bankName?: string;
   offerName?: string;
+  audit?: boolean;
 }
 
 export interface PaymentScheduleItem {
@@ -177,6 +178,9 @@ export interface User {
   id: string;
   email: string;
   role: string;
+  enabled?: boolean;
+  firstName?: string | null;
+  lastName?: string | null;
 }
 
 export interface AuthResponse {
@@ -187,4 +191,96 @@ export interface AuthResponse {
   userId: string;
   email: string;
   role: string;
+  enabled?: boolean;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  activeLoansCount: number;
+  totalPortfolioAmount: number;
+  mortgageLoansCount: number;
+  microloansCount: number;
+  mortgagePortfolioAmount: number;
+  microloanPortfolioAmount: number;
+  totalRepaidAmount: number;
+  totalRemainingDebt: number;
+  repaymentProgressPercent: number;
+  averageMortgageRate: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  role: string;
+  enabled: boolean;
+  emailVerified: boolean;
+  createdAt: string;
+  activeLoansCount: number;
+  totalDebt: number;
+  remainingDebt: number;
+}
+
+export interface AdminLoanMonitoring {
+  id: string;
+  userId?: string | null;
+  borrowerEmail: string;
+  borrowerName: string;
+  loanType: 'MORTGAGE' | 'MICROLOAN';
+  productTitle: string;
+  purpose?: string;
+  loanAmount: number;
+  totalRepayment: number;
+  interestRate: number;
+  term: string;
+  termUnits: number;
+  currency: Currency | string;
+  startDate: string;
+  elapsedPeriods: number;
+  remainingPeriods: number;
+  paidAmount: number;
+  principalPaid: number;
+  remainingBalance: number;
+  progressPercent: number;
+  regularPayment: number;
+  status: 'ACTIVE' | 'PAID_OFF' | 'OVERDUE';
+  nextPaymentDate: string;
+  nextPaymentAmount: number;
+  scheduleId?: string | null;
+}
+
+export type UserAuditActionType =
+  | 'MORTGAGE_CALCULATION'
+  | 'MICROLOAN_CALCULATION'
+  | 'MICROLOAN_APPLICATION'
+  | 'BANK_OFFER_SELECTED'
+  | 'MICROLOAN_APPLIED'
+  | 'SCENARIO_CALCULATED'
+  | 'SCENARIO_SAVED';
+
+export interface UserActivityRecord {
+  id: string;
+  userId: string;
+  userEmail: string;
+  actionType: UserAuditActionType;
+  actionDescription: string;
+  bankOfferId?: number | null;
+  bankName?: string | null;
+  offerName?: string | null;
+  loanAmount?: number | null;
+  propertyPrice?: number | null;
+  downPayment?: number | null;
+  termMonths?: number | null;
+  termDays?: number | null;
+  interestRate?: number | null;
+  monthlyPayment?: number | null;
+  totalPayment?: number | null;
+  totalInterest?: number | null;
+  microloanType?: string | null;
+  loanPurpose?: string | null;
+  applicationId?: string | null;
+  currency?: Currency | null;
+  metadata?: Record<string, unknown> | null;
+  timestamp: string;
 }

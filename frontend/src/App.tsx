@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -6,30 +6,105 @@ import { Navbar, type NavTab } from './components/Navbar';
 import { AuthModal } from './components/AuthModal';
 import { CalculatorPage } from './pages/CalculatorPage';
 import { MicroloanCalculatorPage } from './pages/MicroloanCalculatorPage';
-import { ComparePage } from './pages/ComparePage';
-import { BankOffersPage } from './pages/BankOffersPage';
-import { MyScenariosPage } from './pages/MyScenariosPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { AdminPage, type AdminSection } from './pages/AdminPage';
+import { BannedUserPage } from './pages/BannedUserPage';
 import type { BankOffer } from './types';
 import { Shield, Sparkles, AlertCircle, Landmark } from 'lucide-react';
+
+type ProfileSection = 'overview' | 'microloans' | 'scenarios' | 'compare' | 'history';
+
+interface AppLocation {
+  tab: NavTab | 'admin';
+  profile: ProfileSection;
+  admin: AdminSection;
+}
+
+const PROFILE_SECTIONS: ProfileSection[] = ['overview', 'microloans', 'scenarios', 'compare', 'history'];
+const ADMIN_SECTIONS: AdminSection[] = ['overview', 'users', 'loans', 'products', 'rates', 'journal'];
+
+const parseHash = (): AppLocation => {
+  const raw = window.location.hash.replace('#', '').toLowerCase();
+  const [head, sub] = raw.split('/');
+  if (head === 'admin') {
+    const adminSection = sub === 'applications' ? 'loans' : (sub as AdminSection);
+    return {
+      tab: 'admin',
+      profile: 'overview',
+      admin: ADMIN_SECTIONS.includes(adminSection) ? adminSection : 'overview',
+    };
+  }
+  if (head === 'profile' || head === 'scenarios' || head === 'compare' || head === 'history' || head === 'microloans') {
+    const profile: ProfileSection =
+      head === 'scenarios'
+        ? 'scenarios'
+        : head === 'compare'
+          ? 'compare'
+          : head === 'history'
+            ? 'history'
+            : head === 'microloans'
+              ? 'microloans'
+              : PROFILE_SECTIONS.includes(sub as ProfileSection)
+                ? (sub as ProfileSection)
+                : 'overview';
+    return { tab: 'profile', profile, admin: 'overview' };
+  }
+  if (head === 'microloan') {
+    return { tab: 'microloan', profile: 'overview', admin: 'overview' };
+  }
+  return { tab: 'calculator', profile: 'overview', admin: 'overview' };
+};
+
+const toHash = (location: AppLocation) => {
+  if (location.tab === 'admin') {
+    return location.admin === 'overview' ? 'admin' : `admin/${location.admin}`;
+  }
+  if (location.tab === 'profile') {
+    return location.profile === 'overview' ? 'profile' : `profile/${location.profile}`;
+  }
+  return location.tab;
+};
 
 export const MainApp: React.FC = () => {
   const { user, loginWithOAuth2Code, loginWithMagicLink } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<NavTab>('calculator');
+  const [location, setLocation] = useState<AppLocation>(parseHash);
   const [presetOffer, setPresetOffer] = useState<BankOffer | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authNotice, setAuthNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const handledAuthRef = React.useRef<string | null>(null);
+  const handledAuthRef = useRef<string | null>(null);
 
-  // If user is Admin, switch activeTab to offers (admin configuration & catalog)
-  useEffect(() => {
-    if (
-      user?.role === 'ROLE_ADMIN' &&
-      (activeTab === 'calculator' || activeTab === 'microloan' || activeTab === 'compare' || activeTab === 'scenarios')
-    ) {
-      setActiveTab('offers');
+  const go = (next: AppLocation) => {
+    setLocation(next);
+    const hash = toHash(next);
+    if (window.location.hash.replace('#', '') !== hash) {
+      window.location.hash = hash;
     }
-  }, [user, activeTab]);
+  };
+
+  const setActiveTab = (tab: NavTab) => {
+    go({
+      tab,
+      profile: tab === 'profile' ? location.profile : 'overview',
+      admin: 'overview',
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => setLocation(parseHash());
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'ROLE_ADMIN' && location.tab !== 'admin') {
+      go({ tab: 'admin', profile: 'overview', admin: location.admin || 'overview' });
+    } else if (user.role !== 'ROLE_ADMIN' && location.tab === 'admin') {
+      go({ tab: 'calculator', profile: 'overview', admin: 'overview' });
+    }
+  }, [user, location.tab]);
 
   // Handle OAuth2 code or Magic Link token on mount
   useEffect(() => {
@@ -86,21 +161,23 @@ export const MainApp: React.FC = () => {
           setTimeout(() => setAuthNotice(null), 6000);
         });
     }
-  }, [loginWithOAuth2Code, loginWithMagicLink]);
+  }, [loginWithOAuth2Code, loginWithMagicLink, t]);
 
-  const handleSelectOffer = (offer: BankOffer) => {
-    setPresetOffer(offer);
-    setActiveTab('calculator');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const isAdmin = user?.role === 'ROLE_ADMIN';
+
+  if (user && user.enabled === false) {
+    return <BannedUserPage />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors">
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenAuth={() => setAuthModalOpen(true)}
-      />
+      {!isAdmin && (
+        <Navbar
+          activeTab={location.tab === 'admin' ? 'calculator' : location.tab}
+          setActiveTab={setActiveTab}
+          onOpenAuth={() => setAuthModalOpen(true)}
+        />
+      )}
 
       {/* Global Auth Notification Banner */}
       {authNotice && (
@@ -123,7 +200,16 @@ export const MainApp: React.FC = () => {
       )}
 
       <main className="flex-1 pb-16">
-        {activeTab === 'calculator' && (
+        {location.tab === 'admin' && (
+          <AdminPage
+            section={location.admin}
+            onSectionChange={(nextSection) =>
+              go({ tab: 'admin', profile: 'overview', admin: nextSection })
+            }
+          />
+        )}
+
+        {location.tab === 'calculator' && (
           <CalculatorPage
             presetOffer={presetOffer}
             onClearPreset={() => setPresetOffer(null)}
@@ -131,60 +217,53 @@ export const MainApp: React.FC = () => {
           />
         )}
 
-        {activeTab === 'microloan' && (
+        {location.tab === 'microloan' && (
           <MicroloanCalculatorPage
             onOpenAuth={() => setAuthModalOpen(true)}
+            onNavigateToProfile={() => setActiveTab('profile')}
           />
         )}
 
-        {activeTab === 'compare' && (
-          <ComparePage
+        {location.tab === 'profile' && (
+          <ProfilePage
             onOpenAuth={() => setAuthModalOpen(true)}
             onNavigateToCalculator={() => setActiveTab('calculator')}
-          />
-        )}
-
-        {activeTab === 'offers' && (
-          <BankOffersPage onSelectOffer={handleSelectOffer} />
-        )}
-
-        {activeTab === 'scenarios' && (
-          <MyScenariosPage
-            onOpenAuth={() => setAuthModalOpen(true)}
-            onNavigateToCalculator={() => setActiveTab('calculator')}
+            onNavigateToMicroloan={() => setActiveTab('microloan')}
           />
         )}
       </main>
 
       {/* Official Banking Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 text-xs text-slate-500 dark:text-slate-400 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-700 flex items-center justify-center text-white font-bold">
-              <Landmark size={15} />
+      {!isAdmin && (
+        <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 text-xs text-slate-500 dark:text-slate-400 transition-colors">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-blue-700 flex items-center justify-center text-white font-bold">
+                <Landmark size={15} />
+              </div>
+              <div>
+                <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                  Mortgage<span className="text-blue-600 dark:text-blue-400">Surprise</span> {t('bankFooter')}
+                </span>
+                <span className="ml-2 text-[10px] text-slate-400">
+                  &copy; {new Date().getFullYear()} {t('allRightsReserved')}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="font-extrabold text-slate-800 dark:text-slate-200">
-                Mortgage<span className="text-blue-600 dark:text-blue-400">Surprise</span> {t('bankFooter')}
-              </span>
-              <span className="ml-2 text-[10px] text-slate-400">
-                &copy; {new Date().getFullYear()} {t('allRightsReserved')}
-              </span>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-[11px]">
-            <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-              <Shield size={14} className="text-emerald-500" />
-              {t('securitySession')} (httpOnly cookies & TLS)
-            </span>
-            <span className="hidden md:inline text-slate-300 dark:text-slate-700">|</span>
-            <span className="hidden md:inline text-slate-500 dark:text-slate-400">
-              {t('bankLicense')}
-            </span>
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-[11px]">
+              <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                <Shield size={14} className="text-emerald-500" />
+                {t('securitySession')} (httpOnly cookies & TLS)
+              </span>
+              <span className="hidden md:inline text-slate-300 dark:text-slate-700">|</span>
+              <span className="hidden md:inline text-slate-500 dark:text-slate-400">
+                {t('bankLicense')}
+              </span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       <AuthModal
         isOpen={authModalOpen}

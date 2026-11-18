@@ -31,6 +31,7 @@ import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/fo
 
 interface MicroloanCalculatorPageProps {
   onOpenAuth: () => void;
+  onNavigateToProfile?: () => void;
 }
 
 const QUICK_AMOUNTS = [5_000, 15_000, 30_000, 50_000, 100_000];
@@ -96,6 +97,7 @@ const VANITY_KEYWORDS = [
 
 export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = ({
   onOpenAuth,
+  onNavigateToProfile,
 }) => {
   const { user } = useAuth();
   const { t, language } = useLanguage();
@@ -330,17 +332,29 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
 
       {/* Success Notification after application */}
       {applicationSuccess && (
-        <div className="mb-6 p-5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-3xl flex items-start gap-3.5 text-emerald-950 dark:text-emerald-200 shadow-md animate-in fade-in">
-          <CheckCircle2 size={24} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-extrabold text-base text-emerald-900 dark:text-emerald-100">
-              {t('applicationSuccessTitle')}
-            </h3>
-            <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-300 mt-1">
-              {t('applicationSuccessDesc')}
-              <span className="font-mono font-bold ml-1">{applicationSuccess}</span>. {t('passportVerifiedNotice')}
-            </p>
+        <div className="mb-6 p-5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-emerald-950 dark:text-emerald-200 shadow-md animate-in fade-in">
+          <div className="flex items-start gap-3.5">
+            <CheckCircle2 size={24} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-extrabold text-base text-emerald-900 dark:text-emerald-100">
+                {t('applicationSuccessTitle')}
+              </h3>
+              <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-300 mt-1">
+                {t('applicationSuccessDesc')}
+                <span className="font-mono font-bold ml-1">{applicationSuccess}</span>. {t('passportVerifiedNotice')}
+              </p>
+            </div>
           </div>
+          {onNavigateToProfile && user && !isAdmin && (
+            <button
+              type="button"
+              onClick={onNavigateToProfile}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all shrink-0 cursor-pointer flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <span>{t('profileGoToProfileToTrack')}</span>
+              <ChevronRight size={14} />
+            </button>
+          )}
         </div>
       )}
 
