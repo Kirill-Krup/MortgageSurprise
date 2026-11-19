@@ -25,7 +25,8 @@ public class AbTestController {
             @RequestParam String experimentName,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ResponseEntity.ok(abTestService.getOrCreateVariant(userDetails.getId(), experimentName));
+        UUID userId = userDetails != null ? userDetails.getId() : null;
+        return ResponseEntity.ok(abTestService.getOrCreateVariant(userId, experimentName));
     }
 
     @PostMapping("/variant")
@@ -33,7 +34,8 @@ public class AbTestController {
             @Valid @RequestBody AbTestAssignmentRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        return ResponseEntity.ok(abTestService.getOrCreateVariant(userDetails.getId(), request.experimentName()));
+        UUID userId = userDetails != null ? userDetails.getId() : null;
+        return ResponseEntity.ok(abTestService.getOrCreateVariant(userId, request.experimentName()));
     }
 
     @GetMapping("/stats")

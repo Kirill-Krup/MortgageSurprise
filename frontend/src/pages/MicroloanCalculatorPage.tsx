@@ -120,11 +120,6 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
   const [selectedRate, setSelectedRate] = useState<MicroloanRateDTO | null>(null);
   const [isTariffDropdownOpen, setIsTariffDropdownOpen] = useState<boolean>(false);
 
-  // Tariffs loaded from DB (Requirement 3 & 4)
-  const [rates, setRates] = useState<MicroloanRateDTO[]>([]);
-  const [selectedRate, setSelectedRate] = useState<MicroloanRateDTO | null>(null);
-  const [isTariffDropdownOpen, setIsTariffDropdownOpen] = useState<boolean>(false);
-
   // Form State
   const [currency, setCurrency] = useState<Currency>('RUB');
   const [amount, setAmount] = useState<number>(15_000);
