@@ -900,15 +900,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
             </div>
 
             <div className="flex items-center gap-2.5">
-              {section === 'products' && (
-                <button
-                  type="button"
-                  onClick={openCreate}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-600/20 cursor-pointer transition-all"
-                >
-                  <Plus size={16} />
-                  <span>{t('adminAddProduct')}</span>
-                </button>
+              {(section === 'products' || section === 'rates') && (
+                <>
+                  <button
+                    type="button"
+                    onClick={openCreateRateModal}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/20 cursor-pointer transition-all"
+                  >
+                    <Plus size={16} />
+                    <span>{t('adminAddTariff')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreate}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-600/20 cursor-pointer transition-all"
+                  >
+                    <Plus size={16} />
+                    <span>{t('adminAddProduct')}</span>
+                  </button>
+                </>
               )}
             </div>
           </div>

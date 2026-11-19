@@ -6,6 +6,8 @@ import java.util.List;
 
 public interface MicroloanRateAdapterService {
 
+    MicroloanRateDTO findById(Integer id);
+
     MicroloanRateDTO findByName(String name);
 
     List<MicroloanRateDTO> findAll();

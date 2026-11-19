@@ -209,6 +209,11 @@ export const microloanRateApi = {
     return Array.isArray(res.data) ? res.data : [];
   },
 
+  getRateById: async (id: number): Promise<MicroloanRateDTO> => {
+    const res = await apiClient.get<MicroloanRateDTO>(`/microloan/rates/${id}`);
+    return res.data;
+  },
+
   getRateByName: async (name: string): Promise<MicroloanRateDTO> => {
     const res = await apiClient.get<MicroloanRateDTO>(`/microloan/rate?name=${encodeURIComponent(name)}`);
     return res.data;
@@ -228,6 +233,8 @@ export const microloanRateApi = {
     await apiClient.delete(`/admin/microloan/rate/${id}`);
   },
 };
+
+export const tariffApi = microloanRateApi;
 
 export const scenarioApi = {
   getAll: async (): Promise<ScenarioResponse[]> => {

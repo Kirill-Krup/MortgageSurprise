@@ -40,6 +40,18 @@ class MicroloanRateControllerTest {
     }
 
     @Test
+    @DisplayName("getById should return rate by id")
+    void shouldReturnRateById() {
+        MicroloanRateDTO dto = new MicroloanRateDTO(1, "Стандарт", new BigDecimal("0.8000"), 7, 30);
+        when(adapterService.findById(1)).thenReturn(dto);
+
+        ResponseEntity<MicroloanRateDTO> response = controller.getById(1);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(dto);
+    }
+
+    @Test
     @DisplayName("saveRate should call adapter service and return created status")
     void shouldSaveRate() {
         MicroloanRateDTO dto = new MicroloanRateDTO(null, "Стандарт", new BigDecimal("0.8000"), 7, 30);
@@ -50,6 +62,18 @@ class MicroloanRateControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isEqualTo(saved);
+    }
+
+    @Test
+    @DisplayName("updateRate should call adapter service and return ok status")
+    void shouldUpdateRate() {
+        MicroloanRateDTO dto = new MicroloanRateDTO(1, "Лайт", new BigDecimal("0.6000"), 14, 30);
+        when(adapterService.update(dto, 1)).thenReturn(dto);
+
+        ResponseEntity<MicroloanRateDTO> response = controller.updateRate(dto, 1);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(dto);
     }
 
     @Test

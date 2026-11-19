@@ -6,6 +6,8 @@ import com.surprise.mortgagesurprise.model.entity.MicroloanRate;
 import java.util.List;
 
 public interface MicroloanRateService {
+    MicroloanRate findById(Integer id);
+
     MicroloanRate findByName(String name);
 
     List<MicroloanRate> findAll();

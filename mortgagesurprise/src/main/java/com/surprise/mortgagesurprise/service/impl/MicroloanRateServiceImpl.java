@@ -26,6 +26,15 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
 
     @Override
     @Transactional(readOnly = true)
+    public MicroloanRate findById(Integer id) {
+        var result = microloanRateRepository.findById(id)
+                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan tariff with id " + id + " not found"));
+        entityManager.detach(result);
+        return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     @Cacheable(cacheManager = "caffeineCacheManager", cacheNames = CacheConfig.MICROLOAN_RATES,
             key = "#name")
     public MicroloanRate findByName(String name) {

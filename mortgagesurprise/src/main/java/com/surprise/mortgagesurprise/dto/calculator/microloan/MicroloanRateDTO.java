@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
@@ -12,11 +13,12 @@ public record MicroloanRateDTO(
         Integer id,
 
         @NotBlank(message = "Rate name is required")
+        @Size(max = 50, message = "Rate name must not exceed 50 characters")
         String name,
 
         @NotNull(message = "Base daily rate is required")
         @DecimalMin(value = "0.01", message = "Base rate must be positive")
-        @DecimalMax(value = "2.00", message = "Base rate cannot exceed 2%")
+        @DecimalMax(value = "10.00", message = "Base rate cannot exceed 10%")
         BigDecimal baseDailyRate,
 
         Integer minDayRequired,

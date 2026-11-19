@@ -15,6 +15,11 @@ public class MicroloanRateAdapterServiceImpl implements MicroloanRateAdapterServ
     private final MicroloanRateService microloanRateService;
 
     @Override
+    public MicroloanRateDTO findById(Integer id) {
+        return MicroloanRateDTO.from(microloanRateService.findById(id));
+    }
+
+    @Override
     public MicroloanRateDTO findByName(String name) {
         return MicroloanRateDTO.from(microloanRateService.findByName(name));
     }

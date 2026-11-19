@@ -51,6 +51,27 @@ class MicroloanRateServiceImplTest {
     }
 
     @Test
+    @DisplayName("findById should return rate if exists")
+    void shouldFindById() {
+        when(microloanRateRepository.findById(1)).thenReturn(Optional.of(testRate));
+
+        MicroloanRate result = microloanRateService.findById(1);
+
+        assertThat(result.getId()).isEqualTo(1);
+        assertThat(result.getName()).isEqualTo("Стандарт");
+        verify(entityManager).detach(testRate);
+    }
+
+    @Test
+    @DisplayName("findById should throw exception when not found")
+    void shouldThrowWhenIdNotFound() {
+        when(microloanRateRepository.findById(999)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> microloanRateService.findById(999))
+                .isInstanceOf(MicroLoanRateNotFoundException.class);
+    }
+
+    @Test
     @DisplayName("findByName should return rate if exists")
     void shouldFindByName() {
         when(microloanRateRepository.findByName("Стандарт")).thenReturn(Optional.of(testRate));
