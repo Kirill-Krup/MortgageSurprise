@@ -40,7 +40,8 @@ public record CalculationRequest(
 
         Long bankOfferId,
         String bankName,
-        String offerName
+        String offerName,
+        Boolean audit
 ) {
     public CalculationRequest {
         if (currency == null) {
@@ -52,6 +53,9 @@ public record CalculationRequest(
         if (startDate == null) {
             startDate = LocalDate.now();
         }
+        if (audit == null) {
+            audit = false;
+        }
     }
 
     public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
@@ -59,13 +63,22 @@ public record CalculationRequest(
                               Currency currency, LocalDate startDate,
                               List<EarlyRepaymentRequest> earlyRepayments) {
         this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
-                currency, startDate, earlyRepayments, null, null, null);
+                currency, startDate, earlyRepayments, null, null, null, false);
     }
 
     public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
                               BigDecimal annualInterestRate, PaymentType paymentType,
                               LocalDate startDate, List<EarlyRepaymentRequest> earlyRepayments) {
         this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
-                Currency.RUB, startDate, earlyRepayments, null, null, null);
+                Currency.RUB, startDate, earlyRepayments, null, null, null, false);
+    }
+
+    public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
+                              BigDecimal annualInterestRate, PaymentType paymentType,
+                              Currency currency, LocalDate startDate,
+                              List<EarlyRepaymentRequest> earlyRepayments,
+                              Long bankOfferId, String bankName, String offerName) {
+        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
+                currency, startDate, earlyRepayments, bankOfferId, bankName, offerName, false);
     }
 }

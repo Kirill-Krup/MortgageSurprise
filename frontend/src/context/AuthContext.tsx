@@ -40,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: res.userId,
       email: res.email,
       role: res.role,
+      enabled: res.enabled !== false,
     });
   };
 
@@ -49,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: res.userId,
       email: res.email,
       role: res.role,
+      enabled: res.enabled !== false,
     });
   };
 
@@ -66,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: res.userId,
       email: res.email,
       role: res.role,
+      enabled: res.enabled !== false,
     });
   }, []);
 
@@ -75,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: res.userId,
       email: res.email,
       role: res.role,
+      enabled: res.enabled !== false,
     });
   }, []);
 

@@ -1,5 +1,8 @@
 import axios from 'axios';
 import type {
+  AdminLoanMonitoring,
+  AdminStats,
+  AdminUser,
   AuthResponse,
   BankOffer,
   BankOfferRequest,
@@ -14,6 +17,8 @@ import type {
   ScenarioComparisonResponse,
   ScenarioResponse,
   User,
+  UserActivityRecord,
+  UserAuditActionType,
 } from '../types';
 
 export const apiClient = axios.create({
@@ -103,6 +108,7 @@ export const authApi = {
       id: res.data.userId,
       email: res.data.email,
       role: res.data.role,
+      enabled: res.data.enabled !== false,
     };
   },
 
@@ -126,54 +132,58 @@ export const calculatorApi = {
   calculate: async (request: CalculationRequest): Promise<CalculationResponse> => {
     const res = await apiClient.post<CalculationResponse>('/calculator/calculate', request);
     return res.data;
-  },
+      },
 
-  calculateMicroloan: async (request: MicroloanCalculationRequest): Promise<MicroloanCalculationResponse> => {
-    const res = await apiClient.post<MicroloanCalculationResponse>('/calculator/microloan', request);
-    return res.data;
-  },
+      calculateMicroloan: async (request: MicroloanCalculationRequest): Promise<MicroloanCalculationResponse> => {
+        const res = await apiClient.post<MicroloanCalculationResponse>('/calculator/microloan', request);
+        return res.data;
+      },
 
-  getSchedule: async (scheduleId: string): Promise<PaymentScheduleItem[]> => {
-    const res = await apiClient.get<any>(`/calculator/schedules/${scheduleId}`);
-    if (Array.isArray(res.data)) {
-      return res.data;
-    }
-    return res.data?.items || [];
-  },
+      getSchedule: async (scheduleId: string): Promise<PaymentScheduleItem[]> => {
+        const res = await apiClient.get<any>(`/calculator/schedules/${scheduleId}`);
+        if (Array.isArray(res.data)) {
+          return res.data;
+        }
+        return res.data?.items || [];
+      },
 
-  getMicroloanConfig: async (): Promise<MicroloanConfig> => {
-    const res = await apiClient.get<MicroloanConfig>('/microloan/config');
-    return res.data;
-  },
+      getMicroloanConfig: async (): Promise<MicroloanConfig> => {
+        const res = await apiClient.get<MicroloanConfig>('/microloan/config');
+        return res.data;
+      },
 
-  updateMicroloanConfig: async (config: MicroloanConfigDTO): Promise<MicroloanConfig> => {
-    const res = await apiClient.put<MicroloanConfig>('/admin/microloan/config', config);
-    return res.data;
-  },
+      updateMicroloanConfig: async (config: MicroloanConfigDTO): Promise<MicroloanConfig> => {
+        const res = await apiClient.put<MicroloanConfig>('/admin/microloan/config', config);
+        return res.data;
+      },
 
-  applyMicroloan: async (data: {
-    amount: number;
-    termDays: number;
-    purpose?: string;
-    microloanType?: string;
-    totalRepayment?: number;
-    scheduleId?: string;
-    applicationId?: string;
-    applicantFullName?: string;
-    currency?: string;
-  }): Promise<{ success: boolean; applicationId: string; status: string; message: string }> => {
-    const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string }>(
-      '/calculator/microloan/apply',
-      data
-    );
-    return res.data;
-  },
+      applyMicroloan: async (data: {
+        amount: number;
+        termDays: number;
+        purpose?: string;
+        microloanType?: string;
+        totalRepayment?: number;
+        scheduleId?: string;
+        applicationId?: string;
+        applicantFullName?: string;
+        currency?: string;
+      }): Promise<{ success: boolean; applicationId: string; status: string; message: string }> => {
+        const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string }>(
+          '/calculator/microloan/apply',
+          data
+        );
+        return res.data;
+      },
+    getExchangeRates: async (): Promise<Record<string, number>> => {
+        const res = await apiClient.get<Record<string, number>>('/calculator/exchange-rates');
+        return res.data;
+    },
 };
 
 export const scenarioApi = {
   getAll: async (): Promise<ScenarioResponse[]> => {
     const res = await apiClient.get<ScenarioResponse[]>('/scenarios');
-    return res.data;
+    return Array.isArray(res.data) ? res.data : [];
   },
 
   getById: async (id: string): Promise<ScenarioResponse> => {
@@ -254,3 +264,42 @@ export const adminBankOfferApi = {
     await apiClient.delete(`/admin/bank-offers/${id}`);
   },
 };
+
+export const profileApi = {
+  getActivity: async (action?: UserAuditActionType): Promise<UserActivityRecord[]> => {
+    const params = action ? `?action=${action}` : '';
+    const res = await apiClient.get<UserActivityRecord[]>(`/profile/activity${params}`);
+    return Array.isArray(res.data) ? res.data : [];
+  },
+};
+
+export const adminAuditApi = {
+  getLogs: async (action?: UserAuditActionType): Promise<UserActivityRecord[]> => {
+    const params = action ? `?action=${action}` : '';
+    const res = await apiClient.get<UserActivityRecord[]>(`/admin/audit/logs${params}`);
+    return Array.isArray(res.data) ? res.data : [];
+  },
+};
+
+export const adminManagementApi = {
+  getStats: async (): Promise<AdminStats> => {
+    const res = await apiClient.get<AdminStats>('/admin/stats');
+    return res.data;
+  },
+
+  getUsers: async (): Promise<AdminUser[]> => {
+    const res = await apiClient.get<AdminUser[]>('/admin/users');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
+  updateUserStatus: async (userId: string, enabled: boolean): Promise<AdminUser> => {
+    const res = await apiClient.patch<AdminUser>(`/admin/users/${userId}/status`, { enabled });
+    return res.data;
+  },
+
+  getLoans: async (): Promise<AdminLoanMonitoring[]> => {
+    const res = await apiClient.get<AdminLoanMonitoring[]>('/admin/loans');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+};
+

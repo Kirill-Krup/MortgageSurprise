@@ -83,6 +83,9 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
+  // Exchange rates from API
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
+
   // Banking standard ticker
   const [jokeIndex, setJokeIndex] = useState<number>(0);
   const nextJoke = () => setJokeIndex((prev) => (prev + 1) % 5);
@@ -95,6 +98,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
     rate?: number;
     pType?: PaymentType;
     curr?: Currency;
+    audit?: boolean;
   }) => {
     setLoading(true);
     setError(null);
@@ -106,6 +110,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
     const targetRate = overrideParams?.rate ?? annualRate;
     const targetPType = overrideParams?.pType ?? paymentType;
     const targetCurr = overrideParams?.curr ?? currency;
+    const shouldAudit = overrideParams?.audit ?? false;
 
     const req: CalculationRequest = {
       propertyPrice: targetPrice,
@@ -124,6 +129,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
       bankOfferId: presetOffer ? Number(presetOffer.id) : undefined,
       bankName: presetOffer?.bankName,
       offerName: presetOffer?.offerName,
+      audit: shouldAudit,
     };
 
     try {
@@ -137,7 +143,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [propertyPrice, downPayment, termYears, annualRate, paymentType, currency, earlyRepayments]);
+  }, [propertyPrice, downPayment, termYears, annualRate, paymentType, currency, earlyRepayments, presetOffer, t]);
 
   // Currency change handler
   const handleCurrencyChange = (newCurrency: Currency) => {
@@ -173,11 +179,11 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
         rate: newRate,
         curr: newCurrency,
         pType: paymentType,
+        audit: false,
       });
     }
   };
 
-  // Apply bank offer preset if passed
   useEffect(() => {
     if (presetOffer) {
       const offerCurr = presetOffer.currency || 'RUB';
@@ -201,11 +207,19 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
         termY,
         rate,
         curr: offerCurr,
+        audit: false,
       });
     } else {
-      calculateMortgage();
+      calculateMortgage({ audit: false });
     }
   }, [presetOffer]);
+
+  // Fetch live exchange rates on mount
+  useEffect(() => {
+    calculatorApi.getExchangeRates()
+      .then(setExchangeRates)
+      .catch(() => {});
+  }, []);
 
   // Price change
   const handlePriceChange = (val: number) => {
@@ -378,6 +392,11 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
               <div className="grid grid-cols-4 gap-1.5 mt-1">
                 {CURRENCY_CONFIGS.map((cfg) => {
                   const isSelected = currency === cfg.code;
+                  // Show cross-rate: how much 1 unit of this currency costs in the currently selected currency
+                  const showRate = !isSelected && exchangeRates[cfg.code] && exchangeRates[currency];
+                  const crossRate = showRate
+                    ? (exchangeRates[currency] / exchangeRates[cfg.code])
+                    : null;
                   return (
                     <button
                       key={cfg.code}
@@ -391,11 +410,28 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                     >
                       <span className="text-sm font-black">{cfg.symbol}</span>
                       <span className="text-[10px] tracking-tight">{cfg.code}</span>
+                      {crossRate !== null && (
+                        <span className="text-[9px] mt-0.5 opacity-70 font-medium">
+                          1{cfg.symbol} = {crossRate < 10 ? crossRate.toFixed(2) : crossRate.toFixed(0)}{getCurrencySymbol(currency)}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             </div>
+
+            {Object.keys(exchangeRates).length > 0 && (
+              <div className="mb-4 px-3 py-2 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2 text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                <TrendingDown size={13} className="shrink-0 opacity-70" />
+                <span>
+                  {t('liveRates') || 'Курсы'}:{' '}
+                  {CURRENCY_CONFIGS.filter(c => c.code !== 'RUB' && exchangeRates[c.code])
+                    .map(c => `1 ${c.symbol} = ${exchangeRates[c.code]?.toFixed(2) || '—'} ₽`)
+                    .join(' · ')}
+                </span>
+              </div>
+            )}
 
             <div className="space-y-5">
               {/* Property Price */}
@@ -611,7 +647,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
               {/* Submit calculate */}
               <button
                 type="button"
-                onClick={() => calculateMortgage()}
+                onClick={() => calculateMortgage({ audit: true })}
                 disabled={loading || user?.role === 'ROLE_ADMIN'}
                 className="w-full py-3.5 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-bold rounded-xl shadow-md shadow-blue-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >

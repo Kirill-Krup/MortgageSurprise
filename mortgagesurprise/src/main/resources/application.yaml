@@ -141,3 +141,8 @@ management:
 logging:
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+twelvedata:
+  api-key: ${TWELVE_DATA_API_KEY:your_api_key_here}
+  base-url: https://api.twelvedata.com
+  symbols: USD/RUB,EUR/RUB,BYN/RUB
+  cron: "0 0 9 * * *"
