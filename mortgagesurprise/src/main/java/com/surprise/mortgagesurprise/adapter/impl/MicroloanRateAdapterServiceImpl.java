@@ -6,6 +6,8 @@ import com.surprise.mortgagesurprise.service.MicroloanRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class MicroloanRateAdapterServiceImpl implements MicroloanRateAdapterService {
@@ -18,6 +20,13 @@ public class MicroloanRateAdapterServiceImpl implements MicroloanRateAdapterServ
     }
 
     @Override
+    public List<MicroloanRateDTO> findAll() {
+        return microloanRateService.findAll().stream()
+                .map(MicroloanRateDTO::from)
+                .toList();
+    }
+
+    @Override
     public MicroloanRateDTO save(MicroloanRateDTO dto) {
         return MicroloanRateDTO.from(microloanRateService.save(dto));
     }
@@ -25,5 +34,10 @@ public class MicroloanRateAdapterServiceImpl implements MicroloanRateAdapterServ
     @Override
     public MicroloanRateDTO update(MicroloanRateDTO dto, Integer id) {
         return MicroloanRateDTO.from(microloanRateService.update(dto, id));
+    }
+
+    @Override
+    public void delete(Integer id) {
+        microloanRateService.delete(id);
     }
 }

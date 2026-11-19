@@ -84,6 +84,8 @@ app:
     secret: ${JWT_SECRET:super-secret-jwt-token-signing-key-for-mortgagesurprise-application-needs-256-bits}
     access-token-expiration-ms: 900000
     refresh-token-expiration-ms: 604800000
+  security:
+    passport-aes-key: ${PASSPORT_AES_KEY:v8y/B?E(H+MbQeThWmZq4t7w!z%C*F-J}
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   oauth2:
     frontend-callback-url: ${FRONTEND_URL:http://localhost:3000}/oauth2/callback}

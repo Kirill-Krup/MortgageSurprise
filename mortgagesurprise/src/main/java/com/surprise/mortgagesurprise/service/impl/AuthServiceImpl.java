@@ -96,17 +96,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse createAuthResponse(User user) {
-        if (!user.isEnabled()) {
-            throw new BusinessException("This account is disabled");
-        }
-
         String accessToken = tokenProvider.generateAccessToken(
                 user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = tokenProvider.generateRefreshToken(user.getId(), user.getEmail());
         refreshTokenService.storeRefreshToken(
                 user.getId(), refreshToken, Duration.ofMillis(tokenProvider.getRefreshTokenValidityMs()));
         return AuthResponse.of(accessToken, refreshToken, tokenProvider.getAccessTokenValidityMs(),
-                user.getId(), user.getEmail(), user.getRole().name());
+                user.getId(), user.getEmail(), user.getRole().name(), user.isEnabled());
     }
 
     private String normalizeEmail(String email) {

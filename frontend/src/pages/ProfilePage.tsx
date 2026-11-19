@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { profileApi, scenarioApi, calculatorApi } from '../api/client';
+import { profileApi, scenarioApi, calculatorApi, passportApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import type {
@@ -10,6 +10,7 @@ import type {
   Currency,
   ScenarioComparisonResponse,
   UserAuditActionType,
+  PassportData,
 } from '../types';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import {
@@ -127,6 +128,78 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // History action filter
   const [historyFilter, setHistoryFilter] = useState<UserAuditActionType | 'ALL'>('ALL');
 
+  // Passport details state (AES-256 encrypted at rest on backend)
+  const [passportData, setPassportData] = useState<PassportData | null>(null);
+  const [passportModalOpen, setPassportModalOpen] = useState(false);
+  const [passportForm, setPassportForm] = useState<PassportData>({
+    fullName: '',
+    seriesNumber: '',
+    issueDate: '',
+    departmentCode: '',
+    issuedBy: '',
+  });
+  const [savingPassport, setSavingPassport] = useState(false);
+  const [passportNotice, setPassportNotice] = useState<string | null>(null);
+
+  const openPassportModal = () => {
+    if (passportData) {
+      setPassportForm({
+        fullName: passportData.fullName || '',
+        seriesNumber: passportData.seriesNumber || '',
+        issueDate: passportData.issueDate || '',
+        departmentCode: passportData.departmentCode || '',
+        issuedBy: passportData.issuedBy || '',
+      });
+    } else {
+      setPassportForm({
+        fullName: user?.email ? user.email.split('@')[0].replace(/[._]/g, ' ').toUpperCase() : '',
+        seriesNumber: '',
+        issueDate: '',
+        departmentCode: '',
+        issuedBy: '',
+      });
+    }
+    setPassportModalOpen(true);
+  };
+
+  const handleSavePassport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passportForm.fullName.trim() || !passportForm.seriesNumber.trim()) {
+      return;
+    }
+    setSavingPassport(true);
+    try {
+      const saved = await passportApi.save({
+        fullName: passportForm.fullName.trim(),
+        seriesNumber: passportForm.seriesNumber.trim(),
+        issueDate: passportForm.issueDate || undefined,
+        departmentCode: passportForm.departmentCode || undefined,
+        issuedBy: passportForm.issuedBy || undefined,
+      });
+      setPassportData(saved);
+      setPassportModalOpen(false);
+      setPassportNotice(t('passportSavedSuccess'));
+      setTimeout(() => setPassportNotice(null), 4000);
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      alert(axiosError.response?.data?.message || 'Не удалось сохранить паспортные данные');
+    } finally {
+      setSavingPassport(false);
+    }
+  };
+
+  const handleDeletePassport = async () => {
+    if (!window.confirm(t('passportDeleteConfirm'))) return;
+    try {
+      await passportApi.delete();
+      setPassportData(null);
+      setPassportNotice(t('passportDeletedSuccess'));
+      setTimeout(() => setPassportNotice(null), 4000);
+    } catch {
+      alert('Не удалось удалить паспортные данные');
+    }
+  };
+
   useEffect(() => {
     if (authLoading) return;
     if (!user || isAdmin) {
@@ -140,9 +213,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setLoading(true);
       setError(null);
       try {
-        const [activityRes, scenarioRes] = await Promise.allSettled([
+        const [activityRes, scenarioRes, passportRes] = await Promise.allSettled([
           profileApi.getActivity(),
           scenarioApi.getAll(),
+          passportApi.get(),
         ]);
 
         if (!isMounted) return;
@@ -157,6 +231,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           setScenarios(scenarioRes.value);
         } else {
           setScenarios([]);
+        }
+
+        if (passportRes.status === 'fulfilled') {
+          setPassportData(passportRes.value);
         }
 
         // Only show an error notice if both network requests failed completely
@@ -646,6 +724,104 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </button>
                 </div>
               )}
+
+              {/* Passport & Identity Card (AES-256 Encrypted) */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-2xl shrink-0">
+                      <ShieldCheck size={22} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                          {t('passportSectionTitle')}
+                        </h2>
+                        <span className="text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                          AES-256
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {t('passportSectionDesc')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {passportData ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={openPassportModal}
+                          className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                        >
+                          {t('passportEditBtn')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDeletePassport}
+                          className="px-3.5 py-2 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                        >
+                          {t('passportDeleteBtn')}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openPassportModal}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+                      >
+                        {t('passportAddBtn')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {passportNotice && (
+                  <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle2 size={16} />
+                    <span>{passportNotice}</span>
+                  </div>
+                )}
+
+                {passportData ? (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">{t('fullName')}</span>
+                      <span className="font-bold text-slate-900 dark:text-white uppercase">{passportData.fullName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">{t('passportSeriesNumber')}</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">
+                        {passportData.seriesNumber}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">{t('issueDate')}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
+                        {passportData.issueDate || '—'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block mb-0.5">{t('departmentCode')}</span>
+                      <span className="font-mono font-medium text-slate-700 dark:text-slate-300">
+                        {passportData.departmentCode || '—'}
+                      </span>
+                    </div>
+                    {passportData.issuedBy && (
+                      <div className="sm:col-span-2 lg:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                        <span className="text-slate-400 block mb-0.5">{t('issuedBy')}</span>
+                        <span className="text-slate-700 dark:text-slate-300">{passportData.issuedBy}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('passportNotProvided')}
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {/* Active Microloans Summary List */}
               {microloanApplications.length > 0 && (
@@ -1773,6 +1949,111 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 {t('closeModal')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Passport Create / Edit */}
+      {passportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={20} className="text-blue-600" />
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  {passportData ? t('passportEditBtn') : t('passportAddBtn')}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPassportModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">{t('passportMaskedNotice')}</p>
+            <form onSubmit={handleSavePassport} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  {t('fullName')} *
+                </label>
+                <input
+                  required
+                  placeholder={t('placeholderFullName')}
+                  value={passportForm.fullName}
+                  onChange={(e) => setPassportForm({ ...passportForm, fullName: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 uppercase"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    {t('passportSeriesNumber')} *
+                  </label>
+                  <input
+                    required
+                    maxLength={11}
+                    placeholder="4515 123456"
+                    value={passportForm.seriesNumber}
+                    onChange={(e) => setPassportForm({ ...passportForm, seriesNumber: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    {t('issueDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={passportForm.issueDate || ''}
+                    onChange={(e) => setPassportForm({ ...passportForm, issueDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    {t('departmentCode')}
+                  </label>
+                  <input
+                    maxLength={7}
+                    placeholder="770-001"
+                    value={passportForm.departmentCode || ''}
+                    onChange={(e) => setPassportForm({ ...passportForm, departmentCode: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                    {t('issuedBy')}
+                  </label>
+                  <input
+                    placeholder={t('placeholderIssuedBy')}
+                    value={passportForm.issuedBy || ''}
+                    onChange={(e) => setPassportForm({ ...passportForm, issuedBy: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setPassportModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold cursor-pointer"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPassport}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer disabled:opacity-60 shadow-md shadow-blue-600/20"
+                >
+                  {savingPassport ? t('saving') : t('save')}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

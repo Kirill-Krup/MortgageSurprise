@@ -20,7 +20,7 @@ public class MicroloanConfig extends AuditableEntity {
     @Id
     private String id = "DEFAULT";
 
-    @Column(name = "bank_interest", nullable = false, precision = 6, scale = 4)
+    @Column(name = "bank_interest", nullable = false, precision = 10, scale = 4)
     private BigDecimal bankInterest = new BigDecimal("2000");
 
     public MicroloanConfig(String id, BigDecimal bankInterest) {

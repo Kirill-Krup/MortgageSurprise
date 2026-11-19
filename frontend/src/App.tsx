@@ -98,13 +98,26 @@ export const MainApp: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    if (user.role === 'ROLE_ADMIN' && location.tab !== 'admin') {
-      go({ tab: 'admin', profile: 'overview', admin: location.admin || 'overview' });
-    } else if (user.role !== 'ROLE_ADMIN' && location.tab === 'admin') {
-      go({ tab: 'calculator', profile: 'overview', admin: 'overview' });
+    if (user?.role === 'ROLE_ADMIN') {
+      if (location.tab !== 'admin') {
+        go({ tab: 'admin', profile: 'overview', admin: location.admin || 'overview' });
+      }
+    } else {
+      if (location.tab === 'admin') {
+        go({ tab: 'calculator', profile: 'overview', admin: 'overview' });
+      }
     }
   }, [user, location.tab]);
+
+  useEffect(() => {
+    if (user && user.enabled === false) {
+      if (window.location.hash !== '#banned') {
+        window.location.hash = 'banned';
+      }
+    } else if (window.location.hash === '#banned') {
+      window.location.hash = '';
+    }
+  }, [user]);
 
   // Handle OAuth2 code or Magic Link token on mount
   useEffect(() => {

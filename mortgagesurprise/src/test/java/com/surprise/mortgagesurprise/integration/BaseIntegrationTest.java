@@ -1,13 +1,19 @@
 package com.surprise.mortgagesurprise.integration;
 
+import ch.martinelli.oss.testcontainers.mailpit.MailpitContainer;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
 
+@Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DisplayName("Base Integration Test")
 public abstract class BaseIntegrationTest {
 
     @ServiceConnection
@@ -21,4 +27,11 @@ public abstract class BaseIntegrationTest {
 
     @ServiceConnection
     public static final RabbitMQContainer rabbitmq = new RabbitMQContainer(DockerImageName.parse("rabbitmq:3-management-alpine"));
+
+    @ServiceConnection
+    public static final MailpitContainer mailpit = new MailpitContainer("axllent/mailpit:v1.24.2");
+
+    @ServiceConnection(name = "redis")
+    public static final GenericContainer<?> redis =
+            new RedisConta<>(DockerImageName.parse("redis:7-alpine"));
 }

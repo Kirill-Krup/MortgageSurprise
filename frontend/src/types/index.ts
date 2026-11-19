@@ -64,6 +64,7 @@ export type MicroloanType = 'BASIC_NEEDS' | 'VANITY';
 export interface MicroloanCalculationRequest {
   amount: number;
   termDays: number;
+  rateName?: string;
   type?: MicroloanType;
   purpose?: string;
   dailyInterestRate?: number;
@@ -100,16 +101,24 @@ export interface MicroloanCalculationResponse {
   dailySchedule: DailyScheduleItem[];
 }
 
-export interface MicroloanConfig {
-  id: string;
+export interface MicroloanRateDTO {
+  id?: number;
+  name: string;
   baseDailyRate: number;
-  vanitySurchargeRate: number;
-  updatedAt: string;
+  minDayRequired?: number;
+  maxDayRequired?: number;
 }
 
 export interface MicroloanConfigDTO {
-  baseDailyRate: number;
-  vanitySurchargeRate: number;
+  bankInterest: number;
+}
+
+export interface MicroloanConfig {
+  id?: string;
+  bankInterest: number;
+  baseDailyRate?: number;
+  vanitySurchargeRate?: number;
+  updatedAt?: string;
 }
 
 export interface BankOffer {
@@ -250,6 +259,36 @@ export interface AdminLoanMonitoring {
   scheduleId?: string | null;
 }
 
+export interface AbTestVariantResponse {
+  userId?: string | null;
+  experimentName: string;
+  color: string;
+}
+
+export interface UserTestStatDetail {
+  userId: string;
+  userEmail: string;
+  color: string;
+  clicksCount: number;
+  assignedAt: string;
+}
+
+export interface VariantStat {
+  color: string;
+  totalUsers: number;
+  totalClicks: number;
+  averageClicksPerUser: number;
+}
+
+export interface AbTestStatsResponse {
+  experimentName: string;
+  totalAssignedUsers: number;
+  totalClicks: number;
+  variants: VariantStat[];
+  userDetails: UserTestStatDetail[];
+}
+
+
 export type UserAuditActionType =
   | 'MORTGAGE_CALCULATION'
   | 'MICROLOAN_CALCULATION'
@@ -284,3 +323,12 @@ export interface UserActivityRecord {
   metadata?: Record<string, unknown> | null;
   timestamp: string;
 }
+
+export interface PassportData {
+  fullName: string;
+  seriesNumber: string;
+  issueDate?: string;
+  departmentCode?: string;
+  issuedBy?: string;
+}
+

@@ -1,5 +1,7 @@
 import axios from 'axios';
 import type {
+  AbTestStatsResponse,
+  AbTestVariantResponse,
   AdminLoanMonitoring,
   AdminStats,
   AdminUser,
@@ -12,6 +14,8 @@ import type {
   MicroloanCalculationResponse,
   MicroloanConfig,
   MicroloanConfigDTO,
+  MicroloanRateDTO,
+  PassportData,
   PaymentScheduleItem,
   SaveScenarioRequest,
   ScenarioComparisonResponse,
@@ -80,6 +84,25 @@ apiClient.interceptors.response.use(
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
+      }
+    }
+
+    // Check if account is disabled/blocked
+    if (
+      error.response?.status === 403 &&
+      (error.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
+       error.response?.data?.message?.includes('disabled') ||
+       error.response?.data?.message?.includes('blocked'))
+    ) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('auth:user-blocked', {
+            detail: {
+              email: error.response?.data?.email,
+              userId: error.response?.data?.userId,
+            },
+          })
+        );
       }
     }
 
@@ -178,6 +201,32 @@ export const calculatorApi = {
         const res = await apiClient.get<Record<string, number>>('/calculator/exchange-rates');
         return res.data;
     },
+};
+
+export const microloanRateApi = {
+  getRates: async (): Promise<MicroloanRateDTO[]> => {
+    const res = await apiClient.get<MicroloanRateDTO[]>('/microloan/rates');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+
+  getRateByName: async (name: string): Promise<MicroloanRateDTO> => {
+    const res = await apiClient.get<MicroloanRateDTO>(`/microloan/rate?name=${encodeURIComponent(name)}`);
+    return res.data;
+  },
+
+  saveRate: async (dto: MicroloanRateDTO): Promise<MicroloanRateDTO> => {
+    const res = await apiClient.post<MicroloanRateDTO>('/admin/microloan/rate', dto);
+    return res.data;
+  },
+
+  updateRate: async (id: number, dto: MicroloanRateDTO): Promise<MicroloanRateDTO> => {
+    const res = await apiClient.put<MicroloanRateDTO>(`/admin/microloan/rate/${id}`, dto);
+    return res.data;
+  },
+
+  deleteRate: async (id: number): Promise<void> => {
+    await apiClient.delete(`/admin/microloan/rate/${id}`);
+  },
 };
 
 export const scenarioApi = {
@@ -302,4 +351,54 @@ export const adminManagementApi = {
     return Array.isArray(res.data) ? res.data : [];
   },
 };
+
+export const abTestApi = {
+  assignVariant: async (experimentName: string, color: string): Promise<AbTestVariantResponse> => {
+    const res = await apiClient.post<AbTestVariantResponse>('/ab-test/variant', {
+      experimentName,
+      color,
+    });
+    return res.data;
+  },
+
+  getVariant: async (experimentName: string): Promise<AbTestVariantResponse> => {
+    const res = await apiClient.get<AbTestVariantResponse>(`/ab-test/variant?experimentName=${encodeURIComponent(experimentName)}`);
+    return res.data;
+  },
+
+  getStats: async (experimentName?: string): Promise<AbTestStatsResponse> => {
+    const params = experimentName ? `?experimentName=${encodeURIComponent(experimentName)}` : '';
+    const res = await apiClient.get<AbTestStatsResponse>(`/ab-test/stats${params}`);
+    return res.data;
+  },
+};
+
+export const passportApi = {
+  get: async (): Promise<PassportData | null> => {
+    try {
+      const res = await apiClient.get<PassportData>('/profile/passport');
+      if (res.status === 204 || !res.data) {
+        return null;
+      }
+      return res.data;
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number } };
+      if (axiosErr.response?.status === 204 || axiosErr.response?.status === 404) {
+        return null;
+      }
+      throw err;
+    }
+  },
+
+  save: async (data: PassportData): Promise<PassportData> => {
+    const res = await apiClient.put<PassportData>('/profile/passport', data);
+    return res.data;
+  },
+
+  delete: async (): Promise<void> => {
+    await apiClient.delete('/profile/passport');
+  },
+};
+
+
 

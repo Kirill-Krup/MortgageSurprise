@@ -34,6 +34,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.flywaydb:flyway-core")
 	implementation("org.flywaydb:flyway-database-postgresql")
+	implementation("org.springframework.cloud:spring-cloud-starter-openfeign:5.0.3")
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")
     implementation("com.github.librepdf:openpdf:2.0.3")
     implementation(platform("net.ttddyy.observation:datasource-micrometer-bom:2.3.0"))
@@ -55,16 +56,38 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-mongodb")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation("org.testcontainers:testcontainers-rabbitmq")
+    testImplementation("org.testcontainers:testcontainers-redis")
+    testImplementation("org.springframework.boot:spring-boot-starter-mail-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
-
+    testImplementation("ch.martinelli.oss:testcontainers-mailpit:1.3.0")
 }
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+tasks.register<Test>("unitTest") {
+    description = "Runs unit tests."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+}
+
+tasks.register<Test>("integrationTest") {
+    description = "Runs integration tests with Testcontainers."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
 }
 
 tasks.withType<Test>().configureEach {

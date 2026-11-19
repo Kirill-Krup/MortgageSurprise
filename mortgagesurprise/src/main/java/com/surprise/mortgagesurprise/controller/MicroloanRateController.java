@@ -9,13 +9,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 @RequestMapping("/api/v1")
 public class MicroloanRateController {
 
     private final MicroloanRateAdapterService microloanRateAdapterService;
+
+    @GetMapping("/microloan/rates")
+    public ResponseEntity<List<MicroloanRateDTO>> getAllRates() {
+        return ResponseEntity.ok(microloanRateAdapterService.findAll());
+    }
 
     @GetMapping("/microloan/rate")
     public ResponseEntity<MicroloanRateDTO> getByName(@RequestParam String name) {
@@ -35,5 +41,12 @@ public class MicroloanRateController {
                                                        @PathVariable Integer id) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(microloanRateAdapterService.update(dto, id));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/admin/microloan/rate/{id}")
+    public ResponseEntity<Void> deleteRate(@PathVariable Integer id) {
+        microloanRateAdapterService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

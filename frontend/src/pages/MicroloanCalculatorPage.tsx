@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { calculatorApi } from '../api/client';
+import { calculatorApi, microloanRateApi, passportApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import type { TranslationKey } from '../i18n/translations';
@@ -8,7 +8,9 @@ import type {
   MicroloanCalculationRequest,
   MicroloanCalculationResponse,
   MicroloanConfig,
+  MicroloanRateDTO,
   MicroloanType,
+  PassportData,
 } from '../types';
 import {
   Banknote,
@@ -16,6 +18,7 @@ import {
   Clock,
   ShieldCheck,
   Coins,
+  ChevronDown,
   ChevronRight,
   Sparkles,
   HeartHandshake,
@@ -28,6 +31,8 @@ import {
   Percent,
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
+import { useExperiment } from '../hooks/useExperiment';
+import { BUTTON_COLOR_VARIANTS, getMicroloanApplyButtonClasses } from '../utils/abTesting';
 
 interface MicroloanCalculatorPageProps {
   onOpenAuth: () => void;
@@ -103,8 +108,17 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
   const { t, language } = useLanguage();
   const isAdmin = user?.role === 'ROLE_ADMIN';
 
+  // AB test button color for Microloan Application (persisted permanently in DB and localStorage)
+  const applyBtnColorVariant = useExperiment('apply_microloan_button', BUTTON_COLOR_VARIANTS);
+  const applyBtnClasses = getMicroloanApplyButtonClasses(applyBtnColorVariant);
+
   // Bank config (admin-controlled rates)
   const [config, setConfig] = useState<MicroloanConfig | null>(null);
+
+  // Tariffs loaded from DB (Requirement 3 & 4)
+  const [rates, setRates] = useState<MicroloanRateDTO[]>([]);
+  const [selectedRate, setSelectedRate] = useState<MicroloanRateDTO | null>(null);
+  const [isTariffDropdownOpen, setIsTariffDropdownOpen] = useState<boolean>(false);
 
   // Form State
   const [currency, setCurrency] = useState<Currency>('RUB');
@@ -131,23 +145,80 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
   const [applicationSuccess, setApplicationSuccess] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Fetch admin-configured rates on mount
+  // User saved passport profile state (AES-256 backed)
+  const [savedPassport, setSavedPassport] = useState<PassportData | null>(null);
+  const [saveToProfile, setSaveToProfile] = useState<boolean>(true);
+
+  // Fetch user passport from profile if logged in
   useEffect(() => {
-    const loadConfig = async () => {
+    if (!user) {
+      setSavedPassport(null);
+      return;
+    }
+    let isMounted = true;
+    passportApi
+      .get()
+      .then((data) => {
+        if (!isMounted) return;
+        setSavedPassport(data);
+        if (data) {
+          setPassportData({
+            fullName: data.fullName || '',
+            seriesNumber: data.seriesNumber || '',
+            issueDate: data.issueDate || '',
+            departmentCode: data.departmentCode || '',
+            issuedBy: data.issuedBy || '',
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load profile passport:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  // Fetch admin-configured rates and tariffs from DB on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadData = async () => {
       try {
-        const cfg = await calculatorApi.getMicroloanConfig();
+        const [cfg, rateList] = await Promise.all([
+          calculatorApi.getMicroloanConfig().catch(() => null),
+          microloanRateApi.getRates().catch(() => []),
+        ]);
+        if (!isMounted) return;
         if (cfg) {
           setConfig(cfg);
         }
+        if (Array.isArray(rateList) && rateList.length > 0) {
+          setRates(rateList);
+          setSelectedRate(rateList[0]);
+        } else {
+          const fallbackRate: MicroloanRateDTO = {
+            id: 1,
+            name: 'Стандарт',
+            baseDailyRate: 0.8,
+            minDayRequired: 7,
+            maxDayRequired: 30,
+          };
+          setRates([fallbackRate]);
+          setSelectedRate(fallbackRate);
+        }
       } catch (err) {
-        console.warn('Could not fetch microloan config:', err);
+        console.warn('Could not fetch microloan config/rates:', err);
       }
     };
-    loadConfig();
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const baseRate = config?.baseDailyRate ?? 0.8;
-  const vanitySurchargeRate = config?.vanitySurchargeRate ?? 5.0; // Fixed surcharge % of loan amount
+  const baseRate = selectedRate?.baseDailyRate ?? config?.baseDailyRate ?? 0.8;
+  // Fixed surcharge amount for Luxury Maximum configured by admin (Requirement 5)
+  const fixedVanitySurcharge = config?.bankInterest ?? 2000;
 
   // Determine effective purpose text
   const currentPurpose = useMemo(() => {
@@ -158,7 +229,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     return found ? t(found.translationKey) : t('purposeGroceries');
   }, [selectedPurposeId, customPurposeText, t]);
 
-  // Automated category classification: the program determines the type (Requirement 3)
+  // Automated category classification: user cannot manually choose, it is derived from purpose (Requirement 4)
   const detectedType: MicroloanType = useMemo(() => {
     if (selectedPurposeId === 'custom') {
       const lower = customPurposeText.toLowerCase().trim();
@@ -172,12 +243,15 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     setLoading(true);
 
     const safeAmount = Math.max(1000, Math.min(100000, amount || 15000));
-    const safeTerm = Math.max(7, Math.min(30, termDays || 14));
+    const minDays = selectedRate?.minDayRequired ?? 7;
+    const maxDays = selectedRate?.maxDayRequired ?? 30;
+    const safeTerm = Math.max(minDays, Math.min(maxDays, termDays || 14));
 
     try {
       const req: MicroloanCalculationRequest = {
         amount: safeAmount,
         termDays: safeTerm,
+        rateName: selectedRate?.name || 'Стандарт',
         type: detectedType,
         purpose: currentPurpose,
         startDate,
@@ -186,14 +260,12 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
       const res = await calculatorApi.calculateMicroloan(req);
       setResult(res);
     } catch {
-      // Robust client-side fallback matching backend exact fixed surcharge rate formula
+      // Robust client-side fallback matching backend exact fixed surcharge formula (Requirement 5)
       const dailyInterest = Math.round((safeAmount * (baseRate / 100)) * 100) / 100;
       const baseTotalInterest = Math.round((dailyInterest * safeTerm) * 100) / 100;
 
-      // Fixed surcharge applied flat to principal (NOT multiplied by days!)
-      const surchargeAmount = detectedType === 'VANITY'
-        ? Math.round((safeAmount * (vanitySurchargeRate / 100)) * 100) / 100
-        : 0;
+      // Fixed surcharge applied flat (monetary amount, NOT a percentage)
+      const surchargeAmount = detectedType === 'VANITY' ? fixedVanitySurcharge : 0;
 
       const totalInterest = baseTotalInterest + surchargeAmount;
       const totalRepayment = safeAmount + totalInterest;
@@ -225,7 +297,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
         microloanType: detectedType,
         purpose: currentPurpose,
         baseDailyRate: baseRate,
-        vanitySurchargeRate: detectedType === 'VANITY' ? vanitySurchargeRate : 0,
+        vanitySurchargeRate: 0,
         vanitySurchargeAmount: surchargeAmount,
         effectiveDailyRate: baseRate,
         annualEquivalentRate: Math.round(baseRate * 365 * 100) / 100,
@@ -239,7 +311,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     } finally {
       setLoading(false);
     }
-  }, [amount, termDays, detectedType, currentPurpose, startDate, currency, baseRate, vanitySurchargeRate]);
+  }, [amount, termDays, detectedType, currentPurpose, startDate, currency, baseRate, fixedVanitySurcharge, selectedRate]);
 
   useEffect(() => {
     calculateLoan();
@@ -255,12 +327,26 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
       alert(t('adminActionBlocked'));
       return;
     }
-    if (!passportData.fullName && user.email) {
-      const emailPrefix = user.email.split('@')[0];
-      setPassportData((prev) => ({
-        ...prev,
-        fullName: emailPrefix.replace(/[._]/g, ' ').toUpperCase(),
-      }));
+
+    // Auto-fill from profile if already filled, or keep draft
+    if (savedPassport) {
+      setPassportData({
+        fullName: savedPassport.fullName || '',
+        seriesNumber: savedPassport.seriesNumber || '',
+        issueDate: savedPassport.issueDate || '',
+        departmentCode: savedPassport.departmentCode || '',
+        issuedBy: savedPassport.issuedBy || '',
+      });
+      setSaveToProfile(false);
+    } else {
+      if (!passportData.fullName && user.email) {
+        const emailPrefix = user.email.split('@')[0];
+        setPassportData((prev) => ({
+          ...prev,
+          fullName: emailPrefix.replace(/[._]/g, ' ').toUpperCase(),
+        }));
+      }
+      setSaveToProfile(true);
     }
     setFormError(null);
     setIsPassportModalOpen(true);
@@ -272,6 +358,22 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     if (!passportData.fullName.trim() || !passportData.seriesNumber.trim()) {
       setFormError(t('passportFormFillError'));
       return;
+    }
+
+    // Optionally persist passport data to user profile
+    if (user && !isAdmin && saveToProfile) {
+      try {
+        const saved = await passportApi.save({
+          fullName: passportData.fullName.trim(),
+          seriesNumber: passportData.seriesNumber.trim(),
+          issueDate: passportData.issueDate || undefined,
+          departmentCode: passportData.departmentCode || undefined,
+          issuedBy: passportData.issuedBy || undefined,
+        });
+        setSavedPassport(saved);
+      } catch (err) {
+        console.warn('Could not save passport data to profile:', err);
+      }
     }
 
     const randomId = `MS-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -308,9 +410,52 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-300">
       {/* Header section */}
       <div className="mb-6">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 mb-3">
-          <ShieldCheck size={14} className="text-blue-600 dark:text-blue-400" />
-          <span>{t('bankType')} &bull; {t('insuranceBadge')}</span>
+        <div className="relative inline-block text-left mb-3">
+          <button
+            type="button"
+            onClick={() => setIsTariffDropdownOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-all cursor-pointer shadow-xs"
+          >
+            <Sparkles size={14} className="text-blue-500" />
+            <span>Микрозайм: {selectedRate ? `${selectedRate.name} (${selectedRate.baseDailyRate}%/дн.)` : t('selectTariff')}</span>
+            <ChevronDown size={14} className={`transition-transform duration-200 ${isTariffDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isTariffDropdownOpen && (
+            <div className="absolute left-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-30 p-2 space-y-1 animate-in fade-in">
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {t('tariffDropdownLabel')} ({rates.length})
+              </div>
+              {rates.map((rate) => {
+                const isSelected = selectedRate?.name === rate.name;
+                return (
+                  <button
+                    key={rate.id ?? rate.name}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRate(rate);
+                      setIsTariffDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div>
+                      <div className="font-extrabold">{rate.name}</div>
+                      <div className="text-[11px] opacity-75">
+                        {rate.minDayRequired ?? 7}–{rate.maxDayRequired ?? 30} {t('daysUnit')}
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[11px] font-black">
+                      {rate.baseDailyRate}%/{t('perDay')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           {t('microloanTitle')}
@@ -382,6 +527,37 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                     {c.symbol} {c.code}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Tariff Selection (Requirement 3 & 4) */}
+            <div className="mb-6 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Coins size={17} className="text-blue-600 dark:text-blue-400" />
+                  <span>{t('tariffDropdownLabel')}</span>
+                </label>
+                {selectedRate && (
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    {selectedRate.baseDailyRate}% / {t('perDay')}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedRate?.name || ''}
+                  onChange={(e) => {
+                    const found = rates.find((r) => r.name === e.target.value);
+                    if (found) setSelectedRate(found);
+                  }}
+                  className="w-full px-3.5 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-colors"
+                >
+                  {rates.map((r) => (
+                    <option key={r.id ?? r.name} value={r.name}>
+                      {r.name} — {r.baseDailyRate}% в день ({r.minDayRequired ?? 7}–{r.maxDayRequired ?? 30} {t('daysUnit')})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -604,7 +780,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                 <div>
                   <span className="text-slate-500 dark:text-slate-400 block">{t('vanitySurcharge')}:</span>
                   <span className="text-base font-bold text-amber-600 dark:text-amber-400">
-                    +{vanitySurchargeRate}% {t('fixedFeeToLoan')}
+                    +{formatCurrency(fixedVanitySurcharge, currency)} ({t('fixedFeeToLoan')})
                   </span>
                 </div>
               </div>
@@ -680,7 +856,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                       {t('vanitySurchargeAmountLabel')}:
                     </span>
                     <span className="font-extrabold text-amber-700 dark:text-amber-200">
-                      +{formatCurrency(result.vanitySurchargeAmount ?? 0, currency)} ({vanitySurchargeRate}%)
+                      +{formatCurrency(result.vanitySurchargeAmount ?? 0, currency)} ({t('fixedSurchargeBadge')})
                     </span>
                   </div>
                 )}
@@ -706,7 +882,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                   type="button"
                   onClick={handleStartApplication}
                   disabled={isAdmin}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full py-3.5 ${applyBtnClasses} text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <CreditCard size={18} />
                   <span>{t('applyBtn')}</span>
@@ -834,6 +1010,16 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
               </div>
             )}
 
+            {savedPassport && (
+              <div className="mb-4 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />
+                  <span className="font-semibold">{t('passportAutoFilledBadge')}</span>
+                </div>
+                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full font-mono font-bold">AES-256</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmitPassport} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
@@ -917,6 +1103,18 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                 />
               </div>
 
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={saveToProfile}
+                    onChange={(e) => setSaveToProfile(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="font-medium">{t('savePassportToProfileCheckbox')}</span>
+                </label>
+              </div>
+
               <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
                 {t('passportSecurityNote')}
               </div>
@@ -931,7 +1129,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                  className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer`}
                 >
                   {t('submitApplication')}
                 </button>

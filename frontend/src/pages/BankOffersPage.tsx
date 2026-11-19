@@ -200,8 +200,8 @@ export const BankOffersPage: React.FC<BankOffersPageProps> = ({ onSelectOffer })
     try {
       const cfg = await calculatorApi.getMicroloanConfig();
       if (cfg) {
-        setAdminBaseRate(cfg.baseDailyRate);
-        setAdminSurchargeRate(cfg.vanitySurchargeRate);
+        setAdminBaseRate(cfg.baseDailyRate ?? 0.8);
+        setAdminSurchargeRate(cfg.bankInterest ?? 2000);
       }
     } catch (err) {
       console.warn('Could not load microloan config:', err);
@@ -219,8 +219,7 @@ export const BankOffersPage: React.FC<BankOffersPageProps> = ({ onSelectOffer })
     setError(null);
     try {
       await calculatorApi.updateMicroloanConfig({
-        baseDailyRate: adminBaseRate,
-        vanitySurchargeRate: adminSurchargeRate,
+        bankInterest: adminSurchargeRate,
       });
       setRatesSuccessMsg(t('ratesUpdated'));
       setTimeout(() => setRatesSuccessMsg(null), 4000);

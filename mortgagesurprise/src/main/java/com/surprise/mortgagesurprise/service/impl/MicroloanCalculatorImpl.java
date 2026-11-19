@@ -25,6 +25,9 @@ public class MicroloanCalculatorImpl implements MicroloanCalculator {
 
     @Override
     public MicroloanCalculationResult calculate(MicroloanCalculationRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Microloan calculation request cannot be null");
+        }
         var config = configService.getConfig();
         var microloanRate = microloanRateService.findByName(request.rateName());
         BigDecimal bankInterest = config.getBankInterest(); // TODO change to currency dependent variant
