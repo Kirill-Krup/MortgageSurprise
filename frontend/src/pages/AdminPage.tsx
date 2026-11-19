@@ -4,6 +4,7 @@ import {
   adminManagementApi,
   bankOfferApi,
   calculatorApi,
+  microloanRateApi,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -15,6 +16,7 @@ import type {
   BankOffer,
   BankOfferRequest,
   Currency,
+  MicroloanRateDTO,
   UserActivityRecord,
   UserAuditActionType,
 } from '../types';
@@ -34,6 +36,8 @@ import {
   LifeBuoy,
   LogOut,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   Plus,
   RefreshCw,
@@ -73,17 +77,27 @@ const limitText = (offer: BankOffer, fromWord: string, upToWord: string) => {
 };
 
 export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, onSectionChange }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { t, language, toggleLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
   const [internalSection, setInternalSection] = useState<AdminSection>('overview');
   const section = externalSection || internalSection;
 
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
   const navigateTo = (nextSection: AdminSection) => {
     setInternalSection(nextSection);
     onSectionChange?.(nextSection);
     window.location.hash = nextSection === 'overview' ? 'admin' : `admin/${nextSection}`;
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
   };
 
   // Real Backend Data State
@@ -104,9 +118,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
 
   const [ratesState, setRatesState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [baseRate, setBaseRate] = useState(0.8);
-  const [surchargeRate, setSurchargeRate] = useState(0.4);
+  const [surchargeRate, setSurchargeRate] = useState(2000);
   const [savingRates, setSavingRates] = useState(false);
   const [, setRatesMessage] = useState<string | null>(null);
+
+  // Microloan tariffs management state (Requirement 2)
+  const [ratesList, setRatesList] = useState<MicroloanRateDTO[]>([]);
+  const [rateModalOpen, setRateModalOpen] = useState(false);
+  const [editingRate, setEditingRate] = useState<MicroloanRateDTO | null>(null);
+  const [savingRate, setSavingRate] = useState(false);
+  const [rateForm, setRateForm] = useState({
+    name: '',
+    baseDailyRate: 0.8,
+    minDayRequired: 7,
+    maxDayRequired: 30,
+  });
 
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -203,11 +229,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   const loadRates = async () => {
     setRatesState('loading');
     try {
-      const cfg = await calculatorApi.getMicroloanConfig();
+      const [cfg, rates] = await Promise.all([
+        calculatorApi.getMicroloanConfig().catch(() => null),
+        microloanRateApi.getRates().catch(() => []),
+      ]);
       if (cfg) {
-        setBaseRate(cfg.baseDailyRate);
-        setSurchargeRate(cfg.vanitySurchargeRate);
+        setSurchargeRate(cfg.bankInterest ?? 2000);
+        if (cfg.baseDailyRate !== undefined) {
+          setBaseRate(cfg.baseDailyRate);
+        }
       }
+      setRatesList(Array.isArray(rates) ? rates : []);
       setRatesState('ok');
     } catch {
       setRatesState('error');
@@ -379,10 +411,23 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       setUsersList((prev) => prev.map((u) => (u.id === userItem.id ? updated : u)));
       showToast(updated.enabled ? t('adminUserUnblockedToast') : t('adminUserBlockedToast'));
       loadStats();
+
+      // If the current logged-in user blocked their own account, trigger immediate ban redirect
+      if (!updated.enabled && (user?.id === userItem.id || user?.email === userItem.email)) {
+        await refreshUser();
+      }
     } catch {
       setError('Не удалось обновить статус пользователя');
     } finally {
       setTogglingUserId(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      window.location.hash = '';
     }
   };
 
@@ -448,8 +493,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
     setError(null);
     try {
       await calculatorApi.updateMicroloanConfig({
-        baseDailyRate: baseRate,
-        vanitySurchargeRate: surchargeRate,
+        bankInterest: surchargeRate,
       });
       setRatesState('ok');
       setRatesMessage(t('ratesUpdated'));
@@ -459,6 +503,62 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       setError(axiosError.response?.data?.message || t('ratesUpdateError'));
     } finally {
       setSavingRates(false);
+    }
+  };
+
+  const openCreateRateModal = () => {
+    setEditingRate(null);
+    setRateForm({
+      name: '',
+      baseDailyRate: 0.8,
+      minDayRequired: 7,
+      maxDayRequired: 30,
+    });
+    setRateModalOpen(true);
+  };
+
+  const openEditRateModal = (rate: MicroloanRateDTO) => {
+    setEditingRate(rate);
+    setRateForm({
+      name: rate.name,
+      baseDailyRate: rate.baseDailyRate,
+      minDayRequired: rate.minDayRequired ?? 7,
+      maxDayRequired: rate.maxDayRequired ?? 30,
+    });
+    setRateModalOpen(true);
+  };
+
+  const handleSaveRate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingRate(true);
+    try {
+      if (editingRate?.id) {
+        await microloanRateApi.updateRate(editingRate.id, rateForm);
+      } else {
+        await microloanRateApi.saveRate(rateForm);
+      }
+      setRateModalOpen(false);
+      setEditingRate(null);
+      await loadRates();
+      showToast(t('ratesUpdated'));
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || t('ratesUpdateError'));
+    } finally {
+      setSavingRate(false);
+    }
+  };
+
+  const handleDeleteRate = async (id?: number) => {
+    if (!id) return;
+    if (!window.confirm('Удалить данный тариф?')) return;
+    try {
+      await microloanRateApi.deleteRate(id);
+      await loadRates();
+      showToast('Тариф успешно удален');
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      setError(axiosError.response?.data?.message || 'Не удалось удалить тариф');
     }
   };
 
@@ -474,38 +574,32 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
     }, 1200);
   };
 
-  // Nav Items with live counts
+  // Nav Items (without count badges)
   const navItems = [
     {
       id: 'overview' as const,
       label: t('adminNavOverview'),
       icon: <LayoutDashboard size={18} />,
-      badge: null,
     },
     {
       id: 'users' as const,
       label: t('adminNavUsers'),
       icon: <Users size={18} />,
-      badge: usersLoading ? '...' : String(usersList.length),
     },
     {
       id: 'loans' as const,
       label: t('adminNavLoans'),
       icon: <Coins size={18} />,
-      badge: loansLoading ? '...' : String(loansList.length),
-      badgeColor: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
     },
     {
       id: 'products' as const,
       label: t('adminNavProducts'),
       icon: <Landmark size={18} />,
-      badge: offers.length > 0 ? String(offers.length) : null,
     },
     {
       id: 'journal' as const,
       label: t('adminNavSettings'),
       icon: <ScrollText size={18} />,
-      badge: logs.length > 0 ? String(logs.length) : null,
     },
   ];
 
@@ -547,93 +641,111 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   const systemOk = offersState !== 'error' && ratesState !== 'error';
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col lg:flex-row antialiased">
-      {/* 1. Admin Sidebar */}
-      <aside className="w-full lg:w-72 shrink-0 bg-slate-950 text-slate-300 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800">
-        <div className="px-6 pt-7 pb-6 border-b border-slate-900">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30">
-              <Landmark size={22} />
-            </div>
-            <div>
-              <div className="font-extrabold text-base tracking-tight text-white leading-tight">
-                Mortgage<span className="text-blue-400">Surprise</span>
-              </div>
-              <div className="text-[11px] font-semibold text-slate-400 tracking-wide mt-0.5">
-                {t('adminBankConsole')}
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex antialiased relative overflow-x-hidden">
+      {/* Mobile Drawer Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs lg:hidden transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-        <div className="px-6 pt-6 pb-2">
-          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-            {t('adminWorkspace')}
-          </div>
-        </div>
-
-        <nav className="px-3.5 space-y-1.5 flex-1 py-1">
-          {navItems.map((item) => {
-            const active = section === item.id || (section === 'rates' && item.id === 'products');
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => navigateTo(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer ${
-                  active
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-900/80'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={active ? 'text-white' : 'text-slate-400'}>{item.icon}</span>
-                  <span>{item.label}</span>
+      {/* 1. Admin Sidebar (Collapsible / Slide-out Drawer) */}
+      <aside
+        className={`fixed lg:sticky top-0 h-screen z-50 lg:z-10 bg-slate-950 text-slate-300 flex flex-col border-r border-slate-800 transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+          sidebarOpen
+            ? 'w-72 translate-x-0 shadow-2xl lg:shadow-none'
+            : 'w-72 lg:w-0 -translate-x-full lg:translate-x-0 border-r-0 pointer-events-none'
+        }`}
+        aria-label="Admin Navigation Sidebar"
+      >
+        <div className="w-72 h-full flex flex-col shrink-0 overflow-y-auto">
+          <div className="px-6 pt-7 pb-6 border-b border-slate-900 flex items-center justify-between">
+            <div
+              className="flex items-center gap-3.5 cursor-pointer select-none group min-w-0 flex-1"
+              onClick={() => { window.location.hash = 'calculator'; }}
+              title={t('navMortgage')}
+            >
+              <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform shrink-0">
+                <Landmark size={22} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-extrabold text-base tracking-tight text-white leading-tight truncate">
+                  Mortgage<span className="text-blue-400">Surprise</span>
                 </div>
-                {item.badge && (
-                  <span
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      item.badgeColor
-                        ? item.badgeColor
-                        : active
-                          ? 'bg-white/20 text-white'
-                          : 'bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+                <div className="text-[11px] font-semibold text-slate-400 tracking-wide mt-0.5 truncate">
+                  {t('adminBankConsole')}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 cursor-pointer transition-colors shrink-0 ml-1"
+              title={language === 'ru' ? 'Свернуть меню' : 'Collapse sidebar'}
+              aria-label="Close sidebar"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          </div>
 
-        {/* Support Card */}
-        <div className="p-4 space-y-3 mt-auto border-t border-slate-900">
-          <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/90 border border-slate-800/80 p-4 relative overflow-hidden">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
-                <LifeBuoy size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-white leading-snug">{t('adminSupportTitle')}</div>
-                <button
-                  type="button"
-                  onClick={() => setSupportModalOpen(true)}
-                  className="mt-1 text-[11px] font-medium text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer transition-colors"
-                >
-                  {t('adminWriteSupport')}
-                </button>
-              </div>
+          <div className="px-6 pt-6 pb-2">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+              {t('adminWorkspace')}
             </div>
           </div>
 
-          <div className="px-2 flex items-center justify-between text-[11px] text-slate-400 font-medium">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{t('adminRole')}</span>
+          <nav className="px-3.5 space-y-1.5 flex-1 py-1">
+            {navItems.map((item) => {
+              const active = section === item.id || (section === 'rates' && item.id === 'products');
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigateTo(item.id)}
+                  className={`w-full flex items-center px-3.5 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer ${
+                    active
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-900/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={active ? 'text-white' : 'text-slate-400'}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Support Card */}
+          <div className="p-4 space-y-3 mt-auto border-t border-slate-900">
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/90 border border-slate-800/80 p-4 relative overflow-hidden">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+                  <LifeBuoy size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-white leading-snug">{t('adminSupportTitle')}</div>
+                  <button
+                    type="button"
+                    onClick={() => setSupportModalOpen(true)}
+                    className="mt-1 text-[11px] font-medium text-blue-400 hover:text-blue-300 underline underline-offset-2 cursor-pointer transition-colors"
+                  >
+                    {t('adminWriteSupport')}
+                  </button>
+                </div>
+              </div>
             </div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">PROD LIVE</span>
+
+            <div className="px-2 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{t('adminRole')}</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">PROD LIVE</span>
+            </div>
           </div>
         </div>
       </aside>
@@ -643,7 +755,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         {/* Header Bar */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 sticky top-0 z-20 backdrop-blur-md">
           <div className="h-18 flex items-center justify-between gap-4">
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                className="p-2 sm:p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer transition-colors shrink-0 flex items-center justify-center"
+                title={
+                  sidebarOpen
+                    ? (language === 'ru' ? 'Свернуть боковое меню' : 'Collapse sidebar')
+                    : (language === 'ru' ? 'Развернуть боковое меню' : 'Expand sidebar')
+                }
+                aria-label="Toggle sidebar"
+              >
+                {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+              </button>
+
               <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
                 <span>{t('adminConsole')}</span>
                 <span>/</span>
@@ -740,7 +866,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                 </div>
                 <button
                   type="button"
-                  onClick={() => logout()}
+                  onClick={handleLogout}
                   title={t('navLogout')}
                   className="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
                 >
@@ -1679,7 +1805,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                 </div>
               </div>
 
-              {/* Microloan Rates Config Form */}
+              {/* Microloan Fixed Surcharge Config & Tariffs Management */}
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <form
                   onSubmit={saveRates}
@@ -1691,36 +1817,23 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                     </div>
                     <div>
                       <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-                        {t('microloanRatesTitle')}
+                        {t('adminFixedVanitySurcharge')}
                       </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">{t('microloanRatesDesc')}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{t('adminFixedVanitySurchargeDesc')}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label={`${t('baseDailyRateLabel')} (%/${t('perDay')})`}>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="10"
-                        value={baseRate}
-                        onChange={(e) => setBaseRate(Number(e.target.value))}
-                        className={fieldClass}
-                      />
-                    </Field>
-                    <Field label={`${t('surchargeRateLabel')} (%/${t('perDay')})`}>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="10"
-                        value={surchargeRate}
-                        onChange={(e) => setSurchargeRate(Number(e.target.value))}
-                        className={fieldClass}
-                      />
-                    </Field>
-                  </div>
+                  <Field label={`${t('adminFixedVanitySurcharge')} (₽)`}>
+                    <input
+                      type="number"
+                      step="100"
+                      min="0"
+                      max="100000"
+                      value={surchargeRate}
+                      onChange={(e) => setSurchargeRate(Number(e.target.value))}
+                      className={fieldClass}
+                    />
+                  </Field>
 
                   <div className="flex justify-end pt-2">
                     <button
@@ -1737,29 +1850,108 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                 <div className="lg:col-span-2 rounded-3xl p-6 bg-slate-950 text-white border border-slate-900 flex flex-col justify-between">
                   <div>
                     <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Действующие тарифы ЦБ
+                      Конфигурация кредитного ядра
                     </div>
-                    <div className="text-xl font-black mt-2 text-white">Ставки микрозаймов</div>
+                    <div className="text-xl font-black mt-2 text-white">Ставки и надбавки</div>
                     <div className="mt-4 space-y-3 text-xs">
                       <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Базовый минимум:</span>
-                        <span className="font-extrabold text-emerald-400">{baseRate}% в день</span>
+                        <span className="text-slate-400">Действующих тарифов:</span>
+                        <span className="font-extrabold text-blue-400">{ratesList.length}</span>
                       </div>
                       <div className="flex items-center justify-between py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Роскошный максимум:</span>
-                        <span className="font-extrabold text-amber-400">
-                          {(baseRate + surchargeRate).toFixed(2)}% в день
-                        </span>
+                        <span className="text-slate-400">Базовый минимум:</span>
+                        <span className="font-extrabold text-emerald-400">По тарифу клиента</span>
                       </div>
                       <div className="flex items-center justify-between py-2">
-                        <span className="text-slate-400">Надбавка за статус:</span>
-                        <span className="font-extrabold text-blue-400">+{surchargeRate}%</span>
+                        <span className="text-slate-400">Роскошный максимум:</span>
+                        <span className="font-extrabold text-amber-400">+{surchargeRate} ₽ (фикс.)</span>
                       </div>
                     </div>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-4">
-                    Параметры сохраняются в PostgreSQL microloan_config и автоматически инвалидируют кэш Redis.
+                    Параметры сохраняются в PostgreSQL microloan_configs и инвалидируют кэш Caffeine.
                   </div>
+                </div>
+              </div>
+
+              {/* Tariffs Table (microloan_rates) */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                      <Coins size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                        {t('adminTariffManagement')}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Управление процентными ставками и сроками микрозаймов</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openCreateRateModal}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span>{t('adminAddTariff')}</span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 text-slate-400 uppercase text-[10px] tracking-wider">
+                        <th className="p-3.5 font-bold">ID</th>
+                        <th className="p-3.5 font-bold">{t('tariffName')}</th>
+                        <th className="p-3.5 font-bold">{t('baseDailyRateLabel')}</th>
+                        <th className="p-3.5 font-bold">{t('adminMinDays')}</th>
+                        <th className="p-3.5 font-bold">{t('adminMaxDays')}</th>
+                        <th className="p-3.5 font-bold text-right">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      {ratesList.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-400">
+                            Тарифы пока не добавлены
+                          </td>
+                        </tr>
+                      ) : (
+                        ratesList.map((rate) => (
+                          <tr key={rate.id ?? rate.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="p-3.5 font-mono text-slate-400">{rate.id ?? '—'}</td>
+                            <td className="p-3.5 font-bold text-slate-900 dark:text-white">{rate.name}</td>
+                            <td className="p-3.5 font-bold text-emerald-600 dark:text-emerald-400">
+                              {rate.baseDailyRate}% / {t('perDay')}
+                            </td>
+                            <td className="p-3.5">{rate.minDayRequired ?? 7} {t('daysUnit')}</td>
+                            <td className="p-3.5">{rate.maxDayRequired ?? 30} {t('daysUnit')}</td>
+                            <td className="p-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditRateModal(rate)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
+                                  title={t('adminEditTariff')}
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRate(rate.id)}
+                                  className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/60 transition-colors cursor-pointer"
+                                  title={t('adminDeleteTariff')}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -1967,6 +2159,87 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                   className="flex-1 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer disabled:opacity-60 shadow-md shadow-blue-600/20"
                 >
                   {savingOffer ? t('saving') : t('save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Microloan Rate Create / Edit */}
+      {rateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 border border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                {editingRate ? t('adminEditTariff') : t('adminAddTariff')}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRateModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveRate} className="space-y-3.5">
+              <Field label={t('tariffName')}>
+                <input
+                  required
+                  placeholder="Стандарт, Лайт, Срочный..."
+                  value={rateForm.name}
+                  onChange={(e) => setRateForm({ ...rateForm, name: e.target.value })}
+                  className={fieldClass}
+                />
+              </Field>
+              <Field label={t('dailyRate')}>
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max="10"
+                  value={rateForm.baseDailyRate}
+                  onChange={(e) => setRateForm({ ...rateForm, baseDailyRate: parseFloat(e.target.value) || 0 })}
+                  className={fieldClass}
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={t('adminMinDays')}>
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    value={rateForm.minDayRequired}
+                    onChange={(e) => setRateForm({ ...rateForm, minDayRequired: parseInt(e.target.value, 10) || 1 })}
+                    className={fieldClass}
+                  />
+                </Field>
+                <Field label={t('adminMaxDays')}>
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    value={rateForm.maxDayRequired}
+                    onChange={(e) => setRateForm({ ...rateForm, maxDayRequired: parseInt(e.target.value, 10) || 1 })}
+                    className={fieldClass}
+                  />
+                </Field>
+              </div>
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setRateModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold cursor-pointer"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingRate}
+                  className="flex-1 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer disabled:opacity-60 shadow-md shadow-blue-600/20"
+                >
+                  {savingRate ? t('saving') : t('save')}
                 </button>
               </div>
             </form>
