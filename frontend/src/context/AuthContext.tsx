@@ -23,8 +23,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const currentUser = await authApi.getMe();
       setUser(currentUser);
-    } catch {
-      setUser(null);
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { status?: number; data?: { message?: string; email?: string; userId?: string } } };
+      if (
+        axiosError.response?.status === 403 &&
+        (axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
+         axiosError.response?.data?.message?.includes('disabled'))
+      ) {
+        setUser((prev) => ({
+          id: axiosError.response?.data?.userId || prev?.id || '',
+          email: axiosError.response?.data?.email || prev?.email || '',
+          role: prev?.role || 'ROLE_USER',
+          enabled: false,
+        }));
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -34,14 +48,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUser();
   }, [fetchUser]);
 
+  useEffect(() => {
+    const handleBlocked = (e: Event) => {
+      const customEvent = e as CustomEvent<{ email?: string; userId?: string }>;
+      setUser((prev) =>
+        prev
+          ? { ...prev, enabled: false }
+          : {
+              id: customEvent.detail?.userId || '',
+              email: customEvent.detail?.email || '',
+              role: 'ROLE_USER',
+              enabled: false,
+            }
+      );
+    };
+    window.addEventListener('auth:user-blocked', handleBlocked);
+    return () => window.removeEventListener('auth:user-blocked', handleBlocked);
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.enabled === false) return;
+
+    const checkStatus = () => {
+      authApi.getMe().then((u) => {
+        if (u.enabled === false) {
+          setUser(u);
+        }
+      }).catch((err: unknown) => {
+        const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+        if (axiosError.response?.status === 403 && axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED')) {
+          setUser((prev) => (prev ? { ...prev, enabled: false } : null));
+        }
+      });
+    };
+
+    const interval = setInterval(checkStatus, 10000);
+    window.addEventListener('focus', checkStatus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', checkStatus);
+    };
+  }, [user]);
+
   const login = async (data: { email: string; password: string }) => {
-    const res = await authApi.login(data);
-    setUser({
-      id: res.userId,
-      email: res.email,
-      role: res.role,
-      enabled: res.enabled !== false,
-    });
+    try {
+      const res = await authApi.login(data);
+      setUser({
+        id: res.userId,
+        email: res.email,
+        role: res.role,
+        enabled: res.enabled !== false,
+      });
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { status?: number; data?: { message?: string; email?: string; userId?: string } } };
+      if (
+        axiosError.response?.status === 403 &&
+        (axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
+         axiosError.response?.data?.message?.includes('disabled'))
+      ) {
+        setUser({
+          id: axiosError.response?.data?.userId || '',
+          email: axiosError.response?.data?.email || data.email,
+          role: 'ROLE_USER',
+          enabled: false,
+        });
+        return;
+      }
+      throw err;
+    }
   };
 
   const register = async (data: { email: string; password: string }) => {

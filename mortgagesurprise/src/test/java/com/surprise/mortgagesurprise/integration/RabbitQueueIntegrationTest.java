@@ -7,7 +7,10 @@ import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
+import com.surprise.mortgagesurprise.testutil.TestConstants;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +20,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
+@Tag("integration")
+@DisplayName("RabbitMQ Queue Integration Tests")
 class RabbitQueueIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
@@ -30,67 +35,75 @@ class RabbitQueueIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private PaymentScheduleMongoRepository scheduleMongoRepository;
 
-    @Test
-    @DisplayName("RabbitMQ event delivery: publish RateChangedEvent -> verify message in queue")
-    void testRateChangedEventDelivery() {
-        UUID bankOfferId = UUID.randomUUID();
-        RateChangedEvent event = new RateChangedEvent(
-                bankOfferId,
-                "Sberbank",
-                new BigDecimal("12.50"),
-                new BigDecimal("14.00"),
-                Instant.now()
-        );
+    @Nested
+    @DisplayName("Event Delivery")
+    class EventDelivery {
 
-        assertDoesNotThrow(() -> {
-            messageProducer.sendRateChangedEvent(event);
-        });
-    }
+        @Test
+        @DisplayName("Should publish RateChangedEvent without exceptions")
+        void sendRateChangedEvent_shouldPublishEventToRabbitMQ_whenValidEventSent() {
+            // Arrange
+            RateChangedEvent event = new RateChangedEvent(
+                    UUID.randomUUID(),
+                    "Sberbank",
+                    new BigDecimal("12.50"),
+                    new BigDecimal("14.00"),
+                    Instant.now()
+            );
 
-    @Test
-    @DisplayName("Dead Letter Queue routing: publish message to DLX -> verify DLQ topology")
-    void testDeadLetterQueueRouting() {
-        assertDoesNotThrow(() -> {
-            rabbitTemplate.convertAndSend(
+            // Act & Assert
+            assertThatCode(() -> messageProducer.sendRateChangedEvent(event))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Should route poison message to Dead Letter Queue topology")
+        void sendDeadLetter_shouldRouteMessageToDlq_whenPoisonPillSent() {
+            // Arrange
+            String payload = "{\"error\":\"test-poison-pill\"}";
+
+            // Act & Assert
+            assertThatCode(() -> rabbitTemplate.convertAndSend(
                     RabbitMQConfig.DEAD_LETTER_EXCHANGE,
                     RabbitMQConfig.RATE_CHANGED_DLQ_ROUTING_KEY,
-                    "{\"error\":\"test-poison-pill\"}"
+                    payload
+            )).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("Should publish PdfExportEvent for existing schedule in MongoDB without exceptions")
+        void sendPdfExportEvent_shouldPublishEventToRabbitMQ_whenValidEventSent() {
+            // Arrange
+            PaymentScheduleDocument schedule = new PaymentScheduleDocument(
+                    UUID.randomUUID().toString(),
+                    TestConstants.CALCULATION_HASH,
+                    TestConstants.PROPERTY_PRICE,
+                    TestConstants.DOWN_PAYMENT,
+                    TestConstants.LOAN_AMOUNT,
+                    240,
+                    240,
+                    new BigDecimal("10.00"),
+                    PaymentType.ANNUITY,
+                    new BigDecimal("38600.00"),
+                    new BigDecimal("2000000.00"),
+                    new BigDecimal("6000000.00"),
+                    List.of(),
+                    Instant.now()
             );
-        });
-    }
+            PaymentScheduleDocument saved = scheduleMongoRepository.save(schedule);
 
-    @Test
-    @DisplayName("PDF export queue delivery: publish PdfExportEvent -> verify no exception")
-    void testPdfExportEventDelivery() {
-        PaymentScheduleDocument schedule = new PaymentScheduleDocument(
-                UUID.randomUUID().toString(),
-                "hash-test",
-                new BigDecimal("5000000.00"),
-                new BigDecimal("1000000.00"),
-                new BigDecimal("4000000.00"),
-                240,
-                240,
-                new BigDecimal("10.00"),
-                PaymentType.ANNUITY,
-                new BigDecimal("38600.00"),
-                new BigDecimal("2000000.00"),
-                new BigDecimal("6000000.00"),
-                List.of(),
-                Instant.now()
-        );
-        PaymentScheduleDocument saved = scheduleMongoRepository.save(schedule);
+            PdfExportEvent event = new PdfExportEvent(
+                    TestConstants.USER_ID,
+                    TestConstants.USER_EMAIL,
+                    UUID.randomUUID(),
+                    "Test Scenario",
+                    saved.getId(),
+                    Instant.now()
+            );
 
-        PdfExportEvent event = new PdfExportEvent(
-                UUID.randomUUID(),
-                "test@example.com",
-                UUID.randomUUID(),
-                "Test Scenario",
-                saved.getId(),
-                Instant.now()
-        );
-
-        assertDoesNotThrow(() -> {
-            messageProducer.sendPdfExportEvent(event);
-        });
+            // Act & Assert
+            assertThatCode(() -> messageProducer.sendPdfExportEvent(event))
+                    .doesNotThrowAnyException();
+        }
     }
 }

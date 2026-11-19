@@ -4,6 +4,8 @@ import tools.jackson.databind.ObjectMapper;
 import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -11,8 +13,11 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
+@Tag("unit")
+@DisplayName("Security Exception Handlers Tests")
 class SecurityExceptionHandlersTest {
 
     private ObjectMapper objectMapper;
@@ -26,39 +31,61 @@ class SecurityExceptionHandlersTest {
         accessDeniedHandler = new CustomAccessDeniedHandler(objectMapper);
     }
 
-    @Test
-    @DisplayName("AuthenticationEntryPoint returns 401 with ErrorResponse JSON")
-    void testAuthenticationEntryPointReturns401() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/scenarios");
-        MockHttpServletResponse response = new MockHttpServletResponse();
+    @Nested
+    @DisplayName("Authentication Entry Point")
+    class AuthenticationEntryPointTests {
 
-        authenticationEntryPoint.commence(request, response, new BadCredentialsException("Token is expired"));
+        @Test
+        @DisplayName("Should return 401 Unauthorized with structured ErrorResponse JSON")
+        void commence_shouldReturn401Unauthorized_whenAuthenticationFails() throws Exception {
+            // Arrange
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/scenarios");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            BadCredentialsException exception = new BadCredentialsException("Token is expired");
 
-        assertEquals(HttpStatus.UNAUTHORIZED.value(), response.getStatus());
-        assertEquals("application/json;charset=UTF-8", response.getContentType());
+            // Act
+            authenticationEntryPoint.commence(request, response, exception);
 
-        ErrorResponse error = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
-        assertEquals(401, error.status());
-        assertEquals("Unauthorized", error.error());
-        assertEquals("Token is expired", error.message());
-        assertEquals("/api/v1/scenarios", error.path());
+            // Assert
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+            assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+
+            ErrorResponse error = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
+            assertAll("401 Error response fields",
+                    () -> assertThat(error.status()).isEqualTo(401),
+                    () -> assertThat(error.error()).isEqualTo("Unauthorized"),
+                    () -> assertThat(error.message()).isEqualTo("Token is expired"),
+                    () -> assertThat(error.path()).isEqualTo("/api/v1/scenarios")
+            );
+        }
     }
 
-    @Test
-    @DisplayName("AccessDeniedHandler returns 403 with ErrorResponse JSON")
-    void testAccessDeniedHandlerReturns403() throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/admin/bank-offers");
-        MockHttpServletResponse response = new MockHttpServletResponse();
+    @Nested
+    @DisplayName("Access Denied Handler")
+    class AccessDeniedHandlerTests {
 
-        accessDeniedHandler.handle(request, response, new AccessDeniedException("Insufficient authorities"));
+        @Test
+        @DisplayName("Should return 403 Forbidden with structured ErrorResponse JSON")
+        void handle_shouldReturn403Forbidden_whenAccessDenied() throws Exception {
+            // Arrange
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/admin/bank-offers");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            AccessDeniedException exception = new AccessDeniedException("Insufficient authorities");
 
-        assertEquals(HttpStatus.FORBIDDEN.value(), response.getStatus());
-        assertEquals("application/json;charset=UTF-8", response.getContentType());
+            // Act
+            accessDeniedHandler.handle(request, response, exception);
 
-        ErrorResponse error = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
-        assertEquals(403, error.status());
-        assertEquals("Forbidden", error.error());
-        assertEquals("Access denied: Insufficient authorities", error.message());
-        assertEquals("/api/v1/admin/bank-offers", error.path());
+            // Assert
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.FORBIDDEN.value());
+            assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
+
+            ErrorResponse error = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
+            assertAll("403 Error response fields",
+                    () -> assertThat(error.status()).isEqualTo(403),
+                    () -> assertThat(error.error()).isEqualTo("Forbidden"),
+                    () -> assertThat(error.message()).isEqualTo("Access denied: Insufficient authorities"),
+                    () -> assertThat(error.path()).isEqualTo("/api/v1/admin/bank-offers")
+            );
+        }
     }
 }

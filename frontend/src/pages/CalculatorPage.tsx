@@ -25,6 +25,11 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
+import { useExperiment } from '../hooks/useExperiment';
+import {
+  BUTTON_COLOR_VARIANTS,
+  getMortgageCalculateButtonClasses,
+} from '../utils/abTesting';
 
 interface CalculatorPageProps {
   presetOffer?: BankOffer | null;
@@ -39,6 +44,10 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
 }) => {
   const { user } = useAuth();
   const { t } = useLanguage();
+
+  // AB test button color for Mortgage Calculation (persisted permanently in DB and localStorage)
+  const mortgageCalcBtnVariant = useExperiment('mortgage_calculate_button', BUTTON_COLOR_VARIANTS);
+  const mortgageCalcBtnClasses = getMortgageCalculateButtonClasses(mortgageCalcBtnVariant);
 
   const bankingStandards = useMemo(() => [
     t('standardLicense'),
@@ -649,7 +658,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                 type="button"
                 onClick={() => calculateMortgage({ audit: true })}
                 disabled={loading || user?.role === 'ROLE_ADMIN'}
-                className="w-full py-3.5 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-bold rounded-xl shadow-md shadow-blue-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`w-full py-3.5 ${mortgageCalcBtnClasses} text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {loading ? (
                   <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />

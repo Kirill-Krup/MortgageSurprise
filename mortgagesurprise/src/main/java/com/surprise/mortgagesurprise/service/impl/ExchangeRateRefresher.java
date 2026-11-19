@@ -3,13 +3,15 @@ package com.surprise.mortgagesurprise.service.impl;
 import com.surprise.mortgagesurprise.client.TwelveDataClient;
 import com.surprise.mortgagesurprise.model.entity.ExchangeRateEntity;
 import com.surprise.mortgagesurprise.repository.jpa.ExchangeRateRepository;
-import lombok.RequiredArgsConstructor;
+import com.surprise.mortgagesurprise.util.TwelveDataResponseParser;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -17,13 +19,27 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ExchangeRateRefresher {
 
     private final ExchangeRateRepository repository;
     private final TwelveDataClient twelveDataClient;
     private final ExchangeRateRedisCache redisCache;
+    private final String apiKey;
+    private final String symbols;
+
+    public ExchangeRateRefresher(
+            ExchangeRateRepository repository,
+            TwelveDataClient twelveDataClient,
+            ExchangeRateRedisCache redisCache,
+            @Value("${twelvedata.api-key}") String apiKey,
+            @Value("${twelvedata.symbols}") String symbols) {
+        this.repository = repository;
+        this.twelveDataClient = twelveDataClient;
+        this.redisCache = redisCache;
+        this.apiKey = apiKey != null ? apiKey.trim() : "";
+        this.symbols = symbols;
+    }
 
     @EventListener(ApplicationReadyEvent.class)
     public void onStartup() {
@@ -45,7 +61,7 @@ public class ExchangeRateRefresher {
 
     @Transactional
     public void refreshRates() {
-        Map<String, BigDecimal> externalRates = twelveDataClient.fetchLatestRates();
+        Map<String, BigDecimal> externalRates = fetchLatestRates();
         Instant now = Instant.now();
 
         if (externalRates.isEmpty()) {
@@ -68,6 +84,16 @@ public class ExchangeRateRefresher {
         repository.saveAll(toSave);
         redisCache.putToCache(externalRates);
         log.info("Saved and cached {} fresh exchange rates.", toSave.size());
+    }
+
+    private Map<String, BigDecimal> fetchLatestRates() {
+        try {
+            JsonNode root = twelveDataClient.getPrice(symbols, apiKey);
+            return TwelveDataResponseParser.parseRates(root);
+        } catch (Exception e) {
+            log.error("Failed to fetch rates from TwelveData: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
     }
 
     private void warmUpCache() {

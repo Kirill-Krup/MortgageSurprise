@@ -6,6 +6,6 @@ CREATE TABLE IF NOT EXISTS microloan_rates (
     daily_rate NUMERIC(6, 4) NOT NULL,
     min_day_required INTEGER NOT NULL,
     max_day_required INTEGER NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );

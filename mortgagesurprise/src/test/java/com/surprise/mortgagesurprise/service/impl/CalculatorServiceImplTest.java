@@ -11,8 +11,11 @@ import com.surprise.mortgagesurprise.service.CalculationCacheService;
 import com.surprise.mortgagesurprise.service.CalculationHistoryService;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.testutil.TestConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,12 +28,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+@Tag("unit")
 @ExtendWith(MockitoExtension.class)
+@DisplayName("CalculatorServiceImpl Tests")
 class CalculatorServiceImplTest {
 
     @Mock
@@ -58,10 +63,10 @@ class CalculatorServiceImplTest {
     @BeforeEach
     void setUp() {
         request = new CalculationRequest(
-                new BigDecimal("5000000.00"),
-                new BigDecimal("1000000.00"),
-                240,
-                new BigDecimal("10.00"),
+                TestConstants.PROPERTY_PRICE,
+                TestConstants.DOWN_PAYMENT,
+                TestConstants.TERM_MONTHS,
+                TestConstants.ANNUAL_RATE,
                 PaymentType.ANNUITY,
                 Currency.RUB,
                 LocalDate.now(),
@@ -69,12 +74,12 @@ class CalculatorServiceImplTest {
         );
 
         calculationResult = new CalculationResult(
-                new BigDecimal("5000000.00"),
-                new BigDecimal("1000000.00"),
-                new BigDecimal("4000000.00"),
-                240,
-                240,
-                new BigDecimal("10.00"),
+                TestConstants.PROPERTY_PRICE,
+                TestConstants.DOWN_PAYMENT,
+                TestConstants.LOAN_AMOUNT,
+                TestConstants.TERM_MONTHS,
+                TestConstants.TERM_MONTHS,
+                TestConstants.ANNUAL_RATE,
                 PaymentType.ANNUITY,
                 Currency.RUB,
                 new BigDecimal("38600.00"),
@@ -86,57 +91,71 @@ class CalculatorServiceImplTest {
         );
 
         scheduleDoc = new PaymentScheduleDocument();
-        scheduleDoc.setId("test-doc-id");
+        scheduleDoc.setId(TestConstants.SCHEDULE_ID);
     }
 
-    @Test
-    @DisplayName("calculateAndPersist returns cached response when present")
-    void testCachedResponse() {
-        String hash = "hash-123";
-        when(cacheKeyGenerator.generateKey(request)).thenReturn(hash);
-        CalculationResponse cachedResponse = new CalculationResponse(
-                "cached-id",
-                new BigDecimal("5000000.00"),
-                new BigDecimal("1000000.00"),
-                new BigDecimal("4000000.00"),
-                240,
-                240,
-                new BigDecimal("10.00"),
-                "ANNUITY",
-                Currency.RUB,
-                new BigDecimal("38600.00"),
-                new BigDecimal("38600.00"),
-                new BigDecimal("38600.00"),
-                new BigDecimal("5200000.00"),
-                new BigDecimal("9200000.00"),
-                List.of()
-        );
-        when(cacheService.getFromCache(hash)).thenReturn(Optional.of(cachedResponse));
+    @Nested
+    @DisplayName("Calculate and Persist Workflow")
+    class CalculateAndPersistWorkflow {
 
-        CalculationResponse response = calculatorService.calculateAndPersist(request, UUID.randomUUID());
+        @Test
+        @DisplayName("Should return cached calculation response when cache contains key")
+        void calculateAndPersist_shouldReturnCachedResponse_whenCacheHit() {
+            // Arrange
+            String hash = TestConstants.CALCULATION_HASH;
+            when(cacheKeyGenerator.generateKey(request)).thenReturn(hash);
+            CalculationResponse cachedResponse = new CalculationResponse(
+                    "cached-id",
+                    TestConstants.PROPERTY_PRICE,
+                    TestConstants.DOWN_PAYMENT,
+                    TestConstants.LOAN_AMOUNT,
+                    TestConstants.TERM_MONTHS,
+                    TestConstants.TERM_MONTHS,
+                    TestConstants.ANNUAL_RATE,
+                    "ANNUITY",
+                    Currency.RUB,
+                    new BigDecimal("38600.00"),
+                    new BigDecimal("38600.00"),
+                    new BigDecimal("38600.00"),
+                    new BigDecimal("5200000.00"),
+                    new BigDecimal("9200000.00"),
+                    List.of()
+            );
+            when(cacheService.getFromCache(hash)).thenReturn(Optional.of(cachedResponse));
 
-        assertNotNull(response);
-        assertEquals("cached-id", response.scheduleId());
-        verifyNoInteractions(mortgageCalculator);
-        verifyNoInteractions(paymentScheduleService);
-    }
+            // Act
+            CalculationResponse response = calculatorService.calculateAndPersist(request, TestConstants.USER_ID);
 
-    @Test
-    @DisplayName("calculateAndPersist computes, saves schedule and history, and caches response")
-    void testComputeAndPersist() {
-        UUID userId = UUID.randomUUID();
-        String hash = "hash-456";
-        when(cacheKeyGenerator.generateKey(request)).thenReturn(hash);
-        when(cacheService.getFromCache(hash)).thenReturn(Optional.empty());
-        when(mortgageCalculator.calculate(request)).thenReturn(calculationResult);
-        when(paymentScheduleService.saveSchedule(calculationResult, hash)).thenReturn(scheduleDoc);
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.scheduleId()).isEqualTo("cached-id");
+            verifyNoInteractions(mortgageCalculator);
+            verifyNoInteractions(paymentScheduleService);
+            verifyNoInteractions(historyService);
+        }
 
-        CalculationResponse response = calculatorService.calculateAndPersist(request, userId);
+        @Test
+        @DisplayName("Should calculate, persist schedule in MongoDB, record history, and save in cache when cache misses")
+        void calculateAndPersist_shouldComputeSaveAndCache_whenCacheMiss() {
+            // Arrange
+            UUID userId = TestConstants.USER_ID;
+            String hash = TestConstants.CALCULATION_HASH;
+            when(cacheKeyGenerator.generateKey(request)).thenReturn(hash);
+            when(cacheService.getFromCache(hash)).thenReturn(Optional.empty());
+            when(mortgageCalculator.calculate(request)).thenReturn(calculationResult);
+            when(paymentScheduleService.saveSchedule(calculationResult, hash)).thenReturn(scheduleDoc);
 
-        assertNotNull(response);
-        assertEquals("test-doc-id", response.scheduleId());
-        verify(paymentScheduleService).saveSchedule(calculationResult, hash);
-        verify(historyService).recordHistory(userId, "test-doc-id", calculationResult);
-        verify(cacheService).putInCache(eq(hash), any(CalculationResponse.class));
+            // Act
+            CalculationResponse response = calculatorService.calculateAndPersist(request, userId);
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.scheduleId()).isEqualTo(TestConstants.SCHEDULE_ID);
+            assertThat(response.loanAmount()).isEqualByComparingTo(TestConstants.LOAN_AMOUNT);
+
+            verify(paymentScheduleService, times(1)).saveSchedule(calculationResult, hash);
+            verify(historyService, times(1)).recordHistory(userId, TestConstants.SCHEDULE_ID, calculationResult);
+            verify(cacheService, times(1)).putInCache(eq(hash), any(CalculationResponse.class));
+        }
     }
 }

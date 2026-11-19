@@ -3,6 +3,7 @@ package com.surprise.mortgagesurprise.model.document;
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.UserAuditActionType;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Document(collection = "user_audit_logs")
 @Getter
 @Setter
+@NoArgsConstructor
 public class UserActionAuditDocument {
 
     @Id

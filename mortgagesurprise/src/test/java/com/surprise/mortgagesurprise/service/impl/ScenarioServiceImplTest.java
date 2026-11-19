@@ -9,9 +9,12 @@ import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.testutil.TestConstants;
 import com.surprise.mortgagesurprise.util.ScenarioComparator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,7 +33,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@Tag("unit")
 @ExtendWith(MockitoExtension.class)
+@DisplayName("ScenarioServiceImpl Tests")
 class ScenarioServiceImplTest {
 
     @Mock
@@ -58,7 +63,7 @@ class ScenarioServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        userId = UUID.randomUUID();
+        userId = TestConstants.USER_ID;
 
         scenario1 = new CalculationScenario(
                 userId,
@@ -119,85 +124,113 @@ class ScenarioServiceImplTest {
         }
     }
 
-    @Test
-    @DisplayName("Сравнение 2 сценариев: корректно определяет минимальный платеж и минимальную переплату")
-    void compareScenarios_twoScenarios_success() {
-        List<UUID> ids = List.of(scenario1.getId(), scenario2.getId());
-        when(scenarioRepository.findAllByIdInAndUserId(ids, userId))
-                .thenReturn(List.of(scenario1, scenario2));
+    @Nested
+    @DisplayName("Compare Scenarios")
+    class CompareScenarios {
 
-        ScenarioComparisonResponse response = scenarioService.compareScenarios(userId, ids);
+        @Test
+        @DisplayName("Should accurately determine winners when comparing two scenarios")
+        void compareScenarios_shouldIdentifyWinners_whenTwoScenariosProvided() {
+            // Arrange
+            List<UUID> ids = List.of(scenario1.getId(), scenario2.getId());
+            when(scenarioRepository.findAllByIdInAndUserId(ids, userId))
+                    .thenReturn(List.of(scenario1, scenario2));
 
-        assertThat(response).isNotNull();
-        assertThat(response.scenarios()).hasSize(2);
-        assertThat(response.lowestMonthlyPaymentScenarioId()).isEqualTo(scenario1.getId());
-        assertThat(response.lowestOverpaymentScenarioId()).isEqualTo(scenario2.getId());
+            // Act
+            ScenarioComparisonResponse response = scenarioService.compareScenarios(userId, ids);
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.scenarios()).hasSize(2);
+            assertThat(response.lowestMonthlyPaymentScenarioId()).isEqualTo(scenario1.getId());
+            assertThat(response.lowestOverpaymentScenarioId()).isEqualTo(scenario2.getId());
+        }
+
+        @Test
+        @DisplayName("Should accurately select winners when comparing three scenarios")
+        void compareScenarios_shouldIdentifyWinners_whenThreeScenariosProvided() {
+            // Arrange
+            List<UUID> ids = List.of(scenario1.getId(), scenario2.getId(), scenario3.getId());
+            when(scenarioRepository.findAllByIdInAndUserId(ids, userId))
+                    .thenReturn(List.of(scenario1, scenario2, scenario3));
+
+            // Act
+            ScenarioComparisonResponse response = scenarioService.compareScenarios(userId, ids);
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.scenarios()).hasSize(3);
+            assertThat(response.lowestMonthlyPaymentScenarioId()).isEqualTo(scenario1.getId());
+            assertThat(response.lowestOverpaymentScenarioId()).isEqualTo(scenario2.getId());
+        }
+
+        @Test
+        @DisplayName("Should throw BusinessException when fewer than 2 scenarios provided")
+        void compareScenarios_shouldThrowBusinessException_whenFewerThanTwoScenariosProvided() {
+            // Arrange
+            List<UUID> ids = List.of(scenario1.getId());
+
+            // Act & Assert
+            assertThatThrownBy(() -> scenarioService.compareScenarios(userId, ids))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("between 2 and 3 scenarios");
+        }
+
+        @Test
+        @DisplayName("Should throw BusinessException when more than 3 scenarios provided")
+        void compareScenarios_shouldThrowBusinessException_whenMoreThanThreeScenariosProvided() {
+            // Arrange
+            List<UUID> ids = List.of(scenario1.getId(), scenario2.getId(), scenario3.getId(), UUID.randomUUID());
+
+            // Act & Assert
+            assertThatThrownBy(() -> scenarioService.compareScenarios(userId, ids))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("between 2 and 3 scenarios");
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when scenario is not found or belongs to another user")
+        void compareScenarios_shouldThrowResourceNotFoundException_whenScenarioNotFoundOrAlien() {
+            // Arrange
+            List<UUID> ids = List.of(scenario1.getId(), scenario2.getId());
+            when(scenarioRepository.findAllByIdInAndUserId(ids, userId))
+                    .thenReturn(List.of(scenario1));
+
+            // Act & Assert
+            assertThatThrownBy(() -> scenarioService.compareScenarios(userId, ids))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("One or more scenarios were not found");
+        }
     }
 
-    @Test
-    @DisplayName("Сравнение 3 сценариев: корректно выбирает победителей среди 3 вариантов")
-    void compareScenarios_threeScenarios_success() {
-        List<UUID> ids = List.of(scenario1.getId(), scenario2.getId(), scenario3.getId());
-        when(scenarioRepository.findAllByIdInAndUserId(ids, userId))
-                .thenReturn(List.of(scenario1, scenario2, scenario3));
+    @Nested
+    @DisplayName("PDF Export Request")
+    class PdfExportRequest {
 
-        ScenarioComparisonResponse response = scenarioService.compareScenarios(userId, ids);
+        @Test
+        @DisplayName("Should publish PDF export event to message broker when scenario exists")
+        void requestPdfExport_shouldPublishPdfExportEvent_whenScenarioExists() {
+            // Arrange
+            when(scenarioRepository.findById(scenario1.getId()))
+                    .thenReturn(Optional.of(scenario1));
 
-        assertThat(response.scenarios()).hasSize(3);
-        assertThat(response.lowestMonthlyPaymentScenarioId()).isEqualTo(scenario1.getId());
-        assertThat(response.lowestOverpaymentScenarioId()).isEqualTo(scenario2.getId());
-    }
+            // Act
+            scenarioService.requestPdfExport(userId, TestConstants.USER_EMAIL, scenario1.getId());
 
-    @Test
-    @DisplayName("Ошибка валидации: менее 2 сценариев выбрасывает BusinessException")
-    void compareScenarios_lessThanTwo_throwsBusinessException() {
-        List<UUID> ids = List.of(scenario1.getId());
+            // Assert
+            verify(messageProducer).sendPdfExportEvent(any());
+        }
 
-        assertThatThrownBy(() -> scenarioService.compareScenarios(userId, ids))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("between 2 and 3 scenarios");
-    }
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when scenario to export is not found")
+        void requestPdfExport_shouldThrowResourceNotFoundException_whenScenarioNotFound() {
+            // Arrange
+            UUID scenarioId = scenario1.getId();
+            when(scenarioRepository.findById(scenarioId)).thenReturn(Optional.empty());
 
-    @Test
-    @DisplayName("Ошибка валидации: более 3 сценариев выбрасывает BusinessException")
-    void compareScenarios_moreThanThree_throwsBusinessException() {
-        List<UUID> ids = List.of(scenario1.getId(), scenario2.getId(), scenario3.getId(), UUID.randomUUID());
-
-        assertThatThrownBy(() -> scenarioService.compareScenarios(userId, ids))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("between 2 and 3 scenarios");
-    }
-
-    @Test
-    @DisplayName("Ошибка: сценарий не найден или чужой выбрасывает ResourceNotFoundException")
-    void compareScenarios_notFoundOrAlien_throwsResourceNotFound() {
-        List<UUID> ids = List.of(scenario1.getId(), scenario2.getId());
-        when(scenarioRepository.findAllByIdInAndUserId(ids, userId))
-                .thenReturn(List.of(scenario1));
-
-        assertThatThrownBy(() -> scenarioService.compareScenarios(userId, ids))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("One or more scenarios were not found");
-    }
-
-    @Test
-    @DisplayName("Запрос экспорта PDF: публикует событие в очередь")
-    void requestPdfExport_success() {
-        when(scenarioRepository.findById(scenario1.getId()))
-                .thenReturn(Optional.of(scenario1));
-
-        scenarioService.requestPdfExport(userId, "user@example.com", scenario1.getId());
-
-        verify(messageProducer).sendPdfExportEvent(any());
-    }
-
-    @Test
-    @DisplayName("Запрос экспорта PDF: выбрасывает исключение если сценарий не найден")
-    void requestPdfExport_notFound_throwsException() {
-        when(scenarioRepository.findById(scenario1.getId()))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> scenarioService.requestPdfExport(userId, "user@example.com", scenario1.getId()))
-                .isInstanceOf(ResourceNotFoundException.class);
+            // Act & Assert
+            assertThatThrownBy(() -> scenarioService.requestPdfExport(userId, TestConstants.USER_EMAIL, scenarioId))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
     }
 }
