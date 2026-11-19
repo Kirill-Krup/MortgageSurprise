@@ -413,7 +413,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       loadStats();
 
       // If the current logged-in user blocked their own account, trigger immediate ban redirect
-      if (!updated.enabled && (user?.id === userItem.id || user?.email === userItem.email)) {
+      if (!updated.enabled && (user?.id === userItem.id || user?.email?.toLowerCase() === userItem.email?.toLowerCase())) {
+        window.dispatchEvent(
+          new CustomEvent('auth:user-blocked', {
+            detail: {
+              email: userItem.email,
+              userId: userItem.id,
+            },
+          })
+        );
+        window.location.hash = 'banned';
         await refreshUser();
       }
     } catch {
@@ -900,26 +909,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
             </div>
 
             <div className="flex items-center gap-2.5">
-              {(section === 'products' || section === 'rates') && (
-                <>
-                  <button
-                    type="button"
-                    onClick={openCreateRateModal}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/20 cursor-pointer transition-all"
-                  >
-                    <Plus size={16} />
-                    <span>{t('adminAddTariff')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openCreate}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-600/20 cursor-pointer transition-all"
-                  >
-                    <Plus size={16} />
-                    <span>{t('adminAddProduct')}</span>
-                  </button>
-                </>
-              )}
             </div>
           </div>
 
@@ -1672,6 +1661,28 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
           {(section === 'products' || section === 'rates') && (
             <div className="space-y-7">
               <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                      <Landmark size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                        {t('adminNavProducts')}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">{t('adminProductsDesc')}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openCreate}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span>{t('adminAddProduct')}</span>
+                  </button>
+                </div>
+
                 <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                   <div className="relative flex-1">
                     <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />

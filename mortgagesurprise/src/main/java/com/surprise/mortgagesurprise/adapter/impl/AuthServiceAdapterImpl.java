@@ -43,7 +43,7 @@ public class AuthServiceAdapterImpl implements AuthServiceAdapter {
                 userDetails.getId(),
                 userDetails.getEmail(),
                 role,
-                userDetails.isEnabled()
+                userDetails.isUserEnabled()
         );
     }
 
