@@ -23,16 +23,14 @@ import {
   Sparkles,
   HeartHandshake,
   CheckCircle2,
-  AlertCircle,
   FileText,
-  UserCheck,
-  X,
   CreditCard,
   Percent,
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
 import { useExperiment } from '../hooks/useExperiment';
 import { BUTTON_COLOR_VARIANTS, getMicroloanApplyButtonClasses } from '../utils/abTesting';
+import { MicroloanApplicationModal } from '../components/MicroloanApplicationModal';
 
 interface MicroloanCalculatorPageProps {
   onOpenAuth: () => void;
@@ -133,21 +131,12 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<MicroloanCalculationResponse | null>(null);
 
-  // Passport modal state (Mock identity form)
+  // Passport modal state (Multi-step wizard)
   const [isPassportModalOpen, setIsPassportModalOpen] = useState<boolean>(false);
-  const [passportData, setPassportData] = useState({
-    fullName: '',
-    seriesNumber: '',
-    issueDate: '',
-    departmentCode: '',
-    issuedBy: '',
-  });
   const [applicationSuccess, setApplicationSuccess] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
 
   // User saved passport profile state (AES-256 backed)
   const [savedPassport, setSavedPassport] = useState<PassportData | null>(null);
-  const [saveToProfile, setSaveToProfile] = useState<boolean>(true);
 
   // Fetch user passport from profile if logged in
   useEffect(() => {
@@ -161,15 +150,6 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
       .then((data) => {
         if (!isMounted) return;
         setSavedPassport(data);
-        if (data) {
-          setPassportData({
-            fullName: data.fullName || '',
-            seriesNumber: data.seriesNumber || '',
-            issueDate: data.issueDate || '',
-            departmentCode: data.departmentCode || '',
-            issuedBy: data.issuedBy || '',
-          });
-        }
       })
       .catch((err) => {
         console.warn('Could not load profile passport:', err);
@@ -327,83 +307,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
       alert(t('adminActionBlocked'));
       return;
     }
-
-    // Auto-fill from profile if already filled, or keep draft
-    if (savedPassport) {
-      setPassportData({
-        fullName: savedPassport.fullName || '',
-        seriesNumber: savedPassport.seriesNumber || '',
-        issueDate: savedPassport.issueDate || '',
-        departmentCode: savedPassport.departmentCode || '',
-        issuedBy: savedPassport.issuedBy || '',
-      });
-      setSaveToProfile(false);
-    } else {
-      if (!passportData.fullName && user.email) {
-        const emailPrefix = user.email.split('@')[0];
-        setPassportData((prev) => ({
-          ...prev,
-          fullName: emailPrefix.replace(/[._]/g, ' ').toUpperCase(),
-        }));
-      }
-      setSaveToProfile(true);
-    }
-    setFormError(null);
     setIsPassportModalOpen(true);
-  };
-
-  // Submit Mock Passport Form
-  const handleSubmitPassport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passportData.fullName.trim() || !passportData.seriesNumber.trim()) {
-      setFormError(t('passportFormFillError'));
-      return;
-    }
-
-    // Optionally persist passport data to user profile
-    if (user && !isAdmin && saveToProfile) {
-      try {
-        const saved = await passportApi.save({
-          fullName: passportData.fullName.trim(),
-          seriesNumber: passportData.seriesNumber.trim(),
-          issueDate: passportData.issueDate || undefined,
-          departmentCode: passportData.departmentCode || undefined,
-          issuedBy: passportData.issuedBy || undefined,
-        });
-        setSavedPassport(saved);
-      } catch (err) {
-        console.warn('Could not save passport data to profile:', err);
-      }
-    }
-
-    const randomId = `MS-${Math.floor(10000 + Math.random() * 90000)}`;
-    setIsPassportModalOpen(false);
-    setApplicationSuccess(randomId);
-
-    if (user && !isAdmin) {
-      const safeAmount = Math.max(1000, Math.min(100000, amount || 15000));
-      const safeTerm = Math.max(7, Math.min(30, termDays || 14));
-      const totalRepay = result?.totalRepayment ?? safeAmount;
-      try {
-        await calculatorApi.applyMicroloan({
-          amount: safeAmount,
-          termDays: safeTerm,
-          purpose: currentPurpose,
-          microloanType: detectedType,
-          totalRepayment: totalRepay,
-          scheduleId: result?.scheduleId,
-          applicationId: randomId,
-          applicantFullName: passportData.fullName,
-          currency,
-        });
-      } catch (err) {
-        console.warn('Microloan application audit error:', err);
-      }
-    }
-
-    setTimeout(() => {
-      setApplicationSuccess(null);
-    }, 9000);
   };
 
   return (
@@ -965,179 +869,31 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
         </div>
       )}
 
-      {/* Mock Passport Application Modal */}
-      {isPassportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg p-6 sm:p-7 border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <UserCheck size={20} className="text-blue-600 dark:text-blue-400" />
-                  {t('passportModalTitle')}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {t('passportModalDesc')}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsPassportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Summary preview */}
-            <div className="mb-5 p-3.5 bg-blue-50 dark:bg-slate-950 rounded-2xl border border-blue-200 dark:border-slate-800 flex items-center justify-between text-xs">
-              <div>
-                <span className="text-slate-500 dark:text-slate-400 block">{t('loanAmount')}:</span>
-                <span className="font-extrabold text-slate-900 dark:text-white text-sm">
-                  {formatCurrency(amount, currency)}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-slate-500 dark:text-slate-400 block">{t('categoryTermLabel')}</span>
-                <span className="font-bold text-blue-700 dark:text-blue-300">
-                  {detectedType === 'VANITY' ? t('vanityType') : t('basicNeedsType')} &bull; {termDays} {t('daysUnit')}
-                </span>
-              </div>
-            </div>
-
-            {formError && (
-              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
-                <AlertCircle size={15} />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            {savedPassport && (
-              <div className="mb-4 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />
-                  <span className="font-semibold">{t('passportAutoFilledBadge')}</span>
-                </div>
-                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full font-mono font-bold">AES-256</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitPassport} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  {t('fullName')} *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={t('placeholderFullName')}
-                  value={passportData.fullName}
-                  onChange={(e) => setPassportData({ ...passportData, fullName: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 uppercase"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                    {t('passportSeriesNumber')} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={11}
-                    placeholder="4515 123456"
-                    value={passportData.seriesNumber}
-                    onChange={(e) => setPassportData({ ...passportData, seriesNumber: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                    {t('issueDate')}
-                  </label>
-                  <input
-                    type="date"
-                    value={passportData.issueDate}
-                    onChange={(e) => setPassportData({ ...passportData, issueDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                    {t('departmentCode')}
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={7}
-                    placeholder="770-001"
-                    value={passportData.departmentCode}
-                    onChange={(e) => setPassportData({ ...passportData, departmentCode: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                    {t('issuedBy')}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={t('placeholderIssuedBy')}
-                    value={passportData.issuedBy}
-                    onChange={(e) => setPassportData({ ...passportData, issuedBy: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  {t('confirmedPurposeLabel')} {detectedType === 'VANITY' ? t('vanityType') : t('basicNeedsType')})
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  value={currentPurpose}
-                  className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-not-allowed"
-                />
-              </div>
-
-              <div className="pt-1">
-                <label className="flex items-center gap-2.5 cursor-pointer select-none text-xs text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={saveToProfile}
-                    onChange={(e) => setSaveToProfile(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <span className="font-medium">{t('savePassportToProfileCheckbox')}</span>
-                </label>
-              </div>
-
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
-                {t('passportSecurityNote')}
-              </div>
-
-              <div className="flex gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsPassportModalOpen(false)}
-                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  type="submit"
-                  className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer`}
-                >
-                  {t('submitApplication')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Multi-step Wizard Passport Application Modal */}
+      <MicroloanApplicationModal
+        isOpen={isPassportModalOpen}
+        onClose={() => setIsPassportModalOpen(false)}
+        amount={amount}
+        termDays={termDays}
+        currency={currency}
+        detectedType={detectedType}
+        currentPurpose={currentPurpose}
+        totalRepayment={result?.totalRepayment ?? amount}
+        baseRate={baseRate}
+        dueDate={result?.dueDate ?? new Date().toISOString().split('T')[0]}
+        scheduleId={result?.scheduleId}
+        user={user}
+        isAdmin={isAdmin}
+        savedPassport={savedPassport}
+        onSavedPassportUpdate={(data) => setSavedPassport(data)}
+        onSuccess={(appId) => {
+          setApplicationSuccess(appId);
+          setTimeout(() => {
+            setApplicationSuccess(null);
+          }, 9000);
+        }}
+        applyBtnClasses={applyBtnClasses}
+      />
     </div>
   );
 };
