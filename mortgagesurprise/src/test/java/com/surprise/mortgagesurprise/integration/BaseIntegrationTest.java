@@ -10,6 +10,7 @@ import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 import org.testcontainers.utility.DockerImageName;
+import com.redis.testcontainers.RedisContainer;
 
 @Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -32,6 +33,6 @@ public abstract class BaseIntegrationTest {
     public static final MailpitContainer mailpit = new MailpitContainer("axllent/mailpit:v1.24.2");
 
     @ServiceConnection(name = "redis")
-    public static final GenericContainer<?> redis =
-            new RedisConta<>(DockerImageName.parse("redis:7-alpine"));
+    public static final RedisContainer redis =
+            new RedisContainer(DockerImageName.parse("redis:7-alpine"));
 }

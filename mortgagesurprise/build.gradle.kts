@@ -56,7 +56,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-mongodb")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation("org.testcontainers:testcontainers-rabbitmq")
-    testImplementation("org.testcontainers:testcontainers-redis")
+    testImplementation("com.redis:testcontainers-redis:2.2.4")
     testImplementation("org.springframework.boot:spring-boot-starter-mail-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testCompileOnly("org.projectlombok:lombok")
