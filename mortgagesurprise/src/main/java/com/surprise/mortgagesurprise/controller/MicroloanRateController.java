@@ -18,37 +18,37 @@ public class MicroloanRateController {
 
     private final MicroloanRateAdapterService microloanRateAdapterService;
 
-    @GetMapping({"/microloan/rates", "/admin/microloan/rates", "/tariffs", "/admin/tariffs", "/microloan/tariffs", "/admin/microloan/tariffs"})
+    @GetMapping("/microloan/rates")
     public ResponseEntity<List<MicroloanRateDTO>> getAllRates() {
         return ResponseEntity.ok(microloanRateAdapterService.findAll());
     }
 
-    @GetMapping({"/microloan/rates/{id}", "/microloan/rate/{id}", "/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}", "/tariffs/{id}", "/admin/tariffs/{id}"})
+    @GetMapping("/microloan/rates/{id}")
     public ResponseEntity<MicroloanRateDTO> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(microloanRateAdapterService.findById(id));
     }
 
-    @GetMapping({"/microloan/rate", "/tariffs/by-name", "/microloan/rates/by-name"})
+    @GetMapping("/microloan/rate")
     public ResponseEntity<MicroloanRateDTO> getByName(@RequestParam String name) {
         return ResponseEntity.ok(microloanRateAdapterService.findByName(name));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping({"/admin/microloan/rate", "/admin/microloan/rates", "/microloan/rates", "/microloan/rate", "/tariffs", "/admin/tariffs", "/microloan/tariffs", "/admin/microloan/tariffs"})
+    @PostMapping({"/admin/microloan/rate", "/admin/microloan/rates"})
     public ResponseEntity<MicroloanRateDTO> saveRate(@Valid @RequestBody MicroloanRateDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(microloanRateAdapterService.save(dto));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping({"/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}", "/microloan/rates/{id}", "/microloan/rate/{id}", "/tariffs/{id}", "/admin/tariffs/{id}", "/microloan/tariffs/{id}", "/admin/microloan/tariffs/{id}"})
+    @PutMapping({"/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}"})
     public ResponseEntity<MicroloanRateDTO> updateRate(@Valid @RequestBody MicroloanRateDTO dto,
                                                        @PathVariable Integer id) {
         return ResponseEntity.ok(microloanRateAdapterService.update(dto, id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @DeleteMapping({"/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}", "/microloan/rates/{id}", "/microloan/rate/{id}", "/tariffs/{id}", "/admin/tariffs/{id}", "/microloan/tariffs/{id}", "/admin/microloan/tariffs/{id}"})
+    @DeleteMapping({"/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}"})
     public ResponseEntity<Void> deleteRate(@PathVariable Integer id) {
         microloanRateAdapterService.delete(id);
         return ResponseEntity.noContent().build();
