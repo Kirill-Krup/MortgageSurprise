@@ -64,6 +64,7 @@ dependencies {
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("ch.martinelli.oss:testcontainers-mailpit:1.3.0")
+    testImplementation("org.wiremock:wiremock-standalone:3.12.1")
 }
 
 tasks.withType<Test> {

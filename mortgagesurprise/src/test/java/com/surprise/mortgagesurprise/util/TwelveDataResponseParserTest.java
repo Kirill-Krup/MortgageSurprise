@@ -1,5 +1,7 @@
 package com.surprise.mortgagesurprise.util;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -7,51 +9,65 @@ import tools.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("unit")
+@DisplayName("TwelveDataResponseParser Tests")
 class TwelveDataResponseParserTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void parseRates_shouldExtractValidRatesAndIgnoreErrors() throws Exception {
+    @DisplayName("Should parse multi-pair prices correctly")
+    void shouldParseMultiPairPrices() throws Exception {
         String json = """
                 {
-                  "USD/RUB": { "price": "82.0050" },
-                  "EUR/RUB": { "price": "90.1500" },
-                  "BYN/RUB": { "code": 404, "message": "symbol not found", "status": "error" }
+                    "USD/RUB": { "price": "82.50000" },
+                    "EUR/RUB": { "price": "90.20000" },
+                    "BYN/RUB": { "price": "28.40000" }
                 }
                 """;
         JsonNode root = objectMapper.readTree(json);
 
         Map<String, BigDecimal> rates = TwelveDataResponseParser.parseRates(root);
 
-        assertEquals(2, rates.size());
-        assertEquals(new BigDecimal("82.0050"), rates.get("USD"));
-        assertEquals(new BigDecimal("90.1500"), rates.get("EUR"));
-        assertNull(rates.get("BYN"));
+        assertThat(rates).hasSize(3);
+        assertThat(rates.get("USD")).isEqualByComparingTo("82.50000");
+        assertThat(rates.get("EUR")).isEqualByComparingTo("90.20000");
+        assertThat(rates.get("BYN")).isEqualByComparingTo("28.40000");
     }
 
     @Test
-    void parseRates_shouldReturnEmptyMapOnApiError() throws Exception {
+    @DisplayName("Should parse single pair response with symbol")
+    void shouldParseSinglePairResponse() throws Exception {
         String json = """
                 {
-                  "code": 401,
-                  "message": "Invalid API key",
-                  "status": "error"
+                    "symbol": "USD/RUB",
+                    "price": "82.75"
                 }
                 """;
         JsonNode root = objectMapper.readTree(json);
 
         Map<String, BigDecimal> rates = TwelveDataResponseParser.parseRates(root);
 
-        assertTrue(rates.isEmpty());
+        assertThat(rates).hasSize(1);
+        assertThat(rates.get("USD")).isEqualByComparingTo("82.75");
     }
 
     @Test
-    void parseRates_shouldReturnEmptyMapWhenRootIsNull() {
-        Map<String, BigDecimal> rates = TwelveDataResponseParser.parseRates(null);
+    @DisplayName("Should return empty map on null or API error payload")
+    void shouldReturnEmptyMapOnError() throws Exception {
+        String errorJson = """
+                {
+                    "code": 401,
+                    "message": "Invalid API key"
+                }
+                """;
+        JsonNode root = objectMapper.readTree(errorJson);
 
-        assertTrue(rates.isEmpty());
+        Map<String, BigDecimal> rates = TwelveDataResponseParser.parseRates(root);
+        assertThat(rates).isEmpty();
+
+        assertThat(TwelveDataResponseParser.parseRates(null)).isEmpty();
     }
 }

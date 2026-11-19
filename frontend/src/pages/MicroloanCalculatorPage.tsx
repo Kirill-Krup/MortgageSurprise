@@ -26,6 +26,7 @@ import {
   FileText,
   CreditCard,
   Percent,
+  TrendingDown,
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
 import { useExperiment } from '../hooks/useExperiment';
@@ -112,6 +113,12 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
 
   // Bank config (admin-controlled rates)
   const [config, setConfig] = useState<MicroloanConfig | null>(null);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
+
+  // Tariffs loaded from DB (Requirement 3 & 4)
+  const [rates, setRates] = useState<MicroloanRateDTO[]>([]);
+  const [selectedRate, setSelectedRate] = useState<MicroloanRateDTO | null>(null);
+  const [isTariffDropdownOpen, setIsTariffDropdownOpen] = useState<boolean>(false);
 
   // Tariffs loaded from DB (Requirement 3 & 4)
   const [rates, setRates] = useState<MicroloanRateDTO[]>([]);
@@ -137,7 +144,6 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
 
   // User saved passport profile state (AES-256 backed)
   const [savedPassport, setSavedPassport] = useState<PassportData | null>(null);
-
   // Fetch user passport from profile if logged in
   useEffect(() => {
     if (!user) {
@@ -159,18 +165,22 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     };
   }, [user]);
 
-  // Fetch admin-configured rates and tariffs from DB on mount
+  // Fetch admin-configured rates, tariffs, and exchange rates on mount
   useEffect(() => {
     let isMounted = true;
     const loadData = async () => {
       try {
-        const [cfg, rateList] = await Promise.all([
+        const [cfg, rateList, liveRates] = await Promise.all([
           calculatorApi.getMicroloanConfig().catch(() => null),
           microloanRateApi.getRates().catch(() => []),
+          calculatorApi.getExchangeRates().catch(() => ({})),
         ]);
         if (!isMounted) return;
         if (cfg) {
           setConfig(cfg);
+        }
+        if (liveRates && Object.keys(liveRates).length > 0) {
+          setExchangeRates(liveRates);
         }
         if (Array.isArray(rateList) && rateList.length > 0) {
           setRates(rateList);
@@ -187,7 +197,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
           setSelectedRate(fallbackRate);
         }
       } catch (err) {
-        console.warn('Could not fetch microloan config/rates:', err);
+        console.warn('Could not fetch microloan config/rates/exchangeRates:', err);
       }
     };
     loadData();
@@ -197,8 +207,14 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
   }, []);
 
   const baseRate = selectedRate?.baseDailyRate ?? config?.baseDailyRate ?? 0.8;
-  // Fixed surcharge amount for Luxury Maximum configured by admin (Requirement 5)
-  const fixedVanitySurcharge = config?.bankInterest ?? 2000;
+  // Fixed surcharge amount for Luxury Maximum configured by admin in RUB, adapted to selected currency
+  const rawBankInterest = config?.bankInterest ?? 2000;
+  const fixedVanitySurcharge = useMemo(() => {
+    if (currency === 'RUB' || !exchangeRates[currency] || exchangeRates[currency] <= 0) {
+      return rawBankInterest;
+    }
+    return Math.round((rawBankInterest / exchangeRates[currency]) * 100) / 100;
+  }, [rawBankInterest, currency, exchangeRates]);
 
   // Determine effective purpose text
   const currentPurpose = useMemo(() => {
@@ -309,7 +325,6 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
     }
     setIsPassportModalOpen(true);
   };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-300">
       {/* Header section */}
@@ -434,6 +449,17 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
               </div>
             </div>
 
+            {Object.keys(exchangeRates).length > 0 && (
+              <div className="mb-5 px-3 py-2 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-2 text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                <TrendingDown size={13} className="shrink-0 opacity-70" />
+                <span>
+                  {t('liveRates') || 'Курсы'}:{' '}
+                  {CURRENCY_CONFIGS.filter(c => c.code !== 'RUB' && exchangeRates[c.code])
+                    .map(c => `1 ${c.symbol} = ${exchangeRates[c.code]?.toFixed(2) || '—'} ₽`)
+                    .join(' · ')}
+                </span>
+              </div>
+            )}
             {/* Tariff Selection (Requirement 3 & 4) */}
             <div className="mb-6 space-y-2">
               <div className="flex items-center justify-between">

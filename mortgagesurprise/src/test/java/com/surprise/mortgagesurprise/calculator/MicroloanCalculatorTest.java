@@ -10,6 +10,7 @@ import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
 import com.surprise.mortgagesurprise.model.entity.MicroloanRate;
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.MicroloanType;
+import com.surprise.mortgagesurprise.service.ExchangeRateService;
 import com.surprise.mortgagesurprise.service.MicroloanConfigService;
 import com.surprise.mortgagesurprise.service.MicroloanRateService;
 import com.surprise.mortgagesurprise.service.impl.MicroloanCalculatorImpl;
@@ -28,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,6 +47,9 @@ class MicroloanCalculatorTest {
     @Mock
     private MicroloanRateService microloanRateService;
 
+    @Mock
+    private ExchangeRateService exchangeRateService;
+
     private MicroloanCalculatorImpl calculator;
 
     @BeforeEach
@@ -55,7 +60,7 @@ class MicroloanCalculatorTest {
                 new BasicNeedsMicroloanStrategy(),
                 new VanityMicroloanStrategy()
         ));
-        calculator = new MicroloanCalculatorImpl(contextFactory, strategyRegistry, configService, microloanRateService);
+        calculator = new MicroloanCalculatorImpl(contextFactory, strategyRegistry, configService, microloanRateService, exchangeRateService);
     }
 
     private void mockDefaultRateAndConfig() {
@@ -158,6 +163,69 @@ class MicroloanCalculatorTest {
             // Base interest = 20,000 * 0.008 * 14 = 2240.00 + 2000.00 surcharge = 4240.00
             assertThat(result.vanitySurchargeAmount()).isEqualByComparingTo("2000.00");
             assertThat(result.totalInterest()).isEqualByComparingTo("4240.00");
+        }
+
+        @Test
+        @DisplayName("Should adapt vanity surcharge when currency is USD based on exchange rates")
+        void calculate_shouldAdaptVanitySurcharge_whenCurrencyIsUSD() {
+            // Arrange
+            mockDefaultRateAndConfig();
+            // bankInterest is 2000 RUB, exchange rate for USD is 80.00 RUB/USD -> 2000 / 80 = 25.00 USD
+            when(exchangeRateService.getRates()).thenReturn(Map.of(
+                    "RUB", BigDecimal.ONE,
+                    "USD", new BigDecimal("80.00")
+            ));
+
+            MicroloanCalculationRequest request = new MicroloanCalculationRequest(
+                    new BigDecimal("5000.00"),
+                    10,
+                    TestConstants.DEFAULT_RATE_NAME,
+                    MicroloanType.VANITY,
+                    "VIP отдых",
+                    null,
+                    LocalDate.now(),
+                    Currency.USD
+            );
+
+            // Act
+            MicroloanCalculationResult result = calculator.calculate(request);
+
+            // Assert
+            assertThat(result.microloanType()).isEqualTo(MicroloanType.VANITY);
+            assertThat(result.currency()).isEqualTo(Currency.USD);
+            assertThat(result.vanitySurchargeAmount()).isEqualByComparingTo("25.00");
+            // Base interest = 5,000 * 0.008 * 10 = 400.00 + 25.00 surcharge = 425.00
+            assertThat(result.totalInterest()).isEqualByComparingTo("425.00");
+        }
+
+        @Test
+        @DisplayName("Should adapt vanity surcharge when currency is EUR based on exchange rates")
+        void calculate_shouldAdaptVanitySurcharge_whenCurrencyIsEUR() {
+            // Arrange
+            mockDefaultRateAndConfig();
+            // bankInterest is 2000 RUB, exchange rate for EUR is 100.00 RUB/EUR -> 2000 / 100 = 20.00 EUR
+            when(exchangeRateService.getRates()).thenReturn(Map.of(
+                    "RUB", BigDecimal.ONE,
+                    "EUR", new BigDecimal("100.00")
+            ));
+
+            MicroloanCalculationRequest request = new MicroloanCalculationRequest(
+                    new BigDecimal("5000.00"),
+                    10,
+                    TestConstants.DEFAULT_RATE_NAME,
+                    MicroloanType.VANITY,
+                    "Покупка ювелирных изделий",
+                    null,
+                    LocalDate.now(),
+                    Currency.EUR
+            );
+
+            // Act
+            MicroloanCalculationResult result = calculator.calculate(request);
+
+            // Assert
+            assertThat(result.currency()).isEqualTo(Currency.EUR);
+            assertThat(result.vanitySurchargeAmount()).isEqualByComparingTo("20.00");
         }
     }
 

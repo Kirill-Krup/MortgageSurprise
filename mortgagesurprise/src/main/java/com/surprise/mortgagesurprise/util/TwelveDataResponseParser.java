@@ -29,7 +29,10 @@ public final class TwelveDataResponseParser {
         Map<String, BigDecimal> rates = new HashMap<>();
 
         if (root.has("price")) {
-            rates.put("DEFAULT", new BigDecimal(root.get("price").asText()));
+            String target = root.has("symbol")
+                    ? root.get("symbol").asText().split("/")[0].trim().toUpperCase()
+                    : "USD";
+            rates.put(target, new BigDecimal(root.get("price").asText()));
             return rates;
         }
 
