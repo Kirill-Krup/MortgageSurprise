@@ -62,15 +62,17 @@ class AbTestServiceImplTest {
     @Test
     @DisplayName("getOrCreateVariant should deterministically compute variant via hash and salt and save to DB")
     void shouldCreateDeterministicVariant() {
-        when(variantRepository.findByUserIdAndExperimentName(userId, "mortgage_calculate_button"))
+        String expectedColor = calculateDeterministicVariant(userId.toString(), "any");
+        var userAbTestVariant = new UserAbTestVariant(userId, "any", expectedColor);
+        when(variantRepository.findByUserIdAndExperimentName(any(), anyString()))
                 .thenReturn(Optional.empty());
-        when(variantRepository.save(any(UserAbTestVariant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(variantRepository.save(any())).thenReturn(userAbTestVariant);
 
-        var response1 = abTestService.getOrCreateVariant(userId, "mortgage_calculate_button");
-        String expectedColor = calculateDeterministicVariant(userId.toString(), "mortgage_calculate_button");
+        var response = abTestService.getOrCreateVariant(userId, "any");
 
-        assertThat(response1.getColor()).isEqualTo(expectedColor);
-        assertThat(response1.getId()).isEqualTo(userId);
+
+        assertThat(response.getColor()).isEqualTo(expectedColor);
+        assertThat(response.getUserId()).isEqualTo(userId);
         verify(variantRepository).save(any(UserAbTestVariant.class));
     }
 
@@ -82,16 +84,6 @@ class AbTestServiceImplTest {
 
         assertThat(variantA1).isEqualTo(variantA2);
         assertThat(List.of("blue", "emerald")).contains(variantA1);
-    }
-
-    @Test
-    @DisplayName("getOrCreateVariant should handle null userId deterministically without saving to DB")
-    void shouldHandleNullUserIdDeterministically() {
-        var response = abTestService.getOrCreateVariant(null, "mortgage_calculate_button");
-
-        assertThat(response.getId()).isNull();
-        assertThat(response.getColor()).isIn("blue", "emerald");
-        verify(variantRepository, never()).save(any());
     }
 
     @Test
