@@ -1,7 +1,6 @@
 package com.surprise.mortgagesurprise.interceptor;
 
 import tools.jackson.databind.ObjectMapper;
-import com.surprise.mortgagesurprise.dto.ErrorResponse;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.RateLimiterRedisService;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +18,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.Collections;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,10 +104,11 @@ class RateLimitInterceptorTest {
             assertThat(response.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
             assertThat(response.getContentType()).isEqualTo("application/json;charset=UTF-8");
 
-            ErrorResponse errorResponse = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
-            assertThat(errorResponse.status()).isEqualTo(429);
-            assertThat(errorResponse.error()).isEqualTo("Too Many Requests");
-            assertThat(errorResponse.path()).isEqualTo("/api/v1/calculator/calculate");
+            org.springframework.http.ProblemDetail errorResponse = objectMapper.readValue(response.getContentAsString(), org.springframework.http.ProblemDetail.class);
+            assertThat(errorResponse.getStatus()).isEqualTo(429);
+            assertThat(errorResponse.getTitle()).isEqualTo("Too Many Requests");
+            assertThat(errorResponse.getInstance()).isEqualTo(java.net.URI.create("/api/v1/calculator/calculate"));
+            assertThat(errorResponse.getProperties().get("code")).isEqualTo("RATE_LIMIT_EXCEEDED");
         }
     }
 

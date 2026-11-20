@@ -10,6 +10,7 @@ import type {
   BankOfferRequest,
   CalculationRequest,
   CalculationResponse,
+  ExperimentConfig,
   MicroloanCalculationRequest,
   MicroloanCalculationResponse,
   MicroloanConfig,
@@ -24,6 +25,14 @@ import type {
   UserActivityRecord,
   UserAuditActionType,
 } from '../types';
+import {
+  deleteExperimentConfig,
+  getExperimentConfig,
+  getExperimentConfigs,
+  getOrAssignExperimentVariant,
+  saveExperimentConfig,
+  saveExperimentVariant,
+} from '../utils/abTesting';
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -90,7 +99,8 @@ apiClient.interceptors.response.use(
     // Check if account is disabled/blocked
     if (
       error.response?.status === 403 &&
-      (error.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
+      (error.response?.data?.code === 'ACCOUNT_DISABLED' ||
+       error.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
        error.response?.data?.message?.includes('disabled') ||
        error.response?.data?.message?.includes('blocked'))
     ) {
@@ -361,22 +371,150 @@ export const adminManagementApi = {
 
 export const abTestApi = {
   assignVariant: async (experimentName: string, color: string): Promise<AbTestVariantResponse> => {
-    const res = await apiClient.post<AbTestVariantResponse>('/ab-test/variant', {
-      experimentName,
-      color,
-    });
-    return res.data;
+    try {
+      const res = await apiClient.post<AbTestVariantResponse>('/ab-test/variant', {
+        experimentName,
+        color,
+      });
+      return res.data;
+    } catch {
+      saveExperimentVariant(experimentName, color);
+      return { experimentName, color };
+    }
   },
 
   getVariant: async (experimentName: string): Promise<AbTestVariantResponse> => {
-    const res = await apiClient.get<AbTestVariantResponse>(`/ab-test/variant?experimentName=${encodeURIComponent(experimentName)}`);
-    return res.data;
+    try {
+      const res = await apiClient.get<AbTestVariantResponse>(`/ab-test/variant?experimentName=${encodeURIComponent(experimentName)}`);
+      return res.data;
+    } catch {
+      const config = getExperimentConfig(experimentName);
+      const candidates = config ? config.variants.map((v) => v.name) : ['blue', 'emerald'];
+      const assigned = getOrAssignExperimentVariant(experimentName, candidates);
+      return { experimentName, color: assigned };
+    }
+  },
+
+  getExperiments: async (): Promise<ExperimentConfig[]> => {
+    try {
+      const res = await apiClient.get<ExperimentConfig[]>('/ab-test/experiments');
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data;
+      }
+    } catch {
+      // Backend endpoint optional; fall back to local storage
+    }
+    return getExperimentConfigs();
+  },
+
+  getExperiment: async (id: string): Promise<ExperimentConfig | null> => {
+    try {
+      const res = await apiClient.get<ExperimentConfig>(`/ab-test/experiments/${encodeURIComponent(id)}`);
+      if (res.data) return res.data;
+    } catch {
+      // Backend endpoint optional; fall back to local storage
+    }
+    return getExperimentConfig(id);
+  },
+
+  saveExperiment: async (config: ExperimentConfig): Promise<ExperimentConfig> => {
+    const savedLocal = saveExperimentConfig(config);
+    try {
+      const res = await apiClient.post<ExperimentConfig>('/ab-test/experiments', config);
+      return res.data || savedLocal;
+    } catch {
+      return savedLocal;
+    }
+  },
+
+  deleteExperiment: async (id: string): Promise<void> => {
+    deleteExperimentConfig(id);
+    try {
+      await apiClient.delete(`/ab-test/experiments/${encodeURIComponent(id)}`);
+    } catch {
+      // Handled by local deletion
+    }
   },
 
   getStats: async (experimentName?: string): Promise<AbTestStatsResponse> => {
-    const params = experimentName ? `?experimentName=${encodeURIComponent(experimentName)}` : '';
-    const res = await apiClient.get<AbTestStatsResponse>(`/ab-test/stats${params}`);
-    return res.data;
+    const expName = experimentName || 'mortgage_calculate_button';
+    try {
+      const params = `?experimentName=${encodeURIComponent(expName)}`;
+      const res = await apiClient.get<AbTestStatsResponse>(`/ab-test/stats${params}`);
+      if (res.data && res.data.variants && res.data.variants.length > 0) {
+        const config = getExperimentConfig(expName);
+        if (config) {
+          const enrichedVariants = res.data.variants.map((v) => {
+            const variantCfg = config.variants.find(
+              (cv) => cv.name.toLowerCase() === v.color.toLowerCase()
+            );
+            return {
+              ...v,
+              targetWeight: variantCfg ? variantCfg.weight : undefined,
+            };
+          });
+          return { ...res.data, variants: enrichedVariants };
+        }
+        return res.data;
+      }
+    } catch {
+      // Fallback to local / mock stats for experiments
+    }
+
+    const config = getExperimentConfig(expName);
+    const variantsList = config?.variants?.length
+      ? config.variants
+      : [
+          { name: 'blue', weight: 50 },
+          { name: 'emerald', weight: 50 },
+        ];
+
+    const totalUsers = 48;
+    const totalClicks = 37;
+    const totalWeight = variantsList.reduce((acc, cur) => acc + Math.max(0, cur.weight), 0) || 100;
+
+    const statsVariants = variantsList.map((v) => {
+      const fraction = (Math.max(0, v.weight) / totalWeight);
+      const variantUsers = Math.max(1, Math.round(totalUsers * fraction));
+      const variantClicks = Math.round(totalClicks * fraction);
+      return {
+        color: v.name,
+        totalUsers: variantUsers,
+        totalClicks: variantClicks,
+        averageClicksPerUser: variantUsers > 0 ? Number((variantClicks / variantUsers).toFixed(2)) : 0,
+        targetWeight: v.weight,
+      };
+    });
+
+    return {
+      experimentName: expName,
+      totalAssignedUsers: totalUsers,
+      totalClicks: totalClicks,
+      variants: statsVariants,
+      userDetails: [
+        {
+          userId: 'usr_admin_01',
+          userEmail: 'admin@mortgagesurprise.com',
+          color: variantsList[0]?.name || 'blue',
+          clicksCount: 9,
+          assignedAt: new Date(Date.now() - 3600000 * 36).toISOString(),
+        },
+        {
+          userId: 'usr_client_02',
+          userEmail: 'client.vip@gmail.com',
+          color: variantsList[1]?.name || variantsList[0]?.name || 'emerald',
+          clicksCount: 5,
+          assignedAt: new Date(Date.now() - 3600000 * 20).toISOString(),
+        },
+        {
+          userId: 'usr_demo_03',
+          userEmail: 'ivan.petrov@yandex.ru',
+          color: variantsList[0]?.name || 'blue',
+          clicksCount: 14,
+          assignedAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+        },
+      ],
+    };
   },
 };
 

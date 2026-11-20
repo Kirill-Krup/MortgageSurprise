@@ -8,6 +8,7 @@ import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +35,7 @@ public class AbTestController {
         return ResponseEntity.ok(abTestAdapter.getOrCreateVariant(userDetails, request.experimentName()));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/stats")
     public ResponseEntity<AbTestStatsResponse> getStats(
             @RequestParam(defaultValue = "mortgage_calculate_button") String experimentName

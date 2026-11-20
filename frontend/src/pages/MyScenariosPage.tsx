@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { scenarioApi, calculatorApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getApiErrorMessage } from '../utils/errors';
 import type { ScenarioResponse, PaymentScheduleItem, Currency } from '../types';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import {
@@ -68,8 +69,7 @@ export const MyScenariosPage: React.FC<MyScenariosPageProps> = ({
       await scenarioApi.delete(id);
       setScenarios(scenarios.filter((s) => s.id !== id));
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('scenarioDeleteError'));
+      setError(getApiErrorMessage(err, t('scenarioDeleteError')));
     }
   };
 
@@ -79,8 +79,7 @@ export const MyScenariosPage: React.FC<MyScenariosPageProps> = ({
       setPdfToast(res.message || t('pdfExportStartedToast'));
       setTimeout(() => setPdfToast(null), 5000);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('pdfExportErrorToast'));
+      setError(getApiErrorMessage(err, t('pdfExportErrorToast')));
     }
   };
 

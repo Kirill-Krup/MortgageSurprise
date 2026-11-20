@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { calculatorApi, passportApi } from '../api/client';
+import { getApiErrorMessage } from '../utils/errors';
 import type { Currency, MicroloanType, PassportData, User } from '../types';
 import {
   UserCheck,
@@ -18,8 +19,6 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
-
-export const LOCAL_STORAGE_PASSPORT_KEY = 'microloan_saved_passport';
 
 interface MicroloanApplicationModalProps {
   isOpen: boolean;
@@ -82,7 +81,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [stepError, setStepError] = useState<string | null>(null);
   const [saveToProfile, setSaveToProfile] = useState<boolean>(true);
-  const [autoFilledSource, setAutoFilledSource] = useState<'profile' | 'localStorage' | null>(null);
+  const [autoFilledSource, setAutoFilledSource] = useState<'profile' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Initialize or prefill data when modal opens
@@ -92,6 +91,13 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
       setErrors({});
       setStepError(null);
       return;
+    }
+
+    // Defensive cleanup: purge any leftover insecure plaintext passport from legacy versions
+    try {
+      localStorage.removeItem('microloan_saved_passport');
+    } catch {
+      // Ignore
     }
 
     if (savedPassport && (savedPassport.fullName || savedPassport.seriesNumber)) {
@@ -107,35 +113,17 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
       return;
     }
 
-    // Try localStorage
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_PASSPORT_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && typeof parsed === 'object') {
-          setPassportData({
-            fullName: parsed.fullName || '',
-            seriesNumber: parsed.seriesNumber || '',
-            issueDate: parsed.issueDate || '',
-            departmentCode: parsed.departmentCode || '',
-            issuedBy: parsed.issuedBy || '',
-          });
-          setAutoFilledSource('localStorage');
-          setSaveToProfile(true);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('Could not read saved passport from localStorage:', e);
-    }
-
-    // Default prefill from email
+    // Default prefill from email if multi-word name
     if (user?.email) {
       const emailPrefix = user.email.split('@')[0];
-      setPassportData((prev) => ({
-        ...prev,
-        fullName: emailPrefix.replace(/[._]/g, ' ').toUpperCase(),
-      }));
+      const candidateName = emailPrefix.replace(/[._]/g, ' ').toUpperCase();
+      const words = candidateName.split(/\s+/).filter(Boolean);
+      if (words.length >= 2) {
+        setPassportData((prev) => ({
+          ...prev,
+          fullName: candidateName,
+        }));
+      }
     }
     setAutoFilledSource(null);
     setSaveToProfile(true);
@@ -283,14 +271,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
       issuedBy: passportData.issuedBy.trim() || undefined,
     };
 
-    // 1. Save to localStorage for automatic reuse and prefill
-    try {
-      localStorage.setItem(LOCAL_STORAGE_PASSPORT_KEY, JSON.stringify(cleanedData));
-    } catch (err) {
-      console.warn('Could not save passport to localStorage:', err);
-    }
-
-    // 2. Save to User Profile if authenticated and checked
+    // Save to User Profile if authenticated and checked
     if (user && !isAdmin && saveToProfile) {
       try {
         const saved = await passportApi.save(cleanedData);
@@ -318,8 +299,11 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
           applicantFullName: cleanedData.fullName,
           currency,
         });
-      } catch (err) {
-        console.warn('Microloan application audit error:', err);
+      } catch (err: unknown) {
+        console.error('Microloan application audit error:', err);
+        setStepError(getApiErrorMessage(err, 'Не удалось отправить заявку. Пожалуйста, попробуйте позже.'));
+        setIsSubmitting(false);
+        return;
       }
     }
 
@@ -479,16 +463,14 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
         </div>
 
         {/* Saved Data Pre-fill Notice */}
-        {autoFilledSource && (
+        {autoFilledSource === 'profile' && (
           <div className="mb-4 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between animate-in fade-in">
             <div className="flex items-center gap-2">
               <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="font-semibold">
-                {autoFilledSource === 'profile' ? t('autoFilledFromSaved') : t('autoFilledFromLocalStorage')}
-              </span>
+              <span className="font-semibold">{t('autoFilledFromSaved')}</span>
             </div>
             <span className="text-[10px] bg-emerald-200/80 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full font-mono font-bold shrink-0">
-              {autoFilledSource === 'profile' ? 'AES-256' : 'SAVED'}
+              AES-256
             </span>
           </div>
         )}

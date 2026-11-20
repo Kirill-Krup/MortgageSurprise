@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.util;
 
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.scenario.ScenarioComparisonResponse;
 import com.surprise.mortgagesurprise.dto.scenario.ScenarioResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
@@ -18,7 +19,7 @@ public class ScenarioComparator {
 
     public ScenarioComparisonResponse compare(List<CalculationScenario> scenarios) {
         if (isValidScenario(scenarios)) {
-            throw new BusinessException("You must select between 2 and 3 scenarios to compare.");
+            throw new BusinessException(ErrorCode.SCENARIO_COMPARE_COUNT);
         }
         var responses = scenarios.stream()
                 .map(ScenarioResponse::from)

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authApi } from '../api/client';
 import type { User } from '../types';
+import { extractProblemDetail, isAccountDisabledError } from '../utils/errors';
 
 interface AuthContextType {
   user: User | null;
@@ -24,15 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentUser = await authApi.getMe();
       setUser(currentUser);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { status?: number; data?: { message?: string; email?: string; userId?: string } } };
-      if (
-        axiosError.response?.status === 403 &&
-        (axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
-         axiosError.response?.data?.message?.includes('disabled'))
-      ) {
+      if (isAccountDisabledError(err)) {
+        const pd = extractProblemDetail(err);
         setUser((prev) => ({
-          id: axiosError.response?.data?.userId || prev?.id || '',
-          email: axiosError.response?.data?.email || prev?.email || '',
+          id: pd?.userId || prev?.id || '',
+          email: pd?.email || prev?.email || '',
           role: prev?.role || 'ROLE_USER',
           enabled: false,
         }));
@@ -75,8 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(u);
         }
       }).catch((err: unknown) => {
-        const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
-        if (axiosError.response?.status === 403 && axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED')) {
+        if (isAccountDisabledError(err)) {
           setUser((prev) => (prev ? { ...prev, enabled: false } : null));
         }
       });
@@ -100,15 +96,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         enabled: res.enabled !== false,
       });
     } catch (err: unknown) {
-      const axiosError = err as { response?: { status?: number; data?: { message?: string; email?: string; userId?: string } } };
-      if (
-        axiosError.response?.status === 403 &&
-        (axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
-         axiosError.response?.data?.message?.includes('disabled'))
-      ) {
+      if (isAccountDisabledError(err)) {
+        const pd = extractProblemDetail(err);
         setUser({
-          id: axiosError.response?.data?.userId || '',
-          email: axiosError.response?.data?.email || data.email,
+          id: pd?.userId || '',
+          email: pd?.email || data.email,
           role: 'ROLE_USER',
           enabled: false,
         });

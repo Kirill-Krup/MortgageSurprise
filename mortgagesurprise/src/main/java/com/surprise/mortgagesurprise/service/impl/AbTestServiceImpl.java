@@ -48,6 +48,12 @@ public class AbTestServiceImpl implements AbTestService {
         return getOrCreateVariant(userId, experimentName);
     }
 
+    public static String calculateDeterministicVariant(String identifier, String experimentName) {
+        String input = identifier + ":" + experimentName + ":" + SALT;
+        long hash = Math.abs((long) input.hashCode());
+        return DEFAULT_COLORS.get((int) (hash % DEFAULT_COLORS.size()));
+    }
+
     @Override
     @Transactional(readOnly = true)
     public AbTestStatsResponse getStats(String experimentName) {

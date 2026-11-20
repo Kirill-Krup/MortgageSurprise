@@ -90,6 +90,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/profile/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/audit/bank-offer-selected").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/exchange-rates/**").permitAll()
+                        .requestMatchers("/api/v1/ab-test/stats").hasRole("ADMIN")
                         .requestMatchers("/api/v1/ab-test/**").permitAll()
                         .anyRequest().authenticated()
                 )

@@ -320,10 +320,10 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
             }
 
             String status;
-            if (remainingPeriods == 0) {
-                status = "PAID_OFF";
-            } else if (daysElapsed > termDays) {
+            if (daysElapsed > termDays) {
                 status = "OVERDUE";
+            } else if (remainingPeriods == 0) {
+                status = "PAID_OFF";
             } else {
                 status = "ACTIVE";
             }

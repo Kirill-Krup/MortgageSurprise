@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.adapter.impl;
 
 import com.surprise.mortgagesurprise.adapter.AuthServiceAdapter;
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
 import com.surprise.mortgagesurprise.dto.auth.RefreshTokenRequest;
 import com.surprise.mortgagesurprise.exception.BusinessException;
@@ -22,7 +23,7 @@ public class AuthServiceAdapterImpl implements AuthServiceAdapter {
     public AuthResponse refresh(RefreshTokenRequest request, String refreshTokenCookie) {
         var token = isExist(request) ? request.refreshToken() : refreshTokenCookie;
         if (token == null || token.isBlank()) {
-            throw new BusinessException("Refresh token is required");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
         }
         return authService.refreshToken(new RefreshTokenRequest(token));
     }

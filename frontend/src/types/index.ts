@@ -259,6 +259,25 @@ export interface AdminLoanMonitoring {
   scheduleId?: string | null;
 }
 
+export interface ExperimentVariantConfig {
+  name: string;
+  weight: number;
+  description?: string;
+}
+
+export type ExperimentStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+
+export interface ExperimentConfig {
+  id: string;
+  name: string;
+  description?: string;
+  variants: ExperimentVariantConfig[];
+  status: ExperimentStatus;
+  isCustom?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AbTestVariantResponse {
   userId?: string | null;
   experimentName: string;
@@ -278,6 +297,7 @@ export interface VariantStat {
   totalUsers: number;
   totalClicks: number;
   averageClicksPerUser: number;
+  targetWeight?: number;
 }
 
 export interface AbTestStatsResponse {
