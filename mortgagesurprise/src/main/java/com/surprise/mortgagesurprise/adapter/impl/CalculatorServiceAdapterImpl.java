@@ -14,7 +14,7 @@ import com.surprise.mortgagesurprise.service.UserAuditService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
-import static com.surprise.mortgagesurprise.util.RoleValidator.isAdmin;
+import static com.surprise.mortgagesurprise.util.CredentialValidator.isAdmin;
 
 @Service
 public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {
@@ -49,9 +49,8 @@ public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {
     @Override
     public MicroloanCalculationResponse calculateMicroloan(MicroloanCalculationRequest request, CustomUserDetails userDetails) {
         if (isAdmin(userDetails)) {
-            throw new AccessDeniedException(
-                    "Administrator acts solely as system configurator and cannot calculate or apply for loans"
-            );
+            throw new AccessDeniedException("Administrator acts solely as system configurator and" +
+                    " cannot calculate or apply for loans");
         }
         var userId = userDetails != null ? userDetails.getId() : null;
         var userEmail = userDetails != null ? userDetails.getUsername() : null;

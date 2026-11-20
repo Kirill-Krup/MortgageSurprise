@@ -56,7 +56,7 @@ public class CalculationContextFactory {
 
     public MicroloanCalculationContext createMicroloanContext(MicroloanCalculationRequest request,
                                                              BigDecimal configuredBaseRate,
-                                                             BigDecimal configuredVanitySurcharge) {
+                                                             BigDecimal bankInterest) {
         if (request == null) {
             throw new IllegalArgumentException("Microloan calculation request cannot be null");
         }
@@ -73,8 +73,8 @@ public class CalculationContextFactory {
 
         BigDecimal baseRate = (configuredBaseRate != null ? configuredBaseRate : new BigDecimal("0.8000"))
                 .setScale(4, CURRENCY_ROUNDING);
-        BigDecimal vanitySurcharge = (configuredVanitySurcharge != null ? configuredVanitySurcharge : new BigDecimal("5.0000"))
-                .setScale(4, CURRENCY_ROUNDING);
+        BigDecimal vanitySurcharge = (bankInterest != null ? bankInterest :
+                new BigDecimal("2000")).setScale(4, CURRENCY_ROUNDING);
 
         BigDecimal dailyRateFraction = baseRate.divide(ONE_HUNDRED, MC);
         BigDecimal annualEquivalentRate = baseRate.multiply(DAYS_IN_YEAR).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);

@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.security.jwt;
 
+import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,6 +33,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(token) && tokenProvider.validateAccessToken(token)) {
             String email = tokenProvider.getEmailFromToken(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+            if (userDetails instanceof CustomUserDetails cud && !cud.isUserEnabled()) {
+                String uri = request.getRequestURI();
+                if (!uri.endsWith("/auth/me") && !uri.endsWith("/auth/logout")) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"status\":403,\"error\":\"Forbidden\",\"message\":\"ACCOUNT_DISABLED\",\"email\":\"" + email + "\"}");
+                    return;
+                }
+            }
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails,

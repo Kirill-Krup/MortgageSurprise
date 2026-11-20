@@ -2,11 +2,11 @@
 
 CREATE TABLE IF NOT EXISTS microloan_configs (
     id VARCHAR(50) PRIMARY KEY,
-    base_daily_rate NUMERIC(6, 4) NOT NULL,
-    vanity_surcharge_rate NUMERIC(6, 4) NOT NULL,
+    bank_interest NUMERIC(10, 4) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
-INSERT INTO microloan_configs (id, base_daily_rate, vanity_surcharge_rate, updated_at)
-VALUES ('DEFAULT', 0.8000, 0.4000, NOW())
+INSERT INTO microloan_configs (id, bank_interest, created_at, updated_at)
+VALUES ('DEFAULT', 2000.0000, NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;

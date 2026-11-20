@@ -11,7 +11,9 @@ import com.surprise.mortgagesurprise.security.CustomUserDetails;
 public interface CalculatorServiceAdapter {
     CalculationResponse calculate(CalculationRequest request, CustomUserDetails userDetails);
 
-    MicroloanCalculationResponse calculateMicroloan(MicroloanCalculationRequest request, CustomUserDetails userDetails);
+    MicroloanCalculationResponse calculateMicroloan(MicroloanCalculationRequest request,
+                                                    CustomUserDetails userDetails);
 
-    MicroloanApplicationResponse applyMicroloan(MicroloanApplicationRequest request, CustomUserDetails userDetails);
+    MicroloanApplicationResponse applyMicroloan(MicroloanApplicationRequest request,
+                                                CustomUserDetails userDetails);
 }

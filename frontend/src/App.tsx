@@ -98,13 +98,26 @@ export const MainApp: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    if (user.role === 'ROLE_ADMIN' && location.tab !== 'admin') {
-      go({ tab: 'admin', profile: 'overview', admin: location.admin || 'overview' });
-    } else if (user.role !== 'ROLE_ADMIN' && location.tab === 'admin') {
-      go({ tab: 'calculator', profile: 'overview', admin: 'overview' });
+    if (user?.role === 'ROLE_ADMIN') {
+      if (location.tab !== 'admin') {
+        go({ tab: 'admin', profile: 'overview', admin: location.admin || 'overview' });
+      }
+    } else {
+      if (location.tab === 'admin') {
+        go({ tab: 'calculator', profile: 'overview', admin: 'overview' });
+      }
     }
   }, [user, location.tab]);
+
+  useEffect(() => {
+    if (user && user.enabled === false) {
+      if (window.location.hash !== '#banned') {
+        window.location.hash = 'banned';
+      }
+    } else if (window.location.hash === '#banned') {
+      window.location.hash = '';
+    }
+  }, [user]);
 
   // Handle OAuth2 code or Magic Link token on mount
   useEffect(() => {
@@ -124,6 +137,15 @@ export const MainApp: React.FC = () => {
     window.history.replaceState({}, document.title, cleanPath);
 
     if (authError) {
+      if (
+        authError.toLowerCase().includes('account_disabled') ||
+        authError.toLowerCase().includes('disabled') ||
+        authError.toLowerCase().includes('blocked')
+      ) {
+        window.dispatchEvent(new CustomEvent('auth:user-blocked', { detail: { email: '' } }));
+        window.location.hash = 'banned';
+        return;
+      }
       setAuthNotice({
         type: 'error',
         text: `${t('authErrorNotice')} ${authError}`,
@@ -137,7 +159,18 @@ export const MainApp: React.FC = () => {
         .then(() => {
           setAuthNotice({ type: 'success', text: t('authSuccessNotice') });
         })
-        .catch(() => {
+        .catch((err: unknown) => {
+          const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+          const msg = axiosError.response?.data?.message || '';
+          if (
+            axiosError.response?.status === 403 ||
+            msg.toLowerCase().includes('disabled') ||
+            msg.toLowerCase().includes('blocked')
+          ) {
+            window.dispatchEvent(new CustomEvent('auth:user-blocked', { detail: {} }));
+            window.location.hash = 'banned';
+            return;
+          }
           setAuthNotice({
             type: 'error',
             text: t('authSocialError'),
@@ -165,7 +198,9 @@ export const MainApp: React.FC = () => {
 
   const isAdmin = user?.role === 'ROLE_ADMIN';
 
-  if (user && user.enabled === false) {
+  const isBanned = (user && user.enabled === false) || window.location.hash === '#banned';
+
+  if (isBanned) {
     return <BannedUserPage />;
   }
 

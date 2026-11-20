@@ -33,9 +33,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleLogout = async () => {
     await logout();
-    if (activeTab === 'profile') {
-      setActiveTab('calculator');
-    }
+    setActiveTab('calculator');
+    window.location.hash = '';
   };
 
   return (

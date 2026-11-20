@@ -7,14 +7,15 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResult;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.entity.MicroloanConfig;
+import com.surprise.mortgagesurprise.model.entity.MicroloanRate;
 import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.MicroloanType;
-import com.surprise.mortgagesurprise.service.CalculationHistoryService;
-import com.surprise.mortgagesurprise.service.MicroloanCacheService;
-import com.surprise.mortgagesurprise.service.MicroloanCalculator;
-import com.surprise.mortgagesurprise.service.MicroloanConfigService;
-import com.surprise.mortgagesurprise.service.PaymentScheduleService;
+import com.surprise.mortgagesurprise.service.*;
+import com.surprise.mortgagesurprise.testutil.TestConstants;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,7 +23,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -31,10 +31,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
+@Tag("unit")
 @ExtendWith(MockitoExtension.class)
+@DisplayName("MicroloanServiceImpl Tests")
 class MicroloanServiceImplTest {
 
     @Mock
@@ -55,68 +56,136 @@ class MicroloanServiceImplTest {
     @Mock
     private MicroloanConfigService configService;
 
+    @Mock
+    private MicroloanRateService microloanRateService;
+
     @InjectMocks
     private MicroloanServiceImpl microloanService;
 
-    @Test
-    @DisplayName("Should orchestrate microloan calculation, persist schedule, record history and put in Redis cache")
-    void shouldCalculateAndPersistMicroloan() {
-        UUID userId = UUID.randomUUID();
-        MicroloanCalculationRequest request = new MicroloanCalculationRequest(
-                new BigDecimal("15000.00"),
-                14,
+    private MicroloanCalculationRequest request;
+    private MicroloanCalculationResult calculationResult;
+    private PaymentScheduleDocument scheduleDoc;
+    private MicroloanConfig microloanConfig;
+    private MicroloanRate microloanRate;
+
+    @BeforeEach
+    void setUp() {
+        request = new MicroloanCalculationRequest(
+                TestConstants.MICROLOAN_AMOUNT,
+                10,
+                TestConstants.DEFAULT_RATE_NAME,
                 MicroloanType.BASIC_NEEDS,
-                "Непредвиденные расходы",
+                "Продукты",
                 null,
-                LocalDate.now(),
+                LocalDate.of(2026, 12, 1),
                 Currency.RUB
         );
 
-        when(configService.getConfig()).thenReturn(new MicroloanConfig(
-                "DEFAULT",
-                new BigDecimal("0.8000"),
-                new BigDecimal("5.0000"),
-                Instant.now()
-        ));
-
-        when(cacheKeyGenerator.generateKey(request, new BigDecimal("0.8000"), new BigDecimal("5.0000")))
-                .thenReturn("sample-hash-123");
-        when(cacheService.getFromCache("sample-hash-123")).thenReturn(Optional.empty());
-
-        MicroloanCalculationResult calcResult = new MicroloanCalculationResult(
-                new BigDecimal("15000.00"),
-                14,
-                MicroloanType.BASIC_NEEDS,
-                "Непредвиденные расходы",
-                new BigDecimal("0.8000"),
-                BigDecimal.ZERO,
-                BigDecimal.ZERO,
-                new BigDecimal("0.8000"),
-                new BigDecimal("292.00"),
-                new BigDecimal("1680.00"),
-                new BigDecimal("16680.00"),
-                LocalDate.now(),
-                LocalDate.now().plusDays(14),
-                Currency.RUB,
-                List.of(new DailyScheduleItem(1, LocalDate.now().plusDays(1), new BigDecimal("15000.00"), new BigDecimal("120.00"), new BigDecimal("120.00"), new BigDecimal("15120.00")))
+        DailyScheduleItem scheduleItem = new DailyScheduleItem(
+                1,
+                LocalDate.of(2026, 12, 2),
+                TestConstants.MICROLOAN_AMOUNT,
+                new BigDecimal("80.00"),
+                new BigDecimal("80.00"),
+                new BigDecimal("10080.00")
         );
-        when(microloanCalculator.calculate(request)).thenReturn(calcResult);
 
-        PaymentScheduleDocument mockDoc = new PaymentScheduleDocument();
-        mockDoc.setId("doc-uuid-999");
-        when(paymentScheduleService.saveSchedule(eq(calcResult), eq("sample-hash-123"))).thenReturn(mockDoc);
+        calculationResult = new MicroloanCalculationResult(
+                TestConstants.MICROLOAN_AMOUNT,
+                10,
+                MicroloanType.BASIC_NEEDS,
+                "Продукты",
+                TestConstants.BASE_DAILY_RATE,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                TestConstants.BASE_DAILY_RATE,
+                new BigDecimal("292.00"),
+                new BigDecimal("800.00"),
+                new BigDecimal("10800.00"),
+                LocalDate.of(2026, 12, 1),
+                LocalDate.of(2026, 12, 11),
+                Currency.RUB,
+                List.of(scheduleItem)
+        );
 
-        MicroloanCalculationResponse response = microloanService.calculateAndPersist(request, userId);
+        scheduleDoc = new PaymentScheduleDocument();
+        scheduleDoc.setId(TestConstants.SCHEDULE_ID);
 
-        assertThat(response).isNotNull();
-        assertThat(response.scheduleId()).isEqualTo("doc-uuid-999");
-        assertThat(response.loanAmount()).isEqualByComparingTo("15000.00");
-        assertThat(response.totalInterest()).isEqualByComparingTo("1680.00");
-        assertThat(response.totalRepayment()).isEqualByComparingTo("16680.00");
-        assertThat(response.microloanType()).isEqualTo(MicroloanType.BASIC_NEEDS);
+        microloanConfig = new MicroloanConfig("DEFAULT", TestConstants.BANK_INTEREST);
+        microloanRate = new MicroloanRate(TestConstants.DEFAULT_RATE_NAME, TestConstants.BASE_DAILY_RATE, 0, Integer.MAX_VALUE);
+    }
 
-        verify(paymentScheduleService).saveSchedule(eq(calcResult), eq("sample-hash-123"));
-        verify(historyService).recordHistory(eq(userId), eq("doc-uuid-999"), eq(calcResult));
-        verify(cacheService).putInCache(eq("sample-hash-123"), any(MicroloanCalculationResponse.class));
+    @Nested
+    @DisplayName("Calculate and Persist Workflow")
+    class CalculateAndPersistWorkflow {
+
+        @Test
+        @DisplayName("Should return cached microloan response when Redis cache contains key")
+        void calculateAndPersist_shouldReturnCachedResponse_whenCacheHit() {
+            // Arrange
+            String hash = TestConstants.CALCULATION_HASH;
+            when(configService.getConfig()).thenReturn(microloanConfig);
+            when(microloanRateService.findByName(TestConstants.DEFAULT_RATE_NAME)).thenReturn(microloanRate);
+            when(cacheKeyGenerator.generateKey(request, TestConstants.BASE_DAILY_RATE, TestConstants.BANK_INTEREST))
+                    .thenReturn(hash);
+
+            MicroloanCalculationResponse cachedResponse = new MicroloanCalculationResponse(
+                    "cached-micro-id",
+                    TestConstants.MICROLOAN_AMOUNT,
+                    10,
+                    MicroloanType.BASIC_NEEDS,
+                    "Продукты",
+                    TestConstants.BASE_DAILY_RATE,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    TestConstants.BASE_DAILY_RATE,
+                    new BigDecimal("292.00"),
+                    new BigDecimal("800.00"),
+                    new BigDecimal("10800.00"),
+                    LocalDate.of(2026, 12, 1),
+                    LocalDate.of(2026, 12, 11),
+                    Currency.RUB,
+                    List.of()
+            );
+            when(cacheService.getFromCache(hash)).thenReturn(Optional.of(cachedResponse));
+
+            // Act
+            MicroloanCalculationResponse response = microloanService.calculateAndPersist(request, TestConstants.USER_ID);
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.scheduleId()).isEqualTo("cached-micro-id");
+            verifyNoInteractions(microloanCalculator);
+            verifyNoInteractions(paymentScheduleService);
+            verifyNoInteractions(historyService);
+        }
+
+        @Test
+        @DisplayName("Should orchestrate calculation, save schedule, record history and cache result when cache misses")
+        void calculateAndPersist_shouldOrchestrateCalculationAndPersist_whenCacheMiss() {
+            // Arrange
+            UUID userId = TestConstants.USER_ID;
+            String hash = TestConstants.CALCULATION_HASH;
+            when(configService.getConfig()).thenReturn(microloanConfig);
+            when(microloanRateService.findByName(TestConstants.DEFAULT_RATE_NAME)).thenReturn(microloanRate);
+            when(cacheKeyGenerator.generateKey(request, TestConstants.BASE_DAILY_RATE, TestConstants.BANK_INTEREST))
+                    .thenReturn(hash);
+            when(cacheService.getFromCache(hash)).thenReturn(Optional.empty());
+            when(microloanCalculator.calculate(request)).thenReturn(calculationResult);
+            when(paymentScheduleService.saveSchedule(calculationResult, hash)).thenReturn(scheduleDoc);
+
+            // Act
+            MicroloanCalculationResponse response = microloanService.calculateAndPersist(request, userId);
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.scheduleId()).isEqualTo(TestConstants.SCHEDULE_ID);
+            assertThat(response.loanAmount()).isEqualByComparingTo(TestConstants.MICROLOAN_AMOUNT);
+            assertThat(response.totalRepayment()).isEqualByComparingTo("10800.00");
+
+            verify(paymentScheduleService, times(1)).saveSchedule(calculationResult, hash);
+            verify(historyService, times(1)).recordHistory(userId, TestConstants.SCHEDULE_ID, calculationResult);
+            verify(cacheService, times(1)).putInCache(eq(hash), any(MicroloanCalculationResponse.class));
+        }
     }
 }

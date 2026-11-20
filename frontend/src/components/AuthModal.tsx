@@ -53,7 +53,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setMagicSent(true);
       }
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
+      const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+      if (
+        axiosError.response?.status === 403 &&
+        (axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
+         axiosError.response?.data?.message?.includes('disabled'))
+      ) {
+        onClose();
+        return;
+      }
       setError(
         axiosError.response?.data?.message || t('authErrorDefault')
       );

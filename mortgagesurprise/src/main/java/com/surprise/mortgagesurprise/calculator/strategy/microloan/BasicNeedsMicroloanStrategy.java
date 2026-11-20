@@ -12,9 +12,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Strategy for standard basic needs microloans (no surcharge, standard base rate).
- */
 @Component
 public class BasicNeedsMicroloanStrategy implements MicroloanCalculationStrategy {
 

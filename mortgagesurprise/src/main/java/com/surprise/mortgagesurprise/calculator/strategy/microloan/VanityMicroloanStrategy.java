@@ -12,12 +12,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Strategy for luxury/flex microloans ("на понты").
- * Standard daily interest accrues daily at base rate.
- * In addition, a fixed surcharge rate (e.g. 5.00% flat of the loan amount)
- * is added as a surcharge to the extra payment (дополнительная выплата).
- */
 @Component
 public class VanityMicroloanStrategy implements MicroloanCalculationStrategy {
 
@@ -60,8 +54,7 @@ public class VanityMicroloanStrategy implements MicroloanCalculationStrategy {
         BigDecimal baseTotalInterest = accumulatedInterest;
 
         BigDecimal surchargeRate = context.vanitySurchargeRate() != null ? context.vanitySurchargeRate() : BigDecimal.ZERO;
-        BigDecimal surchargeFraction = surchargeRate.divide(ONE_HUNDRED, 16, RoundingMode.HALF_UP);
-        BigDecimal vanitySurchargeAmount = loanAmount.multiply(surchargeFraction).setScale(SCALE, CURRENCY_ROUNDING);
+        var vanitySurchargeAmount = context.vanitySurchargeRate();
 
         BigDecimal totalInterest = baseTotalInterest.add(vanitySurchargeAmount);
         BigDecimal totalRepayment = loanAmount.add(totalInterest);
