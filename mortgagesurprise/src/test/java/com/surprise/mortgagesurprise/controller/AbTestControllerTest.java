@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.controller;
 
+import com.surprise.mortgagesurprise.adapter.AbTestAdapter;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestAssignmentRequest;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestAssignmentResponse;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestStatsResponse;
@@ -7,7 +8,6 @@ import com.surprise.mortgagesurprise.dto.abtest.VariantStat;
 import com.surprise.mortgagesurprise.model.entity.Role;
 import com.surprise.mortgagesurprise.model.entity.User;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
-import com.surprise.mortgagesurprise.service.AbTestService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 class AbTestControllerTest {
 
     @Mock
-    private AbTestService abTestService;
+    private AbTestAdapter abTestAdapter;
 
     @InjectMocks
     private AbTestController abTestController;
@@ -48,26 +48,26 @@ class AbTestControllerTest {
     @DisplayName("getVariant should cleanly delegate to service with userId when authenticated")
     void shouldGetVariantForAuthenticatedUser() {
         AbTestAssignmentResponse expected = new AbTestAssignmentResponse(testUserId, "mortgage_calculate_button", "emerald");
-        when(abTestService.getOrCreateVariant(testUserId, "mortgage_calculate_button")).thenReturn(expected);
+        when(abTestAdapter.getOrCreateVariant(userDetails, "mortgage_calculate_button")).thenReturn(expected);
 
         ResponseEntity<AbTestAssignmentResponse> response = abTestController.getVariant("mortgage_calculate_button", userDetails);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isEqualTo(expected);
-        verify(abTestService).getOrCreateVariant(testUserId, "mortgage_calculate_button");
+        verify(abTestAdapter).getOrCreateVariant(userDetails, "mortgage_calculate_button");
     }
 
     @Test
     @DisplayName("getVariant should pass null userId to service when unauthenticated")
     void shouldGetVariantForGuestUser() {
         AbTestAssignmentResponse expected = new AbTestAssignmentResponse(null, "mortgage_calculate_button", "blue");
-        when(abTestService.getOrCreateVariant(null, "mortgage_calculate_button")).thenReturn(expected);
+        when(abTestAdapter.getOrCreateVariant(null, "mortgage_calculate_button")).thenReturn(expected);
 
         ResponseEntity<AbTestAssignmentResponse> response = abTestController.getVariant("mortgage_calculate_button", null);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isEqualTo(expected);
-        verify(abTestService).getOrCreateVariant(null, "mortgage_calculate_button");
+        verify(abTestAdapter).getOrCreateVariant(null, "mortgage_calculate_button");
     }
 
     @Test
@@ -76,13 +76,13 @@ class AbTestControllerTest {
         AbTestAssignmentRequest request = new AbTestAssignmentRequest("mortgage_calculate_button", "emerald");
         AbTestAssignmentResponse expected = new AbTestAssignmentResponse(testUserId, "mortgage_calculate_button", "emerald");
 
-        when(abTestService.getOrCreateVariant(testUserId, "mortgage_calculate_button")).thenReturn(expected);
+        when(abTestAdapter.getOrCreateVariant(userDetails, "mortgage_calculate_button")).thenReturn(expected);
 
         ResponseEntity<AbTestAssignmentResponse> response = abTestController.assignVariant(request, userDetails);
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isEqualTo(expected);
-        verify(abTestService).getOrCreateVariant(testUserId, "mortgage_calculate_button");
+        verify(abTestAdapter).getOrCreateVariant(userDetails, "mortgage_calculate_button");
     }
 
     @Test
@@ -96,12 +96,12 @@ class AbTestControllerTest {
                 List.of()
         );
 
-        when(abTestService.getStats("mortgage_calculate_button")).thenReturn(mockStats);
+        when(abTestAdapter.getStats("mortgage_calculate_button")).thenReturn(mockStats);
 
         ResponseEntity<AbTestStatsResponse> response = abTestController.getStats("mortgage_calculate_button");
 
         assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
         assertThat(response.getBody()).isEqualTo(mockStats);
-        verify(abTestService).getStats("mortgage_calculate_button");
+        verify(abTestAdapter).getStats("mortgage_calculate_button");
     }
 }
