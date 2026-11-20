@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.controller;
 
-import com.surprise.mortgagesurprise.adapter.CalculatorServiceAdapter;
+import com.surprise.mortgagesurprise.adapter.CalculatorAdapter;
 import com.surprise.mortgagesurprise.dto.audit.MicroloanApplicationRequest;
 import com.surprise.mortgagesurprise.dto.audit.MicroloanApplicationResponse;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
@@ -22,24 +22,24 @@ import org.springframework.web.bind.annotation.*;
 public class CalculatorController {
 
     private final CalculatorService calculatorService;
-    private final CalculatorServiceAdapter calculatorServiceAdapter;
+    private final CalculatorAdapter calculatorAdapter;
 
     @PostMapping({"/calculate", "/mortgage"})
     public ResponseEntity<CalculationResponse> calculate(@Valid @RequestBody CalculationRequest request,
                                                          @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(calculatorServiceAdapter.calculate(request, userDetails));
+        return ResponseEntity.ok(calculatorAdapter.calculate(request, userDetails));
     }
 
     @PostMapping("/microloan")
     public ResponseEntity<MicroloanCalculationResponse> calculateMicroloan(@Valid @RequestBody MicroloanCalculationRequest request,
                                                                            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(calculatorServiceAdapter.calculateMicroloan(request, userDetails));
+        return ResponseEntity.ok(calculatorAdapter.calculateMicroloan(request, userDetails));
     }
 
     @PostMapping("/microloan/apply")
     public ResponseEntity<MicroloanApplicationResponse> applyMicroloan(@Valid @RequestBody MicroloanApplicationRequest request,
                                                                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(calculatorServiceAdapter.applyMicroloan(request, userDetails));
+        return ResponseEntity.ok(calculatorAdapter.applyMicroloan(request, userDetails));
     }
 
     @GetMapping("/schedules/{scheduleId}")

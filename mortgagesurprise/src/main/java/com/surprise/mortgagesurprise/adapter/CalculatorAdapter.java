@@ -8,7 +8,7 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculationResponse;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 
-public interface CalculatorServiceAdapter {
+public interface CalculatorAdapter {
     CalculationResponse calculate(CalculationRequest request, CustomUserDetails userDetails);
 
     MicroloanCalculationResponse calculateMicroloan(MicroloanCalculationRequest request,

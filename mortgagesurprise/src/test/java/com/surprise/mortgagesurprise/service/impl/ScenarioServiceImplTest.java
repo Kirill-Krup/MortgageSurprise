@@ -3,7 +3,8 @@ package com.surprise.mortgagesurprise.service.impl;
 import com.surprise.mortgagesurprise.dto.scenario.ScenarioComparisonResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
@@ -11,11 +12,7 @@ import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
 import com.surprise.mortgagesurprise.testutil.TestConstants;
 import com.surprise.mortgagesurprise.util.ScenarioComparator;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -51,7 +48,7 @@ class ScenarioServiceImplTest {
     private ScenarioComparator scenarioComparator = new ScenarioComparator();
 
     @Mock
-    private MessageProducer messageProducer;
+    private RabbitMqEventSender<PdfExportEvent> messageProducer;
 
     @InjectMocks
     private ScenarioServiceImpl scenarioService;
@@ -218,7 +215,7 @@ class ScenarioServiceImplTest {
             scenarioService.requestPdfExport(userId, TestConstants.USER_EMAIL, scenario1.getId());
 
             // Assert
-            verify(messageProducer).sendPdfExportEvent(any());
+            verify(messageProducer).send(any());
         }
 
         @Test

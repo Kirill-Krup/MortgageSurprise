@@ -1,34 +1,34 @@
-package com.surprise.mortgagesurprise.messaging.consumer;
+package com.surprise.mortgagesurprise.messaging.listener.impl;
 
 import com.surprise.mortgagesurprise.config.RabbitMQConfig;
+import com.surprise.mortgagesurprise.messaging.listener.Listener;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import jakarta.mail.internet.MimeMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+@Slf4j
 @Component
-public class EmailNotificationConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(EmailNotificationConsumer.class);
+public class EmailNotificationEventListener implements Listener<EmailNotificationEvent> {
 
     private final JavaMailSender mailSender;
     private final String fromAddress;
 
-    public EmailNotificationConsumer(JavaMailSender mailSender,
-                                     @Value("${app.mail.from}") String fromAddress) {
+    public EmailNotificationEventListener(JavaMailSender mailSender,
+                                          @Value("${app.mail.from}") String fromAddress) {
         this.mailSender = mailSender;
         this.fromAddress = fromAddress;
     }
 
+    @Override
     @RabbitListener(queues = RabbitMQConfig.EMAIL_NOTIFICATION_QUEUE)
-    public void handleEmailNotification(EmailNotificationEvent event) {
+    public void listen(EmailNotificationEvent event) {
         log.info("Processing EmailNotificationEvent for {}: subject='{}', type='{}', hasAttachment={}",
                 event.toEmail(), event.subject(), event.templateType(), event.attachmentData() != null);
         try {

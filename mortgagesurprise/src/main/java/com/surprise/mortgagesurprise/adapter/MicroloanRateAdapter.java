@@ -4,7 +4,7 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanRateDTO;
 
 import java.util.List;
 
-public interface MicroloanRateAdapterService {
+public interface MicroloanRateAdapter {
 
     MicroloanRateDTO findById(Integer id);
 

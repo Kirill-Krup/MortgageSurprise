@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.adapter.impl;
 
-import com.surprise.mortgagesurprise.adapter.MicroloanRateAdapterService;
+import com.surprise.mortgagesurprise.adapter.MicroloanRateAdapter;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanRateDTO;
 import com.surprise.mortgagesurprise.service.MicroloanRateService;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class MicroloanRateAdapterServiceImpl implements MicroloanRateAdapterService {
+public class MicroloanRateAdapterImpl implements MicroloanRateAdapter {
 
     private final MicroloanRateService microloanRateService;
 

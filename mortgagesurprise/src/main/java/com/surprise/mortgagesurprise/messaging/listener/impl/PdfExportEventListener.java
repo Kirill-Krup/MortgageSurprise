@@ -1,34 +1,32 @@
-package com.surprise.mortgagesurprise.messaging.consumer;
+package com.surprise.mortgagesurprise.messaging.listener.impl;
 
 import com.surprise.mortgagesurprise.config.RabbitMQConfig;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.listener.Listener;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
 import com.surprise.mortgagesurprise.service.PdfGeneratorService;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
-
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public class PdfExportConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(PdfExportConsumer.class);
+public class PdfExportEventListener implements Listener<PdfExportEvent> {
 
     private final PaymentScheduleService paymentScheduleService;
     private final PdfGeneratorService pdfGeneratorService;
-    private final MessageProducer messageProducer;
+    private final RabbitMqEventSender<EmailNotificationEvent> messageProducer;
 
-
+    @Override
     @RabbitListener(queues = RabbitMQConfig.PDF_EXPORT_QUEUE)
-    public void handlePdfExport(PdfExportEvent event) {
+    public void listen(PdfExportEvent event) {
         log.info("Received PdfExportEvent for scenario {}: title={}, scheduleId={}",
                 event.scenarioId(), event.scenarioTitle(), event.mongoScheduleId());
 
@@ -51,7 +49,7 @@ public class PdfExportConsumer {
                     pdfBytes,
                     attachmentName
             );
-            messageProducer.sendEmailNotification(emailEvent);
+            messageProducer.send(emailEvent);
 
         } catch (Exception e) {
             log.error("Failed to export PDF for scenario {}: {}", event.scenarioId(), e.getMessage(), e);

@@ -8,14 +8,14 @@ import com.surprise.mortgagesurprise.dto.scenario.ScenarioResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
 import com.surprise.mortgagesurprise.service.MortgageCalculator;
 import com.surprise.mortgagesurprise.service.PaymentScheduleService;
-import com.surprise.mortgagesurprise.util.ScenarioComparator;
 import com.surprise.mortgagesurprise.service.ScenarioService;
+import com.surprise.mortgagesurprise.util.ScenarioComparator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +36,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     private final MortgageCalculator mortgageCalculator;
     private final PaymentScheduleService paymentScheduleService;
     private final ScenarioComparator scenarioComparator;
-    private final MessageProducer messageProducer;
+    private final RabbitMqEventSender<PdfExportEvent> messageProducer;
 
     @Override
     public ScenarioResponse saveScenario(UUID userId, SaveScenarioRequest req) {
@@ -130,6 +130,6 @@ public class ScenarioServiceImpl implements ScenarioService {
                 Instant.now()
         );
 
-        messageProducer.sendPdfExportEvent(event);
+        messageProducer.send(event);
     }
 }

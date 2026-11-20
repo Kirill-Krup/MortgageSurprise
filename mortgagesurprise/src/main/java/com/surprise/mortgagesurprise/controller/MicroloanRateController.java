@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.controller;
 
-import com.surprise.mortgagesurprise.adapter.MicroloanRateAdapterService;
+import com.surprise.mortgagesurprise.adapter.MicroloanRateAdapter;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanRateDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,41 +16,41 @@ import java.util.List;
 @RequestMapping("/api/v1")
 public class MicroloanRateController {
 
-    private final MicroloanRateAdapterService microloanRateAdapterService;
+    private final MicroloanRateAdapter microloanRateAdapter;
 
     @GetMapping("/microloan/rates")
     public ResponseEntity<List<MicroloanRateDTO>> getAllRates() {
-        return ResponseEntity.ok(microloanRateAdapterService.findAll());
+        return ResponseEntity.ok(microloanRateAdapter.findAll());
     }
 
     @GetMapping("/microloan/rates/{id}")
     public ResponseEntity<MicroloanRateDTO> getById(@PathVariable Integer id) {
-        return ResponseEntity.ok(microloanRateAdapterService.findById(id));
+        return ResponseEntity.ok(microloanRateAdapter.findById(id));
     }
 
     @GetMapping("/microloan/rate")
     public ResponseEntity<MicroloanRateDTO> getByName(@RequestParam String name) {
-        return ResponseEntity.ok(microloanRateAdapterService.findByName(name));
+        return ResponseEntity.ok(microloanRateAdapter.findByName(name));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping({"/admin/microloan/rate", "/admin/microloan/rates"})
     public ResponseEntity<MicroloanRateDTO> saveRate(@Valid @RequestBody MicroloanRateDTO dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(microloanRateAdapterService.save(dto));
+                .body(microloanRateAdapter.save(dto));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping({"/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}"})
     public ResponseEntity<MicroloanRateDTO> updateRate(@Valid @RequestBody MicroloanRateDTO dto,
                                                        @PathVariable Integer id) {
-        return ResponseEntity.ok(microloanRateAdapterService.update(dto, id));
+        return ResponseEntity.ok(microloanRateAdapter.update(dto, id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping({"/admin/microloan/rate/{id}", "/admin/microloan/rates/{id}"})
     public ResponseEntity<Void> deleteRate(@PathVariable Integer id) {
-        microloanRateAdapterService.delete(id);
+        microloanRateAdapter.delete(id);
         return ResponseEntity.noContent().build();
     }
 }

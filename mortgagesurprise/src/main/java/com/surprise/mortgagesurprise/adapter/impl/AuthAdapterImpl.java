@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.adapter.impl;
 
-import com.surprise.mortgagesurprise.adapter.AuthServiceAdapter;
+import com.surprise.mortgagesurprise.adapter.AuthAdapter;
 import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
 import com.surprise.mortgagesurprise.dto.auth.RefreshTokenRequest;
 import com.surprise.mortgagesurprise.exception.BusinessException;
@@ -10,11 +10,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AuthServiceAdapterImpl implements AuthServiceAdapter {
+public class AuthAdapterImpl implements AuthAdapter {
 
     private final AuthService authService;
 
-    public AuthServiceAdapterImpl(AuthService authService) {
+    public AuthAdapterImpl(AuthService authService) {
         this.authService = authService;
     }
 

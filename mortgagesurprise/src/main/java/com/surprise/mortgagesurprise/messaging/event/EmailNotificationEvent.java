@@ -11,7 +11,7 @@ public record EmailNotificationEvent(
         Instant timestamp,
         byte[] attachmentData,
         String attachmentFilename
-) implements Serializable {
+) implements Serializable, Event {
 
     public EmailNotificationEvent(String toEmail, String subject, String body, String templateType, Instant timestamp) {
         this(toEmail, subject, body, templateType, timestamp, null, null);

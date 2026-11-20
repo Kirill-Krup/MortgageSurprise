@@ -3,7 +3,7 @@ package com.surprise.mortgagesurprise.integration;
 import com.surprise.mortgagesurprise.config.RabbitMQConfig;
 import com.surprise.mortgagesurprise.messaging.event.PdfExportEvent;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.repository.mongo.PaymentScheduleMongoRepository;
@@ -27,7 +27,10 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 class RabbitQueueIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
-    private MessageProducer messageProducer;
+    private RabbitMqEventSender<RateChangedEvent> messageSender;
+
+    @Autowired
+    private RabbitMqEventSender<PdfExportEvent> pdfExportEventRabbitMqMessageSender;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -52,7 +55,7 @@ class RabbitQueueIntegrationTest extends BaseIntegrationTest {
             );
 
             // Act & Assert
-            assertThatCode(() -> messageProducer.sendRateChangedEvent(event))
+            assertThatCode(() -> messageSender.send(event))
                     .doesNotThrowAnyException();
         }
 
@@ -102,7 +105,7 @@ class RabbitQueueIntegrationTest extends BaseIntegrationTest {
             );
 
             // Act & Assert
-            assertThatCode(() -> messageProducer.sendPdfExportEvent(event))
+            assertThatCode(() -> pdfExportEventRabbitMqMessageSender.send(event))
                     .doesNotThrowAnyException();
         }
     }

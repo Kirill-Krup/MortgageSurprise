@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.controller;
 
-import com.surprise.mortgagesurprise.adapter.MicroloanConfigAdapterService;
+import com.surprise.mortgagesurprise.adapter.MicroloanConfigAdapter;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanConfigDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class MicroloanConfigController {
 
-    private final MicroloanConfigAdapterService configService;
+    private final MicroloanConfigAdapter configService;
 
     @GetMapping("/microloan/config")
     public ResponseEntity<MicroloanConfigDTO> getConfig() {
