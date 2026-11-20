@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.profile.PassportDataDTO;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.model.entity.UserPassportData;
@@ -44,9 +45,8 @@ public class UserPassportServiceImpl implements UserPassportService {
         String normalized = dto.seriesNumber().replaceAll("\\s+", "").trim();
         String passportHash = Sha256Encoder.toSha256(normalized);
 
-        // Check if another user already registered this passport
         if (repository.existsByPassportHashAndUserIdNot(passportHash, userId)) {
-            throw new BusinessException("Данный паспорт уже привязан к другому профилю");
+            throw new BusinessException(ErrorCode.PASSPORT_ALREADY_LINKED);
         }
 
         String encryptedSeriesNumber = encryptionService.encrypt(dto.seriesNumber().trim());

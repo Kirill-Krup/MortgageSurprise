@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { bankOfferApi, calculatorApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getApiErrorMessage } from '../utils/errors';
 import type { TranslationKey } from '../i18n/translations';
 import type { BankOffer, BankOfferRequest, Currency } from '../types';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
@@ -224,8 +225,7 @@ export const BankOffersPage: React.FC<BankOffersPageProps> = ({ onSelectOffer })
       setRatesSuccessMsg(t('ratesUpdated'));
       setTimeout(() => setRatesSuccessMsg(null), 4000);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('ratesUpdateError'));
+      setError(getApiErrorMessage(err, t('ratesUpdateError')));
     } finally {
       setSavingRates(false);
     }
@@ -274,8 +274,7 @@ export const BankOffersPage: React.FC<BankOffersPageProps> = ({ onSelectOffer })
       setIsModalOpen(false);
       await fetchOffers();
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('saveOfferError'));
+      setError(getApiErrorMessage(err, t('saveOfferError')));
     } finally {
       setSaving(false);
     }
@@ -287,8 +286,7 @@ export const BankOffersPage: React.FC<BankOffersPageProps> = ({ onSelectOffer })
       await bankOfferApi.delete(id);
       await fetchOffers();
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('deleteOfferError'));
+      setError(getApiErrorMessage(err, t('deleteOfferError')));
     }
   };
 

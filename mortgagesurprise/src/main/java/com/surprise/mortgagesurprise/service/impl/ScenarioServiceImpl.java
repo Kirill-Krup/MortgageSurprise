@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
 import com.surprise.mortgagesurprise.dto.scenario.SaveScenarioRequest;
@@ -95,7 +96,7 @@ public class ScenarioServiceImpl implements ScenarioService {
     @Transactional(readOnly = true)
     public ScenarioComparisonResponse compareScenarios(UUID userId, List<UUID> scenarioIds) {
         if (scenarioIds == null || scenarioIds.size() < 2 || scenarioIds.size() > 3) {
-            throw new BusinessException("You must select between 2 and 3 scenarios to compare.");
+            throw new BusinessException(ErrorCode.SCENARIO_COMPARE_COUNT);
         }
 
         List<CalculationScenario> list = scenarioRepository.findAllByIdInAndUserId(scenarioIds, userId);

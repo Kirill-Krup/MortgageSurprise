@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { scenarioApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getApiErrorMessage } from '../utils/errors';
 import type { ScenarioComparisonResponse, ScenarioResponse } from '../types';
 import { formatCurrency, getCurrencySymbol } from '../utils/format';
 import {
@@ -78,8 +79,7 @@ export const ComparePage: React.FC<ComparePageProps> = ({
       const res = await scenarioApi.compare(selectedIds);
       setComparison(res);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('compareErrorDefault'));
+      setError(getApiErrorMessage(err, t('compareErrorDefault')));
     } finally {
       setComparing(false);
     }
@@ -99,8 +99,7 @@ export const ComparePage: React.FC<ComparePageProps> = ({
       setPdfToast(res.message || t('pdfExportStartedToast'));
       setTimeout(() => setPdfToast(null), 5000);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('pdfExportErrorToast'));
+      setError(getApiErrorMessage(err, t('pdfExportErrorToast')));
     }
   };
 

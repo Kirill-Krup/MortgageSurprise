@@ -70,13 +70,10 @@ public class AbTestServiceImpl implements AbTestService {
         return getOrCreateVariant(userId, experimentName);
     }
 
-    public String calculateDeterministicVariant(String identifier, String experimentName) {
+    public static String calculateDeterministicVariant(String identifier, String experimentName) {
         String input = identifier + ":" + experimentName + ":" + SALT;
-        String hashHex = Sha256Encoder.toSha256(input);
-
-        long hashVal = Long.parseLong(hashHex.substring(0, 8), 16);
-        int index = (int) (hashVal % DEFAULT_COLORS.size());
-        return DEFAULT_COLORS.get(Math.abs(index));
+        long hash = Math.abs((long) input.hashCode());
+        return DEFAULT_COLORS.get((int) (hash % DEFAULT_COLORS.size()));
     }
 
     @Override

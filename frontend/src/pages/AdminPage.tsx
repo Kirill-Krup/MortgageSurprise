@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  abTestApi,
   adminAuditApi,
   adminManagementApi,
   bankOfferApi,
@@ -10,32 +11,39 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import type {
+  AbTestStatsResponse,
   AdminLoanMonitoring,
   AdminStats,
   AdminUser,
   BankOffer,
   BankOfferRequest,
   Currency,
+  ExperimentConfig,
+  ExperimentStatus,
+  ExperimentVariantConfig,
   MicroloanRateDTO,
   UserActivityRecord,
   UserAuditActionType,
 } from '../types';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
+import { getApiErrorMessage } from '../utils/errors';
 import {
   AlertCircle,
+  BarChart3,
   Bell,
-  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   Coins,
+  FlaskConical,
   Globe,
   Landmark,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
   Moon,
+  MousePointerClick,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -45,13 +53,14 @@ import {
   Search,
   SlidersHorizontal,
   Sun,
+  Target,
   Trash2,
   TrendingUp,
   Users,
   X,
 } from 'lucide-react';
 
-export type AdminSection = 'overview' | 'users' | 'loans' | 'products' | 'rates' | 'journal';
+export type AdminSection = 'overview' | 'users' | 'loans' | 'products' | 'rates' | 'journal' | 'abtest';
 
 export interface AdminPageProps {
   section?: AdminSection;
@@ -116,7 +125,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   const [logs, setLogs] = useState<UserActivityRecord[]>([]);
   const [logsState, setLogsState] = useState<'loading' | 'ok' | 'error'>('loading');
 
-  const [ratesState, setRatesState] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [, setRatesState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [baseRate, setBaseRate] = useState(0.8);
   const [surchargeRate, setSurchargeRate] = useState(2000);
   const [savingRates, setSavingRates] = useState(false);
@@ -138,7 +147,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // System toggles
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(1);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
@@ -171,6 +179,30 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   // Filter States: Journal
   const [journalQuery, setJournalQuery] = useState('');
   const [journalAction, setJournalAction] = useState<UserAuditActionType | 'ALL'>('ALL');
+
+  // Filter States: A/B Testing
+  const [abTestStats, setAbTestStats] = useState<AbTestStatsResponse | null>(null);
+  const [abTestLoading, setAbTestLoading] = useState(false);
+  const [abTestExperiment, setAbTestExperiment] = useState<string>('mortgage_calculate_button');
+  const [abTestUserSearch, setAbTestUserSearch] = useState('');
+  const [abTestVariantFilter, setAbTestVariantFilter] = useState<'ALL' | string>('ALL');
+  const [abTestPage, setAbTestPage] = useState(1);
+
+  // A/B Experiments management
+  const [experiments, setExperiments] = useState<ExperimentConfig[]>([]);
+  const [isExpModalOpen, setIsExpModalOpen] = useState(false);
+  const [editingExp, setEditingExp] = useState<ExperimentConfig | null>(null);
+  const [formExpId, setFormExpId] = useState('');
+  const [formExpName, setFormExpName] = useState('');
+  const [formExpDesc, setFormExpDesc] = useState('');
+  const [formExpStatus, setFormExpStatus] = useState<ExperimentStatus>('ACTIVE');
+  const [formVariants, setFormVariants] = useState<ExperimentVariantConfig[]>([
+    { name: 'blue', weight: 50, description: '' },
+    { name: 'emerald', weight: 50, description: '' },
+  ]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [savingExp, setSavingExp] = useState(false);
+  const [quickWeights, setQuickWeights] = useState<Record<string, number>>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -260,6 +292,30 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
     }
   };
 
+  const loadExperiments = async () => {
+    try {
+      const data = await abTestApi.getExperiments();
+      setExperiments(data);
+      if (data.length > 0 && !data.some((e) => e.id === abTestExperiment)) {
+        setAbTestExperiment(data[0].id);
+      }
+    } catch {
+      // client provides fallback
+    }
+  };
+
+  const loadAbTestStats = async (experimentName: string = abTestExperiment) => {
+    setAbTestLoading(true);
+    try {
+      const data = await abTestApi.getStats(experimentName);
+      setAbTestStats(data);
+    } catch {
+      setAbTestStats(null);
+    } finally {
+      setAbTestLoading(false);
+    }
+  };
+
   const refreshAllData = () => {
     loadStats();
     loadUsers();
@@ -267,11 +323,342 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
     loadOffers();
     loadRates();
     loadLogs();
+    loadExperiments();
+    loadAbTestStats(abTestExperiment);
   };
 
   useEffect(() => {
     refreshAllData();
   }, []);
+
+  useEffect(() => {
+    const handleSync = () => {
+      loadExperiments();
+    };
+    window.addEventListener('ab_configs_changed', handleSync);
+    return () => window.removeEventListener('ab_configs_changed', handleSync);
+  }, []);
+
+  useEffect(() => {
+    loadAbTestStats(abTestExperiment);
+    setAbTestPage(1);
+  }, [abTestExperiment]);
+
+  const currentExperiment = useMemo(() => {
+    return experiments.find((e) => e.id === abTestExperiment) || null;
+  }, [experiments, abTestExperiment]);
+
+  useEffect(() => {
+    if (currentExperiment && currentExperiment.variants) {
+      const map: Record<string, number> = {};
+      currentExperiment.variants.forEach((v) => {
+        map[v.name] = v.weight;
+      });
+      setQuickWeights(map);
+    }
+  }, [currentExperiment]);
+
+  const handleApplyPreset = (preset: '50-50' | '70-30' | '80-20' | 'even') => {
+    if (!currentExperiment || !currentExperiment.variants || currentExperiment.variants.length === 0) return;
+    const count = currentExperiment.variants.length;
+    const nextWeights: Record<string, number> = {};
+
+    if (preset === '50-50') {
+      if (count === 2) {
+        nextWeights[currentExperiment.variants[0].name] = 50;
+        nextWeights[currentExperiment.variants[1].name] = 50;
+      } else {
+        const even = Math.floor(100 / count);
+        const rem = 100 - even * count;
+        currentExperiment.variants.forEach((v, i) => {
+          nextWeights[v.name] = i === 0 ? even + rem : even;
+        });
+      }
+    } else if (preset === '70-30') {
+      if (count === 2) {
+        nextWeights[currentExperiment.variants[0].name] = 70;
+        nextWeights[currentExperiment.variants[1].name] = 30;
+      } else {
+        const rest = Math.floor(30 / (count - 1));
+        let allocated = 70;
+        nextWeights[currentExperiment.variants[0].name] = 70;
+        for (let i = 1; i < count; i++) {
+          if (i === count - 1) {
+            nextWeights[currentExperiment.variants[i].name] = Math.max(0, 100 - allocated);
+          } else {
+            nextWeights[currentExperiment.variants[i].name] = rest;
+            allocated += rest;
+          }
+        }
+      }
+    } else if (preset === '80-20') {
+      if (count === 2) {
+        nextWeights[currentExperiment.variants[0].name] = 80;
+        nextWeights[currentExperiment.variants[1].name] = 20;
+      } else {
+        const rest = Math.floor(20 / (count - 1));
+        let allocated = 80;
+        nextWeights[currentExperiment.variants[0].name] = 80;
+        for (let i = 1; i < count; i++) {
+          if (i === count - 1) {
+            nextWeights[currentExperiment.variants[i].name] = Math.max(0, 100 - allocated);
+          } else {
+            nextWeights[currentExperiment.variants[i].name] = rest;
+            allocated += rest;
+          }
+        }
+      }
+    } else if (preset === 'even') {
+      const even = Math.floor(100 / count);
+      const rem = 100 - even * count;
+      currentExperiment.variants.forEach((v, i) => {
+        nextWeights[v.name] = i === 0 ? even + rem : even;
+      });
+    }
+
+    setQuickWeights(nextWeights);
+  };
+
+  const handleSaveQuickWeights = async () => {
+    if (!currentExperiment) return;
+
+    const updatedVariants = currentExperiment.variants.map((v) => ({
+      ...v,
+      weight: Number(quickWeights[v.name] ?? v.weight),
+    }));
+
+    const total = updatedVariants.reduce((sum, v) => sum + v.weight, 0);
+    if (total !== 100) {
+      showToast(`${t('adminAbTestWeightSumWarning')} (${total}%)`);
+      return;
+    }
+
+    const updatedExp: ExperimentConfig = {
+      ...currentExperiment,
+      variants: updatedVariants,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      const saved = await abTestApi.saveExperiment(updatedExp);
+      setExperiments((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
+      showToast(t('adminAbTestWeightsUpdated'));
+      loadAbTestStats(abTestExperiment);
+    } catch {
+      showToast('Ошибка сохранения распределения');
+    }
+  };
+
+  const handleOpenCreateExpModal = () => {
+    setEditingExp(null);
+    setFormExpId('');
+    setFormExpName('');
+    setFormExpDesc('');
+    setFormExpStatus('ACTIVE');
+    setFormVariants([
+      { name: 'blue', weight: 50, description: '' },
+      { name: 'emerald', weight: 50, description: '' },
+    ]);
+    setFormError(null);
+    setIsExpModalOpen(true);
+  };
+
+  const handleOpenEditExpModal = (exp: ExperimentConfig) => {
+    setEditingExp(exp);
+    setFormExpId(exp.id);
+    setFormExpName(exp.name);
+    setFormExpDesc(exp.description || '');
+    setFormExpStatus(exp.status);
+    setFormVariants(exp.variants.map((v) => ({ ...v })));
+    setFormError(null);
+    setIsExpModalOpen(true);
+  };
+
+  const handleAddFormVariant = () => {
+    const nextChar = String.fromCharCode(97 + formVariants.length);
+    setFormVariants((prev) => [
+      ...prev,
+      { name: `variant_${nextChar}`, weight: 0, description: '' },
+    ]);
+  };
+
+  const handleRemoveFormVariant = (index: number) => {
+    if (formVariants.length <= 2) {
+      setFormError(t('adminAbTestMinVariantsWarning'));
+      return;
+    }
+    setFormVariants((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleNormalizeFormWeights = () => {
+    const total = formVariants.reduce((sum, v) => sum + (Number(v.weight) || 0), 0);
+    if (total <= 0) {
+      const even = Math.floor(100 / formVariants.length);
+      const rem = 100 - even * formVariants.length;
+      setFormVariants((prev) =>
+        prev.map((v, i) => ({ ...v, weight: i === 0 ? even + rem : even }))
+      );
+      return;
+    }
+    let allocated = 0;
+    const normalized = formVariants.map((v, i) => {
+      if (i === formVariants.length - 1) {
+        return { ...v, weight: Math.max(0, 100 - allocated) };
+      }
+      const w = Math.round((Number(v.weight) / total) * 100);
+      allocated += w;
+      return { ...v, weight: w };
+    });
+    setFormVariants(normalized);
+  };
+
+  const handleApplyFormPreset = (preset: '50-50' | '70-30' | '80-20' | 'even') => {
+    const count = formVariants.length;
+    if (count === 0) return;
+
+    if (preset === '50-50') {
+      if (count === 2) {
+        setFormVariants([
+          { ...formVariants[0], weight: 50 },
+          { ...formVariants[1], weight: 50 },
+        ]);
+      } else {
+        const even = Math.floor(100 / count);
+        const rem = 100 - even * count;
+        setFormVariants(formVariants.map((v, i) => ({ ...v, weight: i === 0 ? even + rem : even })));
+      }
+    } else if (preset === '70-30') {
+      if (count === 2) {
+        setFormVariants([
+          { ...formVariants[0], weight: 70 },
+          { ...formVariants[1], weight: 30 },
+        ]);
+      } else {
+        const rest = Math.floor(30 / (count - 1));
+        let allocated = 70;
+        setFormVariants(formVariants.map((v, i) => {
+          if (i === 0) return { ...v, weight: 70 };
+          if (i === count - 1) return { ...v, weight: Math.max(0, 100 - allocated) };
+          allocated += rest;
+          return { ...v, weight: rest };
+        }));
+      }
+    } else if (preset === '80-20') {
+      if (count === 2) {
+        setFormVariants([
+          { ...formVariants[0], weight: 80 },
+          { ...formVariants[1], weight: 20 },
+        ]);
+      } else {
+        const rest = Math.floor(20 / (count - 1));
+        let allocated = 80;
+        setFormVariants(formVariants.map((v, i) => {
+          if (i === 0) return { ...v, weight: 80 };
+          if (i === count - 1) return { ...v, weight: Math.max(0, 100 - allocated) };
+          allocated += rest;
+          return { ...v, weight: rest };
+        }));
+      }
+    } else if (preset === 'even') {
+      const even = Math.floor(100 / count);
+      const rem = 100 - even * count;
+      setFormVariants(formVariants.map((v, i) => ({ ...v, weight: i === 0 ? even + rem : even })));
+    }
+  };
+
+  const handleSaveExpModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    const cleanId = formExpId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    if (!cleanId) {
+      setFormError(t('adminAbTestKeyError'));
+      return;
+    }
+    if (!formExpName.trim()) {
+      setFormError('Укажите название эксперимента');
+      return;
+    }
+    if (formVariants.length < 2) {
+      setFormError(t('adminAbTestMinVariantsWarning'));
+      return;
+    }
+
+    const names = new Set<string>();
+    for (const v of formVariants) {
+      const n = v.name.trim();
+      if (!n) {
+        setFormError('У каждого варианта должно быть имя');
+        return;
+      }
+      if (names.has(n)) {
+        setFormError(`Имя варианта "${n}" повторяется`);
+        return;
+      }
+      names.add(n);
+    }
+
+    const totalWeight = formVariants.reduce((sum, v) => sum + Number(v.weight || 0), 0);
+    if (totalWeight !== 100) {
+      setFormError(`${t('adminAbTestWeightSumWarning')} (текущая: ${totalWeight}%)`);
+      return;
+    }
+
+    setSavingExp(true);
+    try {
+      const configToSave: ExperimentConfig = {
+        id: cleanId,
+        name: formExpName.trim(),
+        description: formExpDesc.trim() || undefined,
+        status: formExpStatus,
+        isCustom: editingExp ? editingExp.isCustom : true,
+        variants: formVariants.map((v) => ({
+          name: v.name.trim(),
+          weight: Number(v.weight),
+          description: v.description?.trim() || undefined,
+        })),
+        createdAt: editingExp?.createdAt,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const saved = await abTestApi.saveExperiment(configToSave);
+      setExperiments((prev) => {
+        const idx = prev.findIndex((e) => e.id === saved.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [...prev, saved];
+      });
+      setAbTestExperiment(saved.id);
+      setIsExpModalOpen(false);
+      showToast(t('adminAbTestSavedSuccess'));
+      loadAbTestStats(saved.id);
+    } catch {
+      setFormError('Не удалось сохранить эксперимент');
+    } finally {
+      setSavingExp(false);
+    }
+  };
+
+  const handleDeleteExp = async (id: string) => {
+    if (!window.confirm(t('adminAbTestDeleteConfirm'))) return;
+    try {
+      await abTestApi.deleteExperiment(id);
+      const updated = await abTestApi.getExperiments();
+      setExperiments(updated);
+      if (abTestExperiment === id && updated.length > 0) {
+        setAbTestExperiment(updated[0].id);
+      }
+      showToast(t('adminAbTestDeletedSuccess'));
+      if (updated.length > 0) {
+        loadAbTestStats(updated[0].id);
+      }
+    } catch {
+      showToast('Ошибка при удалении эксперимента');
+    }
+  };
 
   const avgRate = useMemo(() => {
     if (offers.length === 0) return 18.9;
@@ -353,6 +740,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       return actionOk && (!needle || text.includes(needle));
     });
   }, [logs, journalQuery, journalAction]);
+
+  // A/B Test Computations
+  const filteredAbTestUsers = useMemo(() => {
+    if (!abTestStats?.userDetails) return [];
+    const q = abTestUserSearch.trim().toLowerCase();
+    return abTestStats.userDetails.filter((u) => {
+      const matchesSearch =
+        !q ||
+        (u.userEmail && u.userEmail.toLowerCase().includes(q)) ||
+        (u.userId && u.userId.toLowerCase().includes(q));
+      const matchesVariant = abTestVariantFilter === 'ALL' || u.color === abTestVariantFilter;
+      return matchesSearch && matchesVariant;
+    });
+  }, [abTestStats, abTestUserSearch, abTestVariantFilter]);
+
+  const abTestPageSize = 8;
+  const abTestPageCount = Math.max(1, Math.ceil(filteredAbTestUsers.length / abTestPageSize));
+  const safeAbTestPage = Math.min(abTestPage, abTestPageCount);
+  const pagedAbTestUsers = filteredAbTestUsers.slice(
+    (safeAbTestPage - 1) * abTestPageSize,
+    safeAbTestPage * abTestPageSize
+  );
+
+  const leadingVariant = useMemo(() => {
+    if (!abTestStats?.variants || abTestStats.variants.length === 0) return null;
+    return abTestStats.variants.toSorted((a, b) => b.totalClicks - a.totalClicks)[0];
+  }, [abTestStats]);
+
+  const avgClicksPerUser = useMemo(() => {
+    if (!abTestStats || abTestStats.totalAssignedUsers === 0) return '0.00';
+    return (abTestStats.totalClicks / abTestStats.totalAssignedUsers).toFixed(2);
+  }, [abTestStats]);
 
   const actionLabel = (type?: string) => {
     switch (type) {
@@ -476,8 +895,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       await loadOffers();
       showToast(editingId ? t('save') : t('adminAddProgram'));
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('saveOfferError'));
+      setError(getApiErrorMessage(err, t('saveOfferError')));
     } finally {
       setSavingOffer(false);
     }
@@ -490,8 +908,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       await bankOfferApi.delete(id);
       await loadOffers();
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('deleteOfferError'));
+      setError(getApiErrorMessage(err, t('deleteOfferError')));
     }
   };
 
@@ -508,8 +925,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       setRatesMessage(t('ratesUpdated'));
       showToast(t('ratesUpdated'));
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('ratesUpdateError'));
+      setError(getApiErrorMessage(err, t('ratesUpdateError')));
     } finally {
       setSavingRates(false);
     }
@@ -551,8 +967,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       await loadRates();
       showToast(t('ratesUpdated'));
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || t('ratesUpdateError'));
+      setError(getApiErrorMessage(err, t('ratesUpdateError')));
     } finally {
       setSavingRate(false);
     }
@@ -566,8 +981,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       await loadRates();
       showToast('Тариф успешно удален');
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || 'Не удалось удалить тариф');
+      setError(getApiErrorMessage(err, 'Не удалось удалить тариф'));
     }
   };
 
@@ -610,6 +1024,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       label: t('adminNavSettings'),
       icon: <ScrollText size={18} />,
     },
+    {
+      id: 'abtest' as const,
+      label: t('adminNavAbTest'),
+      icon: <FlaskConical size={18} />,
+    },
   ];
 
   const getSectionTitle = () => {
@@ -623,6 +1042,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         return t('adminProductsTitle');
       case 'journal':
         return t('adminJournalTitle');
+      case 'abtest':
+        return t('adminSectionAbTest');
       case 'overview':
       default:
         return t('adminOverviewTitle');
@@ -640,6 +1061,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         return t('adminProductsDesc');
       case 'journal':
         return t('adminJournalDesc');
+      case 'abtest':
+        return t('adminSectionAbTestDesc');
       case 'overview':
       default:
         return t('adminOverviewDesc');
@@ -647,7 +1070,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   };
 
   const displayName = user?.email?.split('@')[0] || 'Admin';
-  const systemOk = offersState !== 'error' && ratesState !== 'error';
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex antialiased relative overflow-x-hidden">
@@ -830,10 +1252,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                     <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-72 overflow-y-auto">
                       <div className="py-2.5">
                         <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                          Реальная синхронизация с базами PostgreSQL & MongoDB
+                          Синхронизация данных
                         </div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
-                          Все показатели поступают напрямую из репозиториев
+                          Все показатели обновлены в реальном времени
                         </div>
                       </div>
                     </div>
@@ -937,7 +1359,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                   {t('adminTotalUsers')}
                 </div>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  База данных
+                  Реестр
                 </span>
               </div>
               <div className="mt-4 text-3xl font-black tracking-tight text-white">
@@ -1123,45 +1545,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
 
                 {/* Right Column: Widgets */}
                 <div className="space-y-6">
-                  {/* System Status */}
-                  <div className="bg-slate-950 text-white rounded-3xl p-6 border border-slate-900 shadow-sm">
-                    <div className="flex items-center justify-between mb-5">
-                      <div className="font-bold text-sm text-slate-200 tracking-wide">
-                        {t('adminSystemStatus')}
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full ${
-                        systemOk
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}>
-                        <span className={`w-2 h-2 rounded-full ${systemOk ? 'bg-emerald-400' : 'bg-amber-400'} animate-pulse`} />
-                        {systemOk ? t('adminSystemOk') : t('adminSystemIssue')}
-                      </span>
-                    </div>
-
-                    <div className="divide-y divide-slate-800/80 text-xs">
-                      <div className="py-2.5 flex items-center justify-between">
-                        <span className="text-slate-400">{t('adminApiPayments')}</span>
-                        <span className="font-bold text-emerald-400 flex items-center gap-1">
-                          <Check size={13} />
-                          {t('adminApiOnline')}
-                        </span>
-                      </div>
-                      <div className="py-2.5 flex items-center justify-between">
-                        <span className="text-slate-400">PostgreSQL (Users & Offers)</span>
-                        <span className="font-bold text-slate-200">Подключено · 100%</span>
-                      </div>
-                      <div className="py-2.5 flex items-center justify-between">
-                        <span className="text-slate-400">MongoDB (Audit & Schedules)</span>
-                        <span className="font-bold text-slate-200">Подключено · 100%</span>
-                      </div>
-                      <div className="py-2.5 flex items-center justify-between">
-                        <span className="text-slate-400">{t('adminLastBackup')}</span>
-                        <span className="font-bold text-slate-200">{t('adminLastBackupTime')}</span>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Rates Widget */}
                   <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
@@ -1178,7 +1561,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                       </button>
                     </div>
 
-                    <div className="space-y-3 text-xs mb-5">
+                    <div className="space-y-3 text-xs">
                       <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                         <span className="text-slate-500 dark:text-slate-400">Ипотека:</span>
                         <span className="font-extrabold text-slate-900 dark:text-white">
@@ -1198,35 +1581,63 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                         </span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Maintenance Switch */}
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                          {t('adminMaintenanceMode')}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {maintenanceMode ? 'Включен (только чтение)' : 'Отключен (штатный режим)'}
-                        </div>
+                  {/* A/B Testing Overview Widget */}
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                        <FlaskConical size={16} className="text-purple-600 dark:text-purple-400" />
+                        <span>{t('adminNavAbTest')}</span>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          const next = !maintenanceMode;
-                          setMaintenanceMode(next);
-                          showToast(next ? 'Режим техработ активирован' : 'Штатный режим восстановлен');
-                        }}
-                        aria-label={t('adminMaintenanceMode')}
-                        className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                          maintenanceMode ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'
-                        }`}
+                        onClick={() => navigateTo('abtest')}
+                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
                       >
-                        <span
-                          className={`block w-4 h-4 rounded-full bg-white transition-transform ${
-                            maintenanceMode ? 'translate-x-6' : 'translate-x-1'
-                          } top-1 absolute shadow-sm`}
-                        />
+                        <span>{t('adminAbTestOpenDetails')}</span>
+                        <span>&gt;</span>
                       </button>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-500 dark:text-slate-400">{t('adminAbTestSelectExperiment')}:</span>
+                        <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[150px]">
+                          {currentExperiment?.name || (abTestExperiment === 'mortgage_calculate_button'
+                            ? t('adminAbTestMortgageExperiment')
+                            : t('adminAbTestMicroloanExperiment'))}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-500 dark:text-slate-400">{t('adminAbTestTotalUsers')}:</span>
+                        <span className="font-extrabold text-slate-900 dark:text-white">
+                          {abTestLoading ? '...' : (abTestStats?.totalAssignedUsers ?? 0)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-500 dark:text-slate-400">{t('adminAbTestTotalClicks')}:</span>
+                        <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                          {abTestLoading ? '...' : (abTestStats?.totalClicks ?? 0)}
+                        </span>
+                      </div>
+                      {abTestStats?.variants && abTestStats.variants.length > 0 && (
+                        <div className="pt-1">
+                          <div className="text-[11px] text-slate-400 mb-1.5 font-medium">{t('adminAbTestVariantsComparison')}:</div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {abTestStats.variants.map((v) => (
+                              <div key={v.color} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-center">
+                                <div className="flex items-center justify-center gap-1.5 mb-1">
+                                  <span className={`w-2 h-2 rounded-full ${v.color === 'emerald' ? 'bg-emerald-500' : 'bg-blue-600'}`} />
+                                  <span className="font-bold text-[11px] text-slate-700 dark:text-slate-300 capitalize">{v.color}</span>
+                                </div>
+                                <div className="text-xs font-black text-slate-900 dark:text-white">{v.totalClicks} кликов</div>
+                                <div className="text-[10px] text-slate-400">{v.totalUsers} польз.</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1889,9 +2300,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                       </div>
                     </div>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-4">
-                    Параметры сохраняются в PostgreSQL microloan_configs и инвалидируют кэш Caffeine.
-                  </div>
                 </div>
               </div>
 
@@ -2056,6 +2464,659 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW: A/B TESTING */}
+          {section === 'abtest' && (
+            <div className="space-y-6">
+              {/* Header card with dynamic experiment selector, creation button & refresh */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    <FlaskConical size={14} className="text-purple-600 dark:text-purple-400" />
+                    <span>{t('adminAbTestSelectExperiment')}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(experiments.length > 0 ? experiments : [
+                      { id: 'mortgage_calculate_button', name: t('adminAbTestMortgageExperiment'), variants: [{ name: 'blue', weight: 50 }, { name: 'emerald', weight: 50 }], status: 'ACTIVE' as const },
+                      { id: 'apply_microloan_button', name: t('adminAbTestMicroloanExperiment'), variants: [{ name: 'blue', weight: 50 }, { name: 'emerald', weight: 50 }], status: 'ACTIVE' as const }
+                    ]).map((exp) => {
+                      const isSelected = abTestExperiment === exp.id;
+                      const splitLabel = exp.variants && exp.variants.length > 0
+                        ? exp.variants.map((v) => `${v.weight}%`).join('/')
+                        : '';
+                      return (
+                        <button
+                          key={exp.id}
+                          type="button"
+                          onClick={() => setAbTestExperiment(exp.id)}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                            isSelected
+                              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              exp.status === 'PAUSED' ? 'bg-amber-400' : isSelected ? 'bg-white' : 'bg-emerald-500'
+                            }`}
+                          />
+                          <span>{exp.name}</span>
+                          {splitLabel && (
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${
+                                isSelected
+                                  ? 'bg-blue-700 text-blue-100'
+                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+                              }`}
+                            >
+                              {splitLabel}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={handleOpenCreateExpModal}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors flex items-center gap-1.5 cursor-pointer border border-purple-200 dark:border-purple-800/50"
+                    >
+                      <Plus size={14} />
+                      <span>{t('adminAbTestCreateExperiment')}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => loadAbTestStats(abTestExperiment)}
+                    disabled={abTestLoading}
+                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={abTestLoading ? 'animate-spin' : ''} />
+                    <span>{t('adminAbTestRefresh')}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Selected Experiment Header & Quick Traffic Tuner */}
+              {currentExperiment && (
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                      <div className="flex items-center gap-2.5 mb-1">
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                          {currentExperiment.name}
+                        </h2>
+                        <span className="font-mono text-[11px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                          {currentExperiment.id}
+                        </span>
+                        <span
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                            currentExperiment.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                          }`}
+                        >
+                          {currentExperiment.status === 'ACTIVE'
+                            ? t('adminAbTestStatusActive')
+                            : t('adminAbTestStatusPaused')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {currentExperiment.description || 'Настройка процентного распределения аудитории между вариантами'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditExpModal(currentExperiment)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <Pencil size={13} />
+                        <span>{t('adminAbTestEditExperiment')}</span>
+                      </button>
+                      {currentExperiment.isCustom !== false && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteExp(currentExperiment.id)}
+                          className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 cursor-pointer transition-colors"
+                        >
+                          <Trash2 size={13} />
+                          <span>{t('adminAbTestDeleteExperiment')}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick percentage distribution tuner */}
+                  <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal size={15} className="text-blue-600 dark:text-blue-400" />
+                        <span className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+                          {t('adminAbTestQuickTuneTitle')}
+                        </span>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-slate-400 font-medium mr-1">Пресеты:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('50-50')}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                        >
+                          {t('adminAbTestPreset5050')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('70-30')}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                        >
+                          {t('adminAbTestPreset7030')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('80-20')}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                        >
+                          {t('adminAbTestPreset8020')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset('even')}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                        >
+                          {t('adminAbTestPresetEven')}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Proportional visual bar */}
+                    <div className="w-full h-3.5 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800 mb-4 shadow-inner">
+                      {currentExperiment.variants.map((v, i) => {
+                        const w = Number(quickWeights[v.name] ?? v.weight);
+                        const badgeStyle = getVariantBadgeClasses(v.name, i);
+                        return (
+                          <div
+                            key={v.name}
+                            className={`${badgeStyle.bar} transition-all duration-300 relative group`}
+                            style={{ width: `${Math.max(0, Math.min(100, w))}%` }}
+                            title={`${v.name}: ${w}%`}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    {/* Variant inputs grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                      {currentExperiment.variants.map((v, i) => {
+                        const currentVal = Number(quickWeights[v.name] ?? v.weight);
+                        const badgeStyle = getVariantBadgeClasses(v.name, i);
+                        return (
+                          <div
+                            key={v.name}
+                            className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-3 h-3 rounded-full ${badgeStyle.dot}`} />
+                                <span className="font-extrabold text-xs text-slate-800 dark:text-slate-200 capitalize">
+                                  {v.name}
+                                </span>
+                              </div>
+                              <span className="font-mono text-xs font-black text-slate-900 dark:text-white">
+                                {currentVal}%
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setQuickWeights((prev) => ({
+                                    ...prev,
+                                    [v.name]: val,
+                                  }));
+                                }}
+                                className="w-full accent-blue-600 cursor-pointer"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  setQuickWeights((prev) => ({
+                                    ...prev,
+                                    [v.name]: val,
+                                  }));
+                                }}
+                                className="w-14 px-2 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-black text-center focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            {v.description && (
+                              <div className="mt-1.5 text-[10px] text-slate-400 truncate">
+                                {v.description}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Save bar & total validator */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                      {(() => {
+                        const sum = currentExperiment.variants.reduce(
+                          (acc, v) => acc + Number(quickWeights[v.name] ?? v.weight),
+                          0
+                        );
+                        const isHundred = sum === 100;
+                        return (
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`text-xs font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 ${
+                                isHundred
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50'
+                                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50'
+                              }`}
+                            >
+                              {isHundred ? (
+                                <>
+                                  <CheckCircle2 size={14} />
+                                  <span>Сумма долей: 100% (корректно)</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle size={14} />
+                                  <span>Сумма долей: {sum}% (требуется 100%)</span>
+                                </>
+                              )}
+                            </span>
+
+                            {!isHundred && (
+                              <button
+                                type="button"
+                                onClick={() => handleApplyPreset('even')}
+                                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                              >
+                                {t('adminAbTestNormalize100')}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <button
+                        type="button"
+                        onClick={handleSaveQuickWeights}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 flex items-center gap-2 cursor-pointer transition-colors"
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>{t('adminAbTestApplyWeights')}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {t('adminAbTestTotalUsers')}
+                    </span>
+                    <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                      <Users size={16} />
+                    </span>
+                  </div>
+                  <div className="mt-4 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                    {abTestLoading ? '...' : (abTestStats?.totalAssignedUsers ?? 0)}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 font-medium">
+                    Участников распределения
+                  </div>
+                </div>
+
+                <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {t('adminAbTestTotalClicks')}
+                    </span>
+                    <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                      <MousePointerClick size={16} />
+                    </span>
+                  </div>
+                  <div className="mt-4 text-3xl font-black tracking-tight text-indigo-600 dark:text-indigo-400">
+                    {abTestLoading ? '...' : (abTestStats?.totalClicks ?? 0)}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 font-medium">
+                    Все целевые действия
+                  </div>
+                </div>
+
+                <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {t('adminAbTestAvgClicks')}
+                    </span>
+                    <span className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                      <BarChart3 size={16} />
+                    </span>
+                  </div>
+                  <div className="mt-4 text-3xl font-black tracking-tight text-purple-600 dark:text-purple-400">
+                    {abTestLoading ? '...' : avgClicksPerUser}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 font-medium">
+                    Интенсивность взаимодействий
+                  </div>
+                </div>
+
+                <div className="rounded-3xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {t('adminAbTestLeader')}
+                    </span>
+                    <span className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                      <Target size={16} />
+                    </span>
+                  </div>
+                  <div className="mt-4 text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400 flex items-center gap-2 capitalize">
+                    {abTestLoading ? '...' : (leadingVariant ? leadingVariant.color : '—')}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400 font-medium truncate">
+                    {leadingVariant ? `${leadingVariant.totalClicks} кликов (${leadingVariant.averageClicksPerUser.toFixed(2)} ср.)` : 'Ожидание кликов'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Variants Detailed Breakdown */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                      {t('adminAbTestVariantsComparison')}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Сравнение целевого распределения, фактической доли аудитории и кликабельности
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(!abTestStats?.variants || abTestStats.variants.length === 0) ? (
+                    <div className="col-span-2 py-8 text-center text-sm text-slate-400">
+                      {t('adminAbTestNoData')}
+                    </div>
+                  ) : (
+                    abTestStats.variants.map((v, index) => {
+                      const totalClicks = abTestStats.totalClicks || 1;
+                      const clickShare = Math.round((v.totalClicks / totalClicks) * 100);
+                      const isLeader = leadingVariant?.color === v.color && v.totalClicks > 0;
+                      const badgeCls = getVariantBadgeClasses(v.color, index);
+                      const targetShare = v.targetWeight ?? quickWeights[v.color] ?? (currentExperiment?.variants.find((cv) => cv.name.toLowerCase() === v.color.toLowerCase())?.weight);
+                      const actualShare = abTestStats.totalAssignedUsers > 0
+                        ? Math.round((v.totalUsers / abTestStats.totalAssignedUsers) * 100)
+                        : 0;
+
+                      return (
+                        <div
+                          key={v.color}
+                          className={`p-5 rounded-2xl border transition-all ${
+                            isLeader
+                              ? 'border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/20 dark:bg-emerald-950/10'
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2.5">
+                              <span className={`w-3.5 h-3.5 rounded-full ${badgeCls.dot} shadow-sm`} />
+                              <span className="font-extrabold text-base text-slate-900 dark:text-white capitalize">
+                                {v.color}
+                              </span>
+                              {targetShare !== undefined && (
+                                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                  Цель: {targetShare}%
+                                </span>
+                              )}
+                            </div>
+                            {isLeader && (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                                <TrendingUp size={12} />
+                                <span>{t('adminAbTestLeader')}</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-4 gap-2.5 text-center mb-4">
+                            <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                              <div className="text-[10px] text-slate-400 font-medium mb-1">Пользователи</div>
+                              <div className="text-base font-black text-slate-900 dark:text-white">{v.totalUsers}</div>
+                              <div className="text-[10px] text-slate-400">{actualShare}% факт</div>
+                            </div>
+
+                            <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                              <div className="text-[10px] text-slate-400 font-medium mb-1">{t('adminAbTestTargetWeight')}</div>
+                              <div className="text-base font-black text-blue-600 dark:text-blue-400">{targetShare ?? '—'}%</div>
+                              <div className="text-[10px] text-slate-400">в конфиге</div>
+                            </div>
+
+                            <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                              <div className="text-[10px] text-slate-400 font-medium mb-1">Клики</div>
+                              <div className="text-base font-black text-indigo-600 dark:text-indigo-400">{v.totalClicks}</div>
+                              <div className="text-[10px] text-slate-400">{clickShare}% кликов</div>
+                            </div>
+
+                            <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                              <div className="text-[10px] text-slate-400 font-medium mb-1">Ср. кликов</div>
+                              <div className="text-base font-black text-purple-600 dark:text-purple-400">
+                                {v.averageClicksPerUser.toFixed(2)}
+                              </div>
+                              <div className="text-[10px] text-slate-400">на польз.</div>
+                            </div>
+                          </div>
+
+                          {/* Progress bars */}
+                          <div className="space-y-2">
+                            <div>
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1 font-medium">
+                                <span>Доля аудитории (факт / цель)</span>
+                                <span>{actualShare}% / {targetShare ?? 50}%</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all duration-500 rounded-full ${badgeCls.bar}`}
+                                  style={{ width: `${Math.min(100, Math.max(0, actualShare))}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1 font-medium">
+                                <span>Доля кликов среди всех вариантов</span>
+                                <span>{clickShare}%</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full transition-all duration-500 rounded-full bg-indigo-600"
+                                  style={{ width: `${Math.min(100, Math.max(0, clickShare))}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* User details table */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                      {t('adminAbTestUserDetail')}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Список пользователей, закрепленных за вариантами в данном тесте ({filteredAbTestUsers.length})
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                      <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="search"
+                        value={abTestUserSearch}
+                        onChange={(e) => {
+                          setAbTestUserSearch(e.target.value);
+                          setAbTestPage(1);
+                        }}
+                        placeholder={t('adminAbTestSearchUser')}
+                        aria-label={t('adminAbTestSearchUser')}
+                        className="pl-9 pr-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <select
+                      value={abTestVariantFilter}
+                      onChange={(e) => {
+                        setAbTestVariantFilter(e.target.value);
+                        setAbTestPage(1);
+                      }}
+                      aria-label={t('adminAbTestFilterVariant')}
+                      className="px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    >
+                      <option value="ALL">{t('adminAbTestAllVariants')}</option>
+                      {abTestStats?.variants?.map((v) => (
+                        <option key={v.color} value={v.color}>
+                          {v.color.toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="text-[11px] uppercase tracking-wider text-slate-400 bg-slate-50/50 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800 font-bold">
+                      <tr>
+                        <th scope="col" className="px-5 py-3.5">{t('adminAbTestColUser')}</th>
+                        <th scope="col" className="px-5 py-3.5">{t('adminAbTestColVariant')}</th>
+                        <th scope="col" className="px-5 py-3.5 text-center">{t('adminAbTestColClicks')}</th>
+                        <th scope="col" className="px-5 py-3.5 text-right">{t('adminAbTestColAssignedAt')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {pagedAbTestUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-5 py-12 text-center text-sm text-slate-400">
+                            {t('adminAbTestNoData')}
+                          </td>
+                        </tr>
+                      ) : (
+                        pagedAbTestUsers.map((item) => (
+                          <tr key={item.userId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                {item.userEmail || '—'}
+                              </div>
+                              <div className="font-mono text-[11px] text-slate-400 mt-0.5">
+                                {item.userId}
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span
+                                className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                                  item.color === 'emerald'
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                    : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
+                                }`}
+                              >
+                                <span
+                                  className={`w-2 h-2 rounded-full ${
+                                    item.color === 'emerald' ? 'bg-emerald-500' : 'bg-blue-600'
+                                  }`}
+                                />
+                                <span className="capitalize">{item.color}</span>
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-center">
+                              <span className="font-mono font-bold text-xs px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                {item.clicksCount}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right font-mono text-xs text-slate-400">
+                              {formatWhen(item.assignedAt)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {abTestPageCount > 1 && (
+                  <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="text-xs text-slate-400">
+                      {filteredAbTestUsers.length === 0
+                        ? '0 записей'
+                        : `${(safeAbTestPage - 1) * abTestPageSize + 1}–${Math.min(
+                            safeAbTestPage * abTestPageSize,
+                            filteredAbTestUsers.length
+                          )} из ${filteredAbTestUsers.length}`}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={safeAbTestPage <= 1}
+                        onClick={() => setAbTestPage((p) => Math.max(1, p - 1))}
+                        aria-label="Previous page"
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      {Array.from({ length: abTestPageCount }, (_, i) => i + 1).slice(0, 5).map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setAbTestPage(num)}
+                          className={`w-7 h-7 rounded-lg font-bold text-xs cursor-pointer ${
+                            num === safeAbTestPage
+                              ? 'bg-blue-600 text-white'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={safeAbTestPage >= abTestPageCount}
+                        onClick={() => setAbTestPage((p) => Math.min(abTestPageCount, p + 1))}
+                        aria-label="Next page"
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 cursor-pointer"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2325,8 +3386,277 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
           </div>
         </div>
       )}
+
+      {/* MODAL: CREATE / EDIT EXPERIMENT */}
+      {isExpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+                  <FlaskConical size={18} />
+                </div>
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  {editingExp ? t('adminAbTestEditExperimentTitle') : t('adminAbTestNewExperimentTitle')}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExpModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {formError && (
+              <div className="mb-4 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveExpModal} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <Field label={t('adminAbTestExperimentKey')}>
+                  <input
+                    required
+                    disabled={editingExp !== null && !editingExp.isCustom}
+                    placeholder={t('adminAbTestExperimentKeyPlaceholder')}
+                    value={formExpId}
+                    onChange={(e) => setFormExpId(e.target.value)}
+                    className={`${fieldClass} disabled:opacity-50`}
+                  />
+                </Field>
+
+                <Field label={t('adminAbTestStatus')}>
+                  <select
+                    value={formExpStatus}
+                    onChange={(e) => setFormExpStatus(e.target.value as ExperimentStatus)}
+                    className={fieldClass}
+                  >
+                    <option value="ACTIVE">{t('adminAbTestStatusActive')}</option>
+                    <option value="PAUSED">{t('adminAbTestStatusPaused')}</option>
+                  </select>
+                </Field>
+              </div>
+
+              <Field label={t('adminAbTestExperimentName')}>
+                <input
+                  required
+                  placeholder={t('adminAbTestExperimentNamePlaceholder')}
+                  value={formExpName}
+                  onChange={(e) => setFormExpName(e.target.value)}
+                  className={fieldClass}
+                />
+              </Field>
+
+              <Field label={t('adminAbTestExperimentDesc')}>
+                <textarea
+                  rows={2}
+                  placeholder={t('adminAbTestExperimentDescPlaceholder')}
+                  value={formExpDesc}
+                  onChange={(e) => setFormExpDesc(e.target.value)}
+                  className={`${fieldClass} resize-none`}
+                />
+              </Field>
+
+              {/* Variants Section */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {t('adminAbTestVariantsTitle')}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormPreset('50-50')}
+                      className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                    >
+                      {t('adminAbTestPreset5050')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormPreset('70-30')}
+                      className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                    >
+                      {t('adminAbTestPreset7030')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormPreset('80-20')}
+                      className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                    >
+                      {t('adminAbTestPreset8020')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormPreset('even')}
+                      className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                    >
+                      {t('adminAbTestPresetEven')}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Visual preview bar */}
+                <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-200 dark:bg-slate-800 mb-3">
+                  {formVariants.map((v, i) => {
+                    const colors = [
+                      'bg-blue-600',
+                      'bg-emerald-600',
+                      'bg-purple-600',
+                      'bg-amber-500',
+                      'bg-rose-500',
+                      'bg-cyan-500',
+                    ];
+                    return (
+                      <div
+                        key={i}
+                        className={`${colors[i % colors.length]} transition-all duration-300`}
+                        style={{ width: `${Math.max(0, Math.min(100, Number(v.weight) || 0))}%` }}
+                        title={`${v.name}: ${v.weight}%`}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Variants List */}
+                <div className="space-y-2 mb-3">
+                  {formVariants.map((v, index) => (
+                    <div
+                      key={index}
+                      className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center gap-2"
+                    >
+                      <div className="w-6 text-center text-xs font-bold text-slate-400">
+                        #{index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          required
+                          placeholder={t('adminAbTestVariantName')}
+                          value={v.name}
+                          onChange={(e) => {
+                            const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                            setFormVariants((prev) =>
+                              prev.map((item, idx) => (idx === index ? { ...item, name: val } : item))
+                            );
+                          }}
+                          className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="w-24 flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          required
+                          value={v.weight}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setFormVariants((prev) =>
+                              prev.map((item, idx) => (idx === index ? { ...item, weight: val } : item))
+                            );
+                          }}
+                          className="w-16 px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-black text-center focus:outline-none focus:border-blue-500"
+                        />
+                        <span className="text-xs font-bold text-slate-400">%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFormVariant(index)}
+                        disabled={formVariants.length <= 2}
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 disabled:opacity-30 cursor-pointer"
+                        title={t('adminAbTestRemoveVariant')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleAddFormVariant}
+                    className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span>{t('adminAbTestAddVariant')}</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const sum = formVariants.reduce((s, v) => s + (Number(v.weight) || 0), 0);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs font-extrabold px-2.5 py-1 rounded-xl ${
+                              sum === 100
+                                ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            Сумма: {sum}%
+                          </span>
+                          {sum !== 100 && (
+                            <button
+                              type="button"
+                              onClick={handleNormalizeFormWeights}
+                              className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                            >
+                              {t('adminAbTestNormalize100')}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Form buttons */}
+              <div className="flex gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsExpModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                >
+                  {t('adminAbTestCancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingExp}
+                  className="flex-1 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 disabled:opacity-60 cursor-pointer"
+                >
+                  {savingExp ? 'Сохранение...' : t('adminAbTestSaveExperiment')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
+};
+
+const getVariantBadgeClasses = (name: string, index: number) => {
+  const n = name.toLowerCase();
+  if (n.includes('blue')) return { dot: 'bg-blue-600', bar: 'bg-blue-600', text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/60' };
+  if (n.includes('emerald') || n.includes('green')) return { dot: 'bg-emerald-600', bar: 'bg-emerald-600', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/60' };
+  if (n.includes('purple')) return { dot: 'bg-purple-600', bar: 'bg-purple-600', text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/60' };
+  if (n.includes('amber') || n.includes('orange')) return { dot: 'bg-amber-500', bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/60' };
+  if (n.includes('rose') || n.includes('red')) return { dot: 'bg-rose-500', bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/60' };
+  if (n.includes('cyan') || n.includes('teal')) return { dot: 'bg-cyan-500', bar: 'bg-cyan-500', text: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-950/60' };
+
+  const palette = [
+    { dot: 'bg-blue-600', bar: 'bg-blue-600', text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/60' },
+    { dot: 'bg-emerald-600', bar: 'bg-emerald-600', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/60' },
+    { dot: 'bg-purple-600', bar: 'bg-purple-600', text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/60' },
+    { dot: 'bg-amber-500', bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/60' },
+    { dot: 'bg-rose-500', bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/60' },
+  ];
+  return palette[index % palette.length];
 };
 
 const fieldClass =
