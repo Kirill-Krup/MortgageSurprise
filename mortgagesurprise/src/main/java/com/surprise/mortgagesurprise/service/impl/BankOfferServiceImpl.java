@@ -4,7 +4,7 @@ import com.surprise.mortgagesurprise.dto.bank.BankOfferRequest;
 import com.surprise.mortgagesurprise.dto.bank.BankOfferResponse;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.entity.BankOffer;
 import com.surprise.mortgagesurprise.repository.jpa.BankOfferRepository;
 import com.surprise.mortgagesurprise.service.BankOfferService;
@@ -23,7 +23,7 @@ import java.util.UUID;
 public class BankOfferServiceImpl implements BankOfferService {
 
     private final BankOfferRepository bankOfferRepository;
-    private final MessageProducer messageProducer;
+    private final RabbitMqEventSender<RateChangedEvent> messageSender;
 
     @Override
     public BankOfferResponse createOffer(BankOfferRequest req) {
@@ -70,7 +70,7 @@ public class BankOfferServiceImpl implements BankOfferService {
                     newRate,
                     Instant.now()
             );
-            messageProducer.sendRateChangedEvent(event);
+            messageSender.send(event);
         }
 
         return BankOfferResponse.from(updated);

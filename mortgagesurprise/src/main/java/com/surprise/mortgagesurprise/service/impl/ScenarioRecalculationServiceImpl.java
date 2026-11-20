@@ -4,7 +4,7 @@ import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.model.entity.CalculationScenario;
 import com.surprise.mortgagesurprise.repository.jpa.CalculationScenarioRepository;
@@ -33,7 +33,7 @@ public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationSe
     private final CalculationScenarioRepository scenarioRepository;
     private final MortgageCalculator mortgageCalculator;
     private final PaymentScheduleService paymentScheduleService;
-    private final MessageProducer messageProducer;
+    private final RabbitMqEventSender<EmailNotificationEvent> messageProducer;
 
     @Override
     @Transactional
@@ -91,6 +91,6 @@ public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationSe
                 "RATE_UPDATE_ALERT",
                 Instant.now()
         );
-        messageProducer.sendEmailNotification(notificationEvent);
+        messageProducer.send(notificationEvent);
     }
 }

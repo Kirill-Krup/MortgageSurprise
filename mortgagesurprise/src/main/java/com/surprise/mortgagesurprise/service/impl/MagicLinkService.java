@@ -4,13 +4,12 @@ import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.auth.MagicLinkResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.entity.Role;
 import com.surprise.mortgagesurprise.model.entity.User;
 import com.surprise.mortgagesurprise.repository.jpa.UserRepository;
 import com.surprise.mortgagesurprise.util.Sha256Encoder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -24,10 +23,9 @@ import java.util.Base64;
 import java.util.Locale;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class MagicLinkService {
-
-    private static final Logger log = LoggerFactory.getLogger(MagicLinkService.class);
 
     private static final String KEY_PREFIX = "auth:magic-link:";
     private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
@@ -36,12 +34,12 @@ public class MagicLinkService {
 
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
-    private final MessageProducer messageProducer;
+    private final RabbitMqEventSender<EmailNotificationEvent> messageProducer;
     private final String frontendUrl;
 
     public MagicLinkService(UserRepository userRepository,
                             StringRedisTemplate redisTemplate,
-                            MessageProducer messageProducer,
+                            RabbitMqEventSender<EmailNotificationEvent> messageProducer,
                             @Value("${app.frontend-url}") String frontendUrl) {
         this.userRepository = userRepository;
         this.redisTemplate = redisTemplate;
@@ -132,7 +130,7 @@ public class MagicLinkService {
                 link
         );
 
-        messageProducer.sendEmailNotification(new EmailNotificationEvent(
+        messageProducer.send(new EmailNotificationEvent(
                 email,
                 "Sign In to MortgageSurprise (Magic Link)",
                 body,

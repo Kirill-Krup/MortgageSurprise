@@ -10,4 +10,4 @@ public record PdfExportEvent(
         String scenarioTitle,
         String mongoScheduleId,
         Instant requestedAt
-) {}
+) implements Event {}

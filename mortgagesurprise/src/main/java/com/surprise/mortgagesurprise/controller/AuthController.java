@@ -1,11 +1,8 @@
 package com.surprise.mortgagesurprise.controller;
 
-import com.surprise.mortgagesurprise.adapter.AuthServiceAdapter;
-import com.surprise.mortgagesurprise.dto.ErrorCode;
+import com.surprise.mortgagesurprise.adapter.AuthAdapter;
 import com.surprise.mortgagesurprise.dto.auth.*;
 import com.surprise.mortgagesurprise.exception.BusinessException;
-import com.surprise.mortgagesurprise.dto.ErrorCode;
-import com.surprise.mortgagesurprise.dto.auth.*;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.security.oauth2.OAuth2CodeStore;
 import com.surprise.mortgagesurprise.service.AuthService;
@@ -26,7 +23,7 @@ import static com.surprise.mortgagesurprise.util.CookieManager.setAuthCookies;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthServiceAdapter authServiceAdapter;
+    private final AuthAdapter authAdapter;
     private final MagicLinkService magicLinkService;
     private final OAuth2CodeStore oAuth2CodeStore;
 
@@ -50,7 +47,7 @@ public class AuthController {
             @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie,
             HttpServletResponse response
     ) {
-        var authResponse = authServiceAdapter.refresh(request, refreshTokenCookie);
+        var authResponse = authAdapter.refresh(request, refreshTokenCookie);
         setAuthCookies(response, authResponse);
         return ResponseEntity.ok(authResponse);
     }
@@ -60,7 +57,7 @@ public class AuthController {
         if (userDetails == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(authServiceAdapter.getCurrentUser(userDetails));
+        return ResponseEntity.ok(authAdapter.getCurrentUser(userDetails));
     }
 
     @PostMapping("/magic-link")
@@ -85,7 +82,8 @@ public class AuthController {
             HttpServletResponse response
     ) {
         AuthResponse authResponse = oAuth2CodeStore.consume(request.code())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_OAUTH2_CODE));
+                .orElseThrow(() -> new BusinessException(
+                        "Invalid or expired OAuth2 code"));
         setAuthCookies(response, authResponse);
         return ResponseEntity.ok(authResponse);
     }
@@ -97,7 +95,7 @@ public class AuthController {
             @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie,
             HttpServletResponse response
     ) {
-        authServiceAdapter.logout(userDetails, request, refreshTokenCookie);
+        authAdapter.logout(userDetails, request, refreshTokenCookie);
         clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }

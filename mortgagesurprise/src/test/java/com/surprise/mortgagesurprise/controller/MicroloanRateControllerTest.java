@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.controller;
 
-import com.surprise.mortgagesurprise.adapter.MicroloanRateAdapterService;
+import com.surprise.mortgagesurprise.adapter.MicroloanRateAdapter;
 import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanRateDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 class MicroloanRateControllerTest {
 
     @Mock
-    private MicroloanRateAdapterService adapterService;
+    private MicroloanRateAdapter adapterService;
 
     @InjectMocks
     private MicroloanRateController controller;

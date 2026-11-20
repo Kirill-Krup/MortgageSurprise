@@ -1,7 +1,6 @@
 package com.surprise.mortgagesurprise.adapter.impl;
 
-import com.surprise.mortgagesurprise.adapter.AuthServiceAdapter;
-import com.surprise.mortgagesurprise.dto.ErrorCode;
+import com.surprise.mortgagesurprise.adapter.AuthAdapter;
 import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
 import com.surprise.mortgagesurprise.dto.auth.RefreshTokenRequest;
 import com.surprise.mortgagesurprise.exception.BusinessException;
@@ -11,11 +10,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AuthServiceAdapterImpl implements AuthServiceAdapter {
+public class AuthAdapterImpl implements AuthAdapter {
 
     private final AuthService authService;
 
-    public AuthServiceAdapterImpl(AuthService authService) {
+    public AuthAdapterImpl(AuthService authService) {
         this.authService = authService;
     }
 
@@ -23,7 +22,7 @@ public class AuthServiceAdapterImpl implements AuthServiceAdapter {
     public AuthResponse refresh(RefreshTokenRequest request, String refreshTokenCookie) {
         var token = isExist(request) ? request.refreshToken() : refreshTokenCookie;
         if (token == null || token.isBlank()) {
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+            throw new BusinessException("Refresh token is required");
         }
         return authService.refreshToken(new RefreshTokenRequest(token));
     }

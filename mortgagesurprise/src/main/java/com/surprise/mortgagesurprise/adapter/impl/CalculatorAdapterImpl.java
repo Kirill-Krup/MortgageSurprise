@@ -1,6 +1,6 @@
 package com.surprise.mortgagesurprise.adapter.impl;
 
-import com.surprise.mortgagesurprise.adapter.CalculatorServiceAdapter;
+import com.surprise.mortgagesurprise.adapter.CalculatorAdapter;
 import com.surprise.mortgagesurprise.dto.audit.MicroloanApplicationRequest;
 import com.surprise.mortgagesurprise.dto.audit.MicroloanApplicationResponse;
 import com.surprise.mortgagesurprise.dto.calculator.CalculationRequest;
@@ -17,13 +17,13 @@ import org.springframework.stereotype.Service;
 import static com.surprise.mortgagesurprise.util.CredentialValidator.isAdmin;
 
 @Service
-public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {
+public class CalculatorAdapterImpl implements CalculatorAdapter {
 
     private final CalculatorService calculatorService;
     private final MicroloanService microloanService;
     private final UserAuditService userAuditService;
 
-    public CalculatorServiceAdapterImpl(CalculatorService calculatorService, MicroloanService microloanService, UserAuditService userAuditService) {
+    public CalculatorAdapterImpl(CalculatorService calculatorService, MicroloanService microloanService, UserAuditService userAuditService) {
         this.calculatorService = calculatorService;
         this.microloanService = microloanService;
         this.userAuditService = userAuditService;
