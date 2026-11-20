@@ -24,7 +24,7 @@ public class AesEncryptionService {
 
     public AesEncryptionService(@Value("${app.security.passport-aes-key:v8y/B?E(H+MbQeThWmZq4t7w!z%C*F-J}") String rawKey) {
         byte[] keyBytes = rawKey.getBytes(StandardCharsets.UTF_8);
-        byte[] validKeyBytes = new byte[32]; // 256 bits
+        byte[] validKeyBytes = new byte[32];
         System.arraycopy(keyBytes, 0, validKeyBytes, 0, Math.min(keyBytes.length, 32));
         this.secretKey = new SecretKeySpec(validKeyBytes, "AES");
     }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { authApi } from '../api/client';
+import { getApiErrorMessage, isAccountDisabledError } from '../utils/errors';
 import { X, Lock, Mail, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -53,18 +54,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setMagicSent(true);
       }
     } catch (err: unknown) {
-      const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
-      if (
-        axiosError.response?.status === 403 &&
-        (axiosError.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
-         axiosError.response?.data?.message?.includes('disabled'))
-      ) {
+      if (isAccountDisabledError(err)) {
         onClose();
         return;
       }
-      setError(
-        axiosError.response?.data?.message || t('authErrorDefault')
-      );
+      setError(getApiErrorMessage(err, t('authErrorDefault')));
     } finally {
       setLoading(false);
     }
@@ -165,7 +159,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                <label
+                  htmlFor="auth-email"
+                  className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+                >
                   {t('authEmailLabel')}
                 </label>
                 <div className="relative">
@@ -174,7 +171,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
                   />
                   <input
+                    id="auth-email"
+                    name="email"
                     type="email"
+                    autoComplete="username"
+                    spellCheck={false}
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -186,7 +187,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               {mode !== 'magic' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  <label
+                    htmlFor="auth-password"
+                    className="block text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5"
+                  >
                     {t('authPasswordLabel')}
                   </label>
                   <div className="relative">
@@ -195,7 +199,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
                     />
                     <input
+                      id="auth-password"
+                      name="password"
                       type="password"
+                      autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}

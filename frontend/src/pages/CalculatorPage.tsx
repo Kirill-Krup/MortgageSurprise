@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
 import { useExperiment } from '../hooks/useExperiment';
+import { getApiErrorMessage } from '../utils/errors';
 import {
   BUTTON_COLOR_VARIANTS,
   getMortgageCalculateButtonClasses,
@@ -45,7 +46,6 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   const { user } = useAuth();
   const { t } = useLanguage();
 
-  // AB test button color for Mortgage Calculation (persisted permanently in DB and localStorage)
   const mortgageCalcBtnVariant = useExperiment('mortgage_calculate_button', BUTTON_COLOR_VARIANTS);
   const mortgageCalcBtnClasses = getMortgageCalculateButtonClasses(mortgageCalcBtnVariant);
 
@@ -57,10 +57,8 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
     t('standardPrepay'),
   ], [t]);
 
-  // Currency
   const [currency, setCurrency] = useState<Currency>('RUB');
 
-  // Inputs
   const [propertyPrice, setPropertyPrice] = useState<number>(10_000_000);
   const [downPayment, setDownPayment] = useState<number>(2_000_000);
   const [downPaymentPercent, setDownPaymentPercent] = useState<number>(20);
@@ -68,7 +66,6 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
   const [annualRate, setAnnualRate] = useState<number>(18.5);
   const [paymentType, setPaymentType] = useState<PaymentType>('ANNUITY');
 
-  // Early repayments
   const [earlyRepayments, setEarlyRepayments] = useState<EarlyRepayment[]>([]);
   const [showEarlyModal, setShowEarlyModal] = useState<boolean>(false);
   const [erStartMonth, setErStartMonth] = useState<number>(12);
@@ -135,7 +132,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
         strategy: er.strategy,
         type: er.type,
       })),
-      bankOfferId: presetOffer ? Number(presetOffer.id) : undefined,
+      bankOfferId: presetOffer ? (isNaN(Number(presetOffer.id)) ? undefined : Number(presetOffer.id)) : undefined,
       bankName: presetOffer?.bankName,
       offerName: presetOffer?.offerName,
       audit: shouldAudit,
@@ -145,10 +142,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
       const res = await calculatorApi.calculate(req);
       setResult(res);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(
-        axiosError.response?.data?.message || t('calcErrorMsg')
-      );
+      setError(getApiErrorMessage(err, t('calcErrorMsg')));
     } finally {
       setLoading(false);
     }
@@ -401,11 +395,24 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
               <div className="grid grid-cols-4 gap-1.5 mt-1">
                 {CURRENCY_CONFIGS.map((cfg) => {
                   const isSelected = currency === cfg.code;
-                  // Show cross-rate: how much 1 unit of this currency costs in the currently selected currency
+                  // Show cross-rate between this currency and the currently selected currency
                   const showRate = !isSelected && exchangeRates[cfg.code] && exchangeRates[currency];
-                  const crossRate = showRate
-                    ? (exchangeRates[currency] / exchangeRates[cfg.code])
-                    : null;
+                  let crossRateLabel: string | null = null;
+                  if (showRate) {
+                    const rBtn = exchangeRates[cfg.code];
+                    const rSel = exchangeRates[currency];
+                    if (rBtn > 0 && rSel > 0) {
+                      if (rBtn >= rSel) {
+                        const ratio = rBtn / rSel;
+                        const formatted = ratio >= 100 ? ratio.toFixed(0) : ratio < 10 ? ratio.toFixed(2) : ratio.toFixed(1);
+                        crossRateLabel = `1${cfg.symbol} = ${formatted}${getCurrencySymbol(currency)}`;
+                      } else {
+                        const ratio = rSel / rBtn;
+                        const formatted = ratio >= 100 ? ratio.toFixed(0) : ratio < 10 ? ratio.toFixed(2) : ratio.toFixed(1);
+                        crossRateLabel = `1${getCurrencySymbol(currency)} = ${formatted}${cfg.symbol}`;
+                      }
+                    }
+                  }
                   return (
                     <button
                       key={cfg.code}
@@ -419,9 +426,9 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                     >
                       <span className="text-sm font-black">{cfg.symbol}</span>
                       <span className="text-[10px] tracking-tight">{cfg.code}</span>
-                      {crossRate !== null && (
+                      {crossRateLabel !== null && (
                         <span className="text-[9px] mt-0.5 opacity-70 font-medium">
-                          1{cfg.symbol} = {crossRate < 10 ? crossRate.toFixed(2) : crossRate.toFixed(0)}{getCurrencySymbol(currency)}
+                          {crossRateLabel}
                         </span>
                       )}
                     </button>

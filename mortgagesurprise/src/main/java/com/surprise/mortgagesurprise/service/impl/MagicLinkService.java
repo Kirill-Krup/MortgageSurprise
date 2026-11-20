@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.auth.MagicLinkResponse;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.messaging.event.EmailNotificationEvent;
@@ -48,7 +49,7 @@ public class MagicLinkService {
 
     public MagicLinkResponse requestLink(String emailAddress) {
         if (emailAddress == null || emailAddress.isBlank()) {
-            throw new BusinessException("Invalid email address");
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
         String email = emailAddress.trim().toLowerCase(Locale.ROOT);
         sendLink(email);
@@ -58,26 +59,30 @@ public class MagicLinkService {
     @Transactional
     public User consume(String token) {
         if (token == null || token.isBlank()) {
-            throw new BusinessException("Invalid or expired magic link");
+            throw new BusinessException(ErrorCode.INVALID_MAGIC_LINK);
         }
         String hashedTokenKey = key(token);
         String consumedKey = hashedTokenKey + ":consumed";
         String consumedUserId = redisTemplate.opsForValue().get(consumedKey);
         if (consumedUserId != null && !consumedUserId.isBlank()) {
             log.info("Magic link token was recently consumed (grace period active) for userId {}", consumedUserId);
-            return userRepository.findById(UUID.fromString(consumedUserId))
-                    .orElseThrow(() -> new BusinessException("User not found"));
+            User user = userRepository.findById(UUID.fromString(consumedUserId))
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+            if (!user.isEnabled()) {
+                throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+            }
+            return user;
         }
         String email = redisTemplate.opsForValue().getAndDelete(hashedTokenKey);
         if (email == null) {
             log.warn("Magic link token not found or already expired in Redis");
-            throw new BusinessException("Invalid or expired magic link");
+            throw new BusinessException(ErrorCode.INVALID_MAGIC_LINK);
         }
 
         User user = userRepository.findByEmail(email)
                 .map(existingUser -> {
                     if (!existingUser.isEnabled()) {
-                        throw new BusinessException("User account is disabled");
+                        throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
                     }
                     if (!existingUser.isEmailVerified()) {
                         existingUser.setEmailVerified(true);

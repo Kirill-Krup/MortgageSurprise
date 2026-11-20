@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
 import com.surprise.mortgagesurprise.dto.auth.LoginRequest;
 import com.surprise.mortgagesurprise.dto.auth.RefreshTokenRequest;
@@ -40,7 +41,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse register(RegisterRequest req) {
         String email = normalizeEmail(req.email());
         if (userRepository.existsByEmail(email)) {
-            throw new BusinessException("An account with this email already exists");
+            throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
         User user = new User(
@@ -72,15 +73,19 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse refreshToken(RefreshTokenRequest req) {
         String oldRefreshToken = req.refreshToken();
         if (!tokenProvider.validateRefreshToken(oldRefreshToken)) {
-            throw new BusinessException("Invalid or expired refresh token");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
         }
 
         UUID userId = tokenProvider.getUserIdFromToken(oldRefreshToken);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
+        if (!user.isEnabled()) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+        }
+
         if (!refreshTokenService.consumeRefreshToken(userId, oldRefreshToken)) {
-            throw new BusinessException("Refresh token is revoked or no longer active");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
         }
         return createAuthResponse(user);
     }
@@ -90,7 +95,7 @@ public class AuthServiceImpl implements AuthService {
         if (!tokenProvider.validateRefreshToken(refreshToken)
                 || !userId.equals(tokenProvider.getUserIdFromToken(refreshToken))
                 || !refreshTokenService.consumeRefreshToken(userId, refreshToken)) {
-            throw new BusinessException("Invalid or expired refresh token");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
         }
     }
 

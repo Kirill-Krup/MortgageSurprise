@@ -21,7 +21,7 @@ interface AppLocation {
 }
 
 const PROFILE_SECTIONS: ProfileSection[] = ['overview', 'microloans', 'scenarios', 'compare', 'history'];
-const ADMIN_SECTIONS: AdminSection[] = ['overview', 'users', 'loans', 'products', 'rates', 'journal'];
+const ADMIN_SECTIONS: AdminSection[] = ['overview', 'users', 'loans', 'products', 'rates', 'journal', 'abtest'];
 
 const parseHash = (): AppLocation => {
   const raw = window.location.hash.replace('#', '').toLowerCase();

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { profileApi, scenarioApi, calculatorApi, passportApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getApiErrorMessage } from '../utils/errors';
 import type {
   UserActivityRecord,
   ScenarioResponse,
@@ -140,8 +141,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   });
   const [savingPassport, setSavingPassport] = useState(false);
   const [passportNotice, setPassportNotice] = useState<string | null>(null);
+  const [passportError, setPassportError] = useState<string | null>(null);
 
   const openPassportModal = () => {
+    setPassportError(null);
     if (passportData) {
       setPassportForm({
         fullName: passportData.fullName || '',
@@ -181,8 +184,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setPassportNotice(t('passportSavedSuccess'));
       setTimeout(() => setPassportNotice(null), 4000);
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      alert(axiosError.response?.data?.message || 'Не удалось сохранить паспортные данные');
+      setPassportError(getApiErrorMessage(err, 'Не удалось сохранить паспортные данные'));
     } finally {
       setSavingPassport(false);
     }
@@ -1973,6 +1975,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </button>
             </div>
             <p className="text-xs text-slate-500 mb-4">{t('passportMaskedNotice')}</p>
+            {passportError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-semibold mb-3 animate-in fade-in">
+                {passportError}
+              </div>
+            )}
             <form onSubmit={handleSavePassport} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
