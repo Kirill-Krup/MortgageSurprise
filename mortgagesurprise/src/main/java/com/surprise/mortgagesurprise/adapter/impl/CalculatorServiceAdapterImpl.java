@@ -14,7 +14,7 @@ import com.surprise.mortgagesurprise.service.UserAuditService;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
-import static com.surprise.mortgagesurprise.util.RoleValidator.isAdmin;
+import static com.surprise.mortgagesurprise.util.CredentialValidator.isAdmin;
 
 @Service
 public class CalculatorServiceAdapterImpl implements CalculatorServiceAdapter {

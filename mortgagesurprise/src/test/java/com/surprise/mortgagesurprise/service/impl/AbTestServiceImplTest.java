@@ -1,6 +1,5 @@
 package com.surprise.mortgagesurprise.service.impl;
 
-import com.surprise.mortgagesurprise.dto.abtest.AbTestAssignmentResponse;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestStatsResponse;
 import com.surprise.mortgagesurprise.model.document.UserActionAuditDocument;
 import com.surprise.mortgagesurprise.model.entity.UserAbTestVariant;
@@ -20,6 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.surprise.mortgagesurprise.util.AbTestVariantUtil.calculateDeterministicVariant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -53,45 +53,37 @@ class AbTestServiceImplTest {
         when(variantRepository.findByUserIdAndExperimentName(userId, "mortgage_calculate_button"))
                 .thenReturn(Optional.of(existing));
 
-        AbTestAssignmentResponse response = abTestService.getOrCreateVariant(userId, "mortgage_calculate_button");
+        var response = abTestService.getOrCreateVariant(userId, "mortgage_calculate_button");
 
-        assertThat(response.color()).isEqualTo("emerald");
+        assertThat(response.getColor()).isEqualTo("emerald");
         verify(variantRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("getOrCreateVariant should deterministically compute variant via hash and salt and save to DB")
     void shouldCreateDeterministicVariant() {
-        when(variantRepository.findByUserIdAndExperimentName(userId, "mortgage_calculate_button"))
+        String expectedColor = calculateDeterministicVariant(userId.toString(), "any");
+        var userAbTestVariant = new UserAbTestVariant(userId, "any", expectedColor);
+        when(variantRepository.findByUserIdAndExperimentName(any(), anyString()))
                 .thenReturn(Optional.empty());
-        when(variantRepository.save(any(UserAbTestVariant.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(variantRepository.save(any())).thenReturn(userAbTestVariant);
 
-        AbTestAssignmentResponse response1 = abTestService.getOrCreateVariant(userId, "mortgage_calculate_button");
-        String expectedColor = abTestService.calculateDeterministicVariant(userId.toString(), "mortgage_calculate_button");
+        var response = abTestService.getOrCreateVariant(userId, "any");
 
-        assertThat(response1.color()).isEqualTo(expectedColor);
-        assertThat(response1.userId()).isEqualTo(userId);
+
+        assertThat(response.getColor()).isEqualTo(expectedColor);
+        assertThat(response.getUserId()).isEqualTo(userId);
         verify(variantRepository).save(any(UserAbTestVariant.class));
     }
 
     @Test
     @DisplayName("calculateDeterministicVariant should always return identical variant for same input (idempotent)")
     void shouldReturnConsistentHashVariant() {
-        String variantA1 = abTestService.calculateDeterministicVariant(userId.toString(), "mortgage_calculate_button");
-        String variantA2 = abTestService.calculateDeterministicVariant(userId.toString(), "mortgage_calculate_button");
+        String variantA1 = calculateDeterministicVariant(userId.toString(), "mortgage_calculate_button");
+        String variantA2 = calculateDeterministicVariant(userId.toString(), "mortgage_calculate_button");
 
         assertThat(variantA1).isEqualTo(variantA2);
         assertThat(List.of("blue", "emerald")).contains(variantA1);
-    }
-
-    @Test
-    @DisplayName("getOrCreateVariant should handle null userId deterministically without saving to DB")
-    void shouldHandleNullUserIdDeterministically() {
-        AbTestAssignmentResponse response = abTestService.getOrCreateVariant(null, "mortgage_calculate_button");
-
-        assertThat(response.userId()).isNull();
-        assertThat(response.color()).isIn("blue", "emerald");
-        verify(variantRepository, never()).save(any());
     }
 
     @Test

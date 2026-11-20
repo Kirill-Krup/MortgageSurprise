@@ -248,4 +248,32 @@ class UserAuditServiceImplTest {
             );
         }
     }
+
+    @Test
+    @DisplayName("Should map and resolve audit action types and aliases properly")
+    void shouldMapAndResolveAuditActionTypes() {
+        assertThat(UserAuditActionType.fromString("MICROLOAN_APPLIED")).isEqualTo(UserAuditActionType.MICROLOAN_APPLICATION);
+        assertThat(UserAuditActionType.fromString("microloan_applied")).isEqualTo(UserAuditActionType.MICROLOAN_APPLICATION);
+        assertThat(UserAuditActionType.fromString("SCENARIO_CALCULATED")).isEqualTo(UserAuditActionType.MORTGAGE_CALCULATION);
+        assertThat(UserAuditActionType.fromString("SCENARIO_SAVED")).isEqualTo(UserAuditActionType.SCENARIO_SAVED);
+        assertThat(UserAuditActionType.MICROLOAN_APPLIED.canonical()).isEqualTo(UserAuditActionType.MICROLOAN_APPLICATION);
+        assertThat(UserAuditActionType.SCENARIO_CALCULATED.canonical()).isEqualTo(UserAuditActionType.MORTGAGE_CALCULATION);
+        assertThat(UserAuditActionType.SCENARIO_SAVED.canonical()).isEqualTo(UserAuditActionType.SCENARIO_SAVED);
+    }
+
+    @Test
+    @DisplayName("Should return empty list safely when repository throws exception or returns null")
+    void shouldReturnEmptyListWhenRepositoryFailsOrEmpty() {
+        UUID userId = UUID.randomUUID();
+        when(auditRepository.findByUserIdOrderByTimestampDesc(userId)).thenThrow(new RuntimeException("Mongo connection timeout"));
+        assertThat(auditService.getAuditsForUser(userId)).isEmpty();
+
+        assertThat(auditService.getAuditsForUser(null)).isEmpty();
+
+        when(auditRepository.findAllByOrderByTimestampDesc()).thenThrow(new RuntimeException("Mongo unavailable"));
+        assertThat(auditService.getAllAudits()).isEmpty();
+
+        when(auditRepository.findByActionTypeOrderByTimestampDesc(any())).thenThrow(new RuntimeException("Mongo query error"));
+        assertThat(auditService.getAuditsByAction(UserAuditActionType.MICROLOAN_APPLICATION)).isEmpty();
+    }
 }
