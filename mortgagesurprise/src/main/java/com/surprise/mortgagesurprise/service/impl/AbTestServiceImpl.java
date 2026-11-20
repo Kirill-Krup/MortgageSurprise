@@ -37,9 +37,9 @@ public class AbTestServiceImpl implements AbTestService {
             return existing.get();
         }
 
-        var assignedColor = calculateDeterministicVariant(userId.toString(), normalizedExp);
+        var variantName = calculateDeterministicVariant(userId.toString(), normalizedExp);
 
-        return variantRepository.save(new UserAbTestVariant(userId, normalizedExp, assignedColor));
+        return variantRepository.save(new UserAbTestVariant(userId, normalizedExp, variantName));
     }
 
     @Override
@@ -64,49 +64,15 @@ public class AbTestServiceImpl implements AbTestService {
             audits = Collections.emptyList();
         }
 
-        Map<UUID, Long> clickCountByUserId = audits.stream()
-                .filter(a -> a.getUserId() != null)
-                .collect(Collectors.groupingBy(UserActionAuditDocument::getUserId, Collectors.counting()));
+        var clickCountByUserId = getClickCountsByUserId(audits);
 
         List<UserTestStatDetail> userDetails = new ArrayList<>();
-        long totalClicks = 0;
 
-        for (var assignment : assignments) {
-            var id = assignment.getUserId();
-            long clicks = clickCountByUserId.getOrDefault(id, 0L);
-            totalClicks += clicks;
-            userDetails.add(new UserTestStatDetail(
-                    id,
-                    assignment.getColor(),
-                    clicks,
-                    assignment.getCreatedAt() != null ? assignment.getCreatedAt() : Instant.now()
-            ));
-        }
-
-        Map<String, List<UserTestStatDetail>> byColor = userDetails.stream()
-                .collect(Collectors.groupingBy(UserTestStatDetail::color));
+        fillUserDetails(assignments, userDetails, clickCountByUserId);
+        long totalClicks = getTotalClicks(assignments, clickCountByUserId);
 
         List<VariantStat> variantStats = new ArrayList<>();
-        for (var color : DEFAULT_COLORS) {
-            var usersWithColor = byColor.getOrDefault(color, List.of());
-            long usersCount = usersWithColor.size();
-            long colorClicks = usersWithColor.stream()
-                    .mapToLong(UserTestStatDetail::clicksCount)
-                    .sum();
-            double avgClicks = usersCount > 0 ? (double) colorClicks / usersCount : 0.0;
-            variantStats.add(new VariantStat(color, usersCount, colorClicks, avgClicks));
-        }
-        for (var entry : byColor.entrySet()) {
-            if (!DEFAULT_COLORS.contains(entry.getKey())) {
-                long count = entry.getValue().size();
-                long clicks = entry.getValue()
-                        .stream()
-                        .mapToLong(UserTestStatDetail::clicksCount)
-                        .sum();
-                double avg = count > 0 ? (double) clicks / count : 0.0;
-                variantStats.add(new VariantStat(entry.getKey(), count, clicks, avg));
-            }
-        }
+        fillVariantStats(variantStats, userDetails);
         return new AbTestStatsResponse(normalizedExp, assignments.size(), totalClicks,
                 variantStats, userDetails);
     }
@@ -117,5 +83,70 @@ public class AbTestServiceImpl implements AbTestService {
             return UserAuditActionType.MICROLOAN_APPLICATION;
         }
         return UserAuditActionType.MORTGAGE_CALCULATION;
+    }
+
+    private Map<UUID, Long> getClickCountsByUserId(List<UserActionAuditDocument> audits) {
+        return audits.stream()
+                .filter(a -> a.getUserId() != null)
+                .collect(Collectors.groupingBy(UserActionAuditDocument::getUserId, Collectors.counting()));
+    }
+
+    private long getTotalClicks(List<UserAbTestVariant> assignments, Map<UUID, Long> clickCountByUserId) {
+        long totalClicks = 0;
+        for (var assignment : assignments) {
+            var id = assignment.getUserId();
+            long clicks = clickCountByUserId.getOrDefault(id, 0L);
+            totalClicks += clicks;
+        }
+        return totalClicks;
+    }
+
+    private void fillUserDetails(List<UserAbTestVariant> assignments, List<UserTestStatDetail> userDetails,
+                                 Map<UUID, Long> clickCountByUserId) {
+        for (var assignment : assignments) {
+            var id = assignment.getUserId();
+            long clicks = clickCountByUserId.getOrDefault(id, 0L);
+            userDetails.add(new UserTestStatDetail(
+                    id,
+                    assignment.getColor(),
+                    clicks,
+                    assignment.getCreatedAt() != null ? assignment.getCreatedAt() : Instant.now()
+            ));
+        }
+    }
+
+    private void fillVariantStats(List<VariantStat> variantStats, List<UserTestStatDetail> userDetails) {
+        Map<String, List<UserTestStatDetail>> byColor = userDetails.stream()
+                .collect(Collectors.groupingBy(UserTestStatDetail::color));
+        fillInDefaultColors(variantStats, byColor);
+        var colorsNotFound = byColor.entrySet()
+                .stream()
+                .filter(x -> !DEFAULT_COLORS.contains(x.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        fillInColorsNotFound(variantStats, colorsNotFound);
+    }
+
+    private void fillInDefaultColors(List<VariantStat> variantStats, Map<String, List<UserTestStatDetail>> byColor) {
+        for (var color : DEFAULT_COLORS) {
+            var usersWithColor = byColor.getOrDefault(color, List.of());
+            long usersCount = usersWithColor.size();
+            long colorClicks = usersWithColor.stream()
+                    .mapToLong(UserTestStatDetail::clicksCount)
+                    .sum();
+            double avgClicks = usersCount > 0 ? (double) colorClicks / usersCount : 0.0;
+            variantStats.add(new VariantStat(color, usersCount, colorClicks, avgClicks));
+        }
+    }
+
+    private void fillInColorsNotFound(List<VariantStat> variantStats, Map<String, List<UserTestStatDetail>> byColor) {
+        for (var entry : byColor.entrySet()) {
+            long count = entry.getValue().size();
+            long clicks = entry.getValue()
+                    .stream()
+                    .mapToLong(UserTestStatDetail::clicksCount)
+                    .sum();
+            double avg = count > 0 ? (double) clicks / count : 0.0;
+            variantStats.add(new VariantStat(entry.getKey(), count, clicks, avg));
+        }
     }
 }

@@ -10,6 +10,6 @@ public record AbTestAssignmentResponse(
         String color
 ) {
     public static AbTestAssignmentResponse from(UserAbTestVariant value) {
-        return new AbTestAssignmentResponse(value.getUserId(), value.getExperimentName(), value.getColor());
+        return new AbTestAssignmentResponse(value.getUserId(), value.getAbTestVariant().getExperimentName(), value.getAbTestVariant().getVariantName());
     }
 }
