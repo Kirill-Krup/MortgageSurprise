@@ -11,4 +11,4 @@ public record RateChangedEvent(
         BigDecimal oldRate,
         BigDecimal newRate,
         Instant timestamp
-) implements Serializable {}
+) implements Serializable, Event {}

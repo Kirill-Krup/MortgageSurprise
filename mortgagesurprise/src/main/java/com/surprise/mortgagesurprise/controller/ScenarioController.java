@@ -7,23 +7,24 @@ import com.surprise.mortgagesurprise.dto.scenario.ScenarioResponse;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.ScenarioService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/scenarios")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
 public class ScenarioController {
 
     private final ScenarioService scenarioService;
-
-    public ScenarioController(ScenarioService scenarioService) {
-        this.scenarioService = scenarioService;
-    }
 
     @PostMapping
     public ResponseEntity<ScenarioResponse> saveScenario(
@@ -64,5 +65,17 @@ public class ScenarioController {
     ) {
         scenarioService.deleteScenario(userDetails.getId(), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/export-pdf")
+    public ResponseEntity<Map<String, String>> exportScenarioPdf(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID id
+    ) {
+        scenarioService.requestPdfExport(userDetails.getId(), userDetails.getUsername(), id);
+        return ResponseEntity.accepted().body(Map.of(
+                "status", "PROCESSING",
+                "message", "Payment schedule PDF export initiated. An email notification will be sent to your mailbox."
+        ));
     }
 }

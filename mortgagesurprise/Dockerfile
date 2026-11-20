@@ -1,24 +1,13 @@
-# Multi-stage build for Java 25 & Spring Boot 4
-FROM eclipse-temurin:25-jdk-alpine AS builder
-
+FROM gradle:9-jdk25 AS builder
 WORKDIR /build
-
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle.kts settings.gradle.kts gradle.properties ./
-COPY src src
-
-RUN chmod +x gradlew && ./gradlew bootJar -x test --no-daemon
-
-FROM eclipse-temurin:25-jre-alpine
-
+COPY settings.gradle.kts build.gradle.kts ./
+RUN gradle --no-daemon dependencies --configuration runtimeClasspath
+COPY src ./src
+RUN gradle --no-daemon build -x test
+FROM eclipse-temurin:25-jre
 WORKDIR /app
-
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
-
-COPY --from=builder /build/build/libs/*.jar app.jar
-
+RUN addgroup --system app && adduser --system --ingroup app --no-create-home app
+COPY --from=builder --chown=app:app /build/build/libs/*.jar /app/mortgagesurprise.jar
+USER app
 EXPOSE 8080
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/mortgagesurprise.jar"]

@@ -4,10 +4,11 @@ import com.surprise.mortgagesurprise.dto.bank.BankOfferRequest;
 import com.surprise.mortgagesurprise.dto.bank.BankOfferResponse;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.entity.BankOffer;
 import com.surprise.mortgagesurprise.repository.jpa.BankOfferRepository;
 import com.surprise.mortgagesurprise.service.BankOfferService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,15 +19,11 @@ import java.util.UUID;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class BankOfferServiceImpl implements BankOfferService {
 
     private final BankOfferRepository bankOfferRepository;
-    private final MessageProducer messageProducer;
-
-    public BankOfferServiceImpl(BankOfferRepository bankOfferRepository, MessageProducer messageProducer) {
-        this.bankOfferRepository = bankOfferRepository;
-        this.messageProducer = messageProducer;
-    }
+    private final RabbitMqEventSender<RateChangedEvent> messageSender;
 
     @Override
     public BankOfferResponse createOffer(BankOfferRequest req) {
@@ -37,7 +34,8 @@ public class BankOfferServiceImpl implements BankOfferService {
                 req.minDownPaymentPercent(),
                 req.maxTermMonths(),
                 req.minLoanAmount(),
-                req.maxLoanAmount()
+                req.maxLoanAmount(),
+                req.currency()
         );
         BankOffer saved = bankOfferRepository.save(offer);
         return BankOfferResponse.from(saved);
@@ -58,6 +56,9 @@ public class BankOfferServiceImpl implements BankOfferService {
         offer.setMaxTermMonths(req.maxTermMonths());
         offer.setMinLoanAmount(req.minLoanAmount());
         offer.setMaxLoanAmount(req.maxLoanAmount());
+        if (req.currency() != null) {
+            offer.setCurrency(req.currency());
+        }
 
         BankOffer updated = bankOfferRepository.save(offer);
 
@@ -69,7 +70,7 @@ public class BankOfferServiceImpl implements BankOfferService {
                     newRate,
                     Instant.now()
             );
-            messageProducer.sendRateChangedEvent(event);
+            messageSender.send(event);
         }
 
         return BankOfferResponse.from(updated);

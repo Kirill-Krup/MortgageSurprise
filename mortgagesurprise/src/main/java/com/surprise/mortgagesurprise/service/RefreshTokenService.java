@@ -5,7 +5,5 @@ import java.util.UUID;
 
 public interface RefreshTokenService {
     void storeRefreshToken(UUID userId, String token, Duration duration);
-    boolean isRefreshTokenValid(UUID userId, String token);
-    void revokeRefreshToken(UUID userId, String token);
-    void revokeAllUserTokens(UUID userId);
+    boolean consumeRefreshToken(UUID userId, String token);
 }
