@@ -16,4 +16,8 @@ public class BusinessException extends RuntimeException {
         super(message != null ? message : (code.message != null ? code.message : code.name()));
         this.code = code;
     }
+
+    public BusinessException(String message) {
+        this(ErrorCode.INTERNAL_ERROR, message);
+    }
 }

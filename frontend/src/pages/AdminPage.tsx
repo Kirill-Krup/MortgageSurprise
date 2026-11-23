@@ -2647,7 +2647,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                           <div
                             key={v.name}
                             className={`${badgeStyle.bar} transition-all duration-300 relative group`}
-                            style={{ width: `${Math.max(0, Math.min(100, w))}%` }}
+                            style={{
+                              width: `${Math.max(0, Math.min(100, w))}%`,
+                              ...(badgeStyle.hex ? { backgroundColor: badgeStyle.hex } : {}),
+                            }}
                             title={`${v.name}: ${w}%`}
                           />
                         );
@@ -2666,7 +2669,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                           >
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
-                                <span className={`w-3 h-3 rounded-full ${badgeStyle.dot}`} />
+                                <span
+                                  className={`w-3 h-3 rounded-full ${badgeStyle.dot}`}
+                                  style={badgeStyle.hex ? { backgroundColor: badgeStyle.hex } : undefined}
+                                />
                                 <span className="font-extrabold text-xs text-slate-800 dark:text-slate-200 capitalize">
                                   {v.name}
                                 </span>
@@ -2883,7 +2889,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                         >
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2.5">
-                              <span className={`w-3.5 h-3.5 rounded-full ${badgeCls.dot} shadow-sm`} />
+                              <span
+                                className={`w-3.5 h-3.5 rounded-full ${badgeCls.dot} shadow-sm`}
+                                style={badgeCls.hex ? { backgroundColor: badgeCls.hex } : undefined}
+                              />
                               <span className="font-extrabold text-base text-slate-900 dark:text-white capitalize">
                                 {v.color}
                               </span>
@@ -2939,7 +2948,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                               <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full transition-all duration-500 rounded-full ${badgeCls.bar}`}
-                                  style={{ width: `${Math.min(100, Math.max(0, actualShare))}%` }}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(0, actualShare))}%`,
+                                    ...(badgeCls.hex ? { backgroundColor: badgeCls.hex } : {}),
+                                  }}
                                 />
                               </div>
                             </div>
@@ -3531,19 +3543,47 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                       <div className="w-6 text-center text-xs font-bold text-slate-400">
                         #{index + 1}
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={v.name.startsWith('#') && v.name.length === 7 ? v.name : '#3b82f6'}
+                          onChange={(e) => {
+                            const hex = e.target.value;
+                            setFormVariants((prev) =>
+                              prev.map((item, idx) => (idx === index ? { ...item, name: hex } : item))
+                            );
+                          }}
+                          className="w-7 h-7 rounded-lg border-0 cursor-pointer p-0 bg-transparent flex-shrink-0"
+                          title="Выбрать HEX цвет"
+                        />
                         <input
                           required
                           placeholder={t('adminAbTestVariantName')}
                           value={v.name}
                           onChange={(e) => {
-                            const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+                            const val = e.target.value.replace(/[^a-zA-Z0-9_#-]/g, '');
                             setFormVariants((prev) =>
                               prev.map((item, idx) => (idx === index ? { ...item, name: val } : item))
                             );
                           }}
                           className="w-full px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold focus:outline-none focus:border-blue-500"
                         />
+                        <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                          {['#3B82F6', '#10B981', '#EF4444', '#8B5CF6', '#F59E0B'].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                setFormVariants((prev) =>
+                                  prev.map((item, idx) => (idx === index ? { ...item, name: preset } : item))
+                                );
+                              }}
+                              className="w-3.5 h-3.5 rounded-full border border-white dark:border-slate-800 shadow-xs hover:scale-125 transition-transform cursor-pointer"
+                              style={{ backgroundColor: preset }}
+                              title={preset}
+                            />
+                          ))}
+                        </div>
                       </div>
                       <div className="w-24 flex items-center gap-1">
                         <input
@@ -3640,14 +3680,24 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   );
 };
 
-const getVariantBadgeClasses = (name: string, index: number) => {
-  const n = name.toLowerCase();
+const getVariantBadgeClasses = (name: string, index: number): { dot: string; bar: string; text: string; bg: string; hex?: string } => {
+  const n = (name || '').toLowerCase().trim();
+  if (name && (name.startsWith('#') || name.startsWith('rgb'))) {
+    return {
+      dot: '',
+      bar: '',
+      text: 'text-slate-800 dark:text-slate-200',
+      bg: 'bg-slate-100 dark:bg-slate-800',
+      hex: name,
+    };
+  }
   if (n.includes('blue')) return { dot: 'bg-blue-600', bar: 'bg-blue-600', text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/60' };
   if (n.includes('emerald') || n.includes('green')) return { dot: 'bg-emerald-600', bar: 'bg-emerald-600', text: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/60' };
-  if (n.includes('purple')) return { dot: 'bg-purple-600', bar: 'bg-purple-600', text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/60' };
-  if (n.includes('amber') || n.includes('orange')) return { dot: 'bg-amber-500', bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/60' };
+  if (n.includes('purple') || n.includes('violet')) return { dot: 'bg-purple-600', bar: 'bg-purple-600', text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-950/60' };
+  if (n.includes('amber') || n.includes('orange') || n.includes('yellow')) return { dot: 'bg-amber-500', bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/60' };
   if (n.includes('rose') || n.includes('red')) return { dot: 'bg-rose-500', bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/60' };
   if (n.includes('cyan') || n.includes('teal')) return { dot: 'bg-cyan-500', bar: 'bg-cyan-500', text: 'text-cyan-600 dark:text-cyan-400', bg: 'bg-cyan-50 dark:bg-cyan-950/60' };
+  if (n.includes('pink')) return { dot: 'bg-pink-500', bar: 'bg-pink-500', text: 'text-pink-600 dark:text-pink-400', bg: 'bg-pink-50 dark:bg-pink-950/60' };
 
   const palette = [
     { dot: 'bg-blue-600', bar: 'bg-blue-600', text: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/60' },

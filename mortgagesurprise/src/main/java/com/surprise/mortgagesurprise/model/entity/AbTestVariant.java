@@ -5,20 +5,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Entity
 @Table(
         name = "ab_test_variants",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_user_ab_experiment", columnNames = {"user_id", "experiment_name"})
+                @UniqueConstraint(name = "uq_ab_variant", columnNames = {"experiment_name", "version", "variant_name"})
         }
 )
 @Getter
 @Setter
 @NoArgsConstructor
 public class AbTestVariant extends AuditableEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -29,18 +27,16 @@ public class AbTestVariant extends AuditableEntity {
     @Column(name = "variant_name", nullable = false, length = 50)
     private String variantName;
 
-    @Column(name = "variant_name", nullable = false)
+    @Column(name = "variant_probability", nullable = false)
     private Integer variantProbability = 0;
 
-    @Column(name = "version")
+    @Column(name = "version", nullable = false)
     private Integer version = 0;
 
-    @OneToMany(mappedBy = "abTestVariant", fetch = FetchType.LAZY)
-    private Set<UserAbTestVariant> userAbTestVariants = new HashSet<>();
-
-    public AbTestVariant(String experimentName, String variantName, Integer variantProbability) {
+    public AbTestVariant(String experimentName, String variantName, Integer variantProbability, Integer version) {
         this.experimentName = experimentName;
         this.variantName = variantName;
         this.variantProbability = variantProbability;
+        this.version = version;
     }
 }

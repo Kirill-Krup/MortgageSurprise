@@ -38,8 +38,11 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
     @Cacheable(cacheManager = "caffeineCacheManager", cacheNames = CacheConfig.MICROLOAN_RATES,
             key = "#name")
     public MicroloanRate findByName(String name) {
-        var result = microloanRateRepository.findByName(name)
-                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with this name not found"));
+        var opt = microloanRateRepository.findByName(name);
+        if (opt.isEmpty() && "Стандарт".equalsIgnoreCase(name)) {
+            opt = microloanRateRepository.findAll().stream().findFirst();
+        }
+        var result = opt.orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with this name not found"));
         entityManager.detach(result);
         return result;
     }
@@ -49,7 +52,6 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
     public List<MicroloanRate> findAll() {
         var list = microloanRateRepository.findAll();
         if (list.isEmpty()) {
-            // Seed default if database is empty
             var seeded = microloanRateRepository.save(new MicroloanRate("Стандарт", new BigDecimal("0.8000"), 7, 30));
             return List.of(seeded);
         }

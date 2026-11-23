@@ -15,6 +15,8 @@ public enum ErrorCode {
     RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Rate limit exceeded. Please try again later."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "Access denied"),
     INVALID_OAUTH2_CODE(HttpStatus.UNAUTHORIZED, "Invalid or expired OAuth2 code"),
+    AB_TEST_INVALID_DISTRIBUTION(HttpStatus.BAD_REQUEST, "A/B test variant probabilities must sum to 100"),
+    AB_TEST_VARIANT_EXISTS(HttpStatus.CONFLICT, "A/B test variant already exists"),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Validation failed");
 
     public final HttpStatus status;

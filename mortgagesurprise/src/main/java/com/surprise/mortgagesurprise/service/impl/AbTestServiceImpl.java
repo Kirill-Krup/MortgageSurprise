@@ -1,11 +1,16 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestStatsResponse;
 import com.surprise.mortgagesurprise.dto.abtest.UserTestStatDetail;
 import com.surprise.mortgagesurprise.dto.abtest.VariantStat;
+import com.surprise.mortgagesurprise.exception.BusinessException;
+import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.model.document.UserActionAuditDocument;
+import com.surprise.mortgagesurprise.model.entity.AbTestVariant;
 import com.surprise.mortgagesurprise.model.entity.UserAbTestVariant;
 import com.surprise.mortgagesurprise.model.enums.UserAuditActionType;
+import com.surprise.mortgagesurprise.repository.jpa.AbTestVariantsRepository;
 import com.surprise.mortgagesurprise.repository.jpa.UserAbTestVariantRepository;
 import com.surprise.mortgagesurprise.repository.mongo.UserActionAuditMongoRepository;
 import com.surprise.mortgagesurprise.service.AbTestService;
@@ -25,21 +30,16 @@ import static com.surprise.mortgagesurprise.util.AbTestVariantUtil.*;
 @RequiredArgsConstructor
 public class AbTestServiceImpl implements AbTestService {
 
-    private final UserAbTestVariantRepository variantRepository;
+    private final UserAbTestVariantRepository userVariantRepository;
+    private final AbTestVariantsRepository variantsRepository;
     private final UserActionAuditMongoRepository auditRepository;
 
     @Override
     @Transactional
     public UserAbTestVariant getOrCreateVariant(UUID userId, String experimentName) {
         var normalizedExp = experimentName.trim();
-        var existing = variantRepository.findByUserIdAndExperimentName(userId, normalizedExp);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        var variantName = calculateDeterministicVariant(userId.toString(), normalizedExp);
-
-        return variantRepository.save(new UserAbTestVariant(userId, normalizedExp, variantName));
+        return userVariantRepository.findByUserIdAndExperimentName(userId, normalizedExp)
+                .orElseGet(() -> assignVariant(userId, normalizedExp));
     }
 
     @Override
@@ -48,10 +48,22 @@ public class AbTestServiceImpl implements AbTestService {
         return getOrCreateVariant(userId, experimentName);
     }
 
-    public static String calculateDeterministicVariant(String identifier, String experimentName) {
-        String input = identifier + ":" + experimentName + ":" + SALT;
-        long hash = Math.abs((long) input.hashCode());
-        return DEFAULT_COLORS.get((int) (hash % DEFAULT_COLORS.size()));
+    /**
+     * New users are assigned using the latest experiment version stored in the DB:
+     * hash -> bucket 0..99 -> cumulative percentages. The assignment is persisted,
+     * so changing percentages later never moves users that already have a variant.
+     */
+    private UserAbTestVariant assignVariant(UUID userId, String experimentName) {
+        var version = variantsRepository.findLatestVersion(experimentName)
+                .orElseThrow(() -> new ResourceNotFoundException("A/B experiment not found: " + experimentName));
+        var variants = variantsRepository.findAllByExperimentNameAndVersion(experimentName, version);
+
+        var chosen = pickVariant(userId.toString(), experimentName, variants)
+                .orElseThrow(() -> new BusinessException(ErrorCode.AB_TEST_INVALID_DISTRIBUTION,
+                        "Variant probabilities of experiment '" + experimentName
+                                + "' (version " + version + ") do not cover 100%"));
+
+        return userVariantRepository.save(new UserAbTestVariant(userId, chosen));
     }
 
     @Override
@@ -61,26 +73,36 @@ public class AbTestServiceImpl implements AbTestService {
                 ? experimentName.trim()
                 : DEFAULT_EXPERIMENT_NAME;
 
-        var assignments = variantRepository.findByExperimentName(normalizedExp);
+        var assignments = userVariantRepository.findByExperimentName(normalizedExp);
 
-        var actionType = resolveActionType(normalizedExp);
-
-        var audits = auditRepository.findByActionTypeOrderByTimestampDesc(actionType);
+        var audits = auditRepository.findByActionTypeOrderByTimestampDesc(resolveActionType(normalizedExp));
         if (audits == null) {
             audits = Collections.emptyList();
         }
-
         var clickCountByUserId = getClickCountsByUserId(audits);
 
-        List<UserTestStatDetail> userDetails = new ArrayList<>();
+        List<UserTestStatDetail> userDetails = assignments.stream()
+                .map(a -> new UserTestStatDetail(
+                        a.getUserId(),
+                        a.getAbTestVariant().getVariantName(),
+                        clickCountByUserId.getOrDefault(a.getUserId(), 0L),
+                        a.getCreatedAt() != null ? a.getCreatedAt() : Instant.now()))
+                .toList();
 
-        fillUserDetails(assignments, userDetails, clickCountByUserId);
-        long totalClicks = getTotalClicks(assignments, clickCountByUserId);
+        long totalClicks = userDetails.stream().mapToLong(UserTestStatDetail::clicksCount).sum();
 
-        List<VariantStat> variantStats = new ArrayList<>();
-        fillVariantStats(variantStats, userDetails);
         return new AbTestStatsResponse(normalizedExp, assignments.size(), totalClicks,
-                variantStats, userDetails);
+                buildVariantStats(definedVariantNames(normalizedExp), userDetails), userDetails);
+    }
+
+    private List<String> definedVariantNames(String experimentName) {
+        return variantsRepository.findLatestVersion(experimentName)
+                .map(version -> variantsRepository.findAllByExperimentNameAndVersion(experimentName, version))
+                .orElse(Set.of())
+                .stream()
+                .map(AbTestVariant::getVariantName)
+                .sorted()
+                .toList();
     }
 
     private UserAuditActionType resolveActionType(String experimentName) {
@@ -97,62 +119,18 @@ public class AbTestServiceImpl implements AbTestService {
                 .collect(Collectors.groupingBy(UserActionAuditDocument::getUserId, Collectors.counting()));
     }
 
-    private long getTotalClicks(List<UserAbTestVariant> assignments, Map<UUID, Long> clickCountByUserId) {
-        long totalClicks = 0;
-        for (var assignment : assignments) {
-            var id = assignment.getUserId();
-            long clicks = clickCountByUserId.getOrDefault(id, 0L);
-            totalClicks += clicks;
-        }
-        return totalClicks;
-    }
+    /** Every variant defined in the DB is shown (even with 0 users), plus any legacy names seen in assignments. */
+    private List<VariantStat> buildVariantStats(List<String> definedNames, List<UserTestStatDetail> userDetails) {
+        Map<String, List<UserTestStatDetail>> byVariant = new LinkedHashMap<>();
+        definedNames.forEach(name -> byVariant.put(name, new ArrayList<>()));
+        userDetails.forEach(d -> byVariant.computeIfAbsent(d.color(), k -> new ArrayList<>()).add(d));
 
-    private void fillUserDetails(List<UserAbTestVariant> assignments, List<UserTestStatDetail> userDetails,
-                                 Map<UUID, Long> clickCountByUserId) {
-        for (var assignment : assignments) {
-            var id = assignment.getUserId();
-            long clicks = clickCountByUserId.getOrDefault(id, 0L);
-            userDetails.add(new UserTestStatDetail(
-                    id,
-                    assignment.getColor(),
-                    clicks,
-                    assignment.getCreatedAt() != null ? assignment.getCreatedAt() : Instant.now()
-            ));
-        }
-    }
-
-    private void fillVariantStats(List<VariantStat> variantStats, List<UserTestStatDetail> userDetails) {
-        Map<String, List<UserTestStatDetail>> byColor = userDetails.stream()
-                .collect(Collectors.groupingBy(UserTestStatDetail::color));
-        fillInDefaultColors(variantStats, byColor);
-        var colorsNotFound = byColor.entrySet()
-                .stream()
-                .filter(x -> !DEFAULT_COLORS.contains(x.getKey()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        fillInColorsNotFound(variantStats, colorsNotFound);
-    }
-
-    private void fillInDefaultColors(List<VariantStat> variantStats, Map<String, List<UserTestStatDetail>> byColor) {
-        for (var color : DEFAULT_COLORS) {
-            var usersWithColor = byColor.getOrDefault(color, List.of());
-            long usersCount = usersWithColor.size();
-            long colorClicks = usersWithColor.stream()
-                    .mapToLong(UserTestStatDetail::clicksCount)
-                    .sum();
-            double avgClicks = usersCount > 0 ? (double) colorClicks / usersCount : 0.0;
-            variantStats.add(new VariantStat(color, usersCount, colorClicks, avgClicks));
-        }
-    }
-
-    private void fillInColorsNotFound(List<VariantStat> variantStats, Map<String, List<UserTestStatDetail>> byColor) {
-        for (var entry : byColor.entrySet()) {
-            long count = entry.getValue().size();
-            long clicks = entry.getValue()
-                    .stream()
-                    .mapToLong(UserTestStatDetail::clicksCount)
-                    .sum();
-            double avg = count > 0 ? (double) clicks / count : 0.0;
-            variantStats.add(new VariantStat(entry.getKey(), count, clicks, avg));
-        }
+        return byVariant.entrySet().stream()
+                .map(e -> {
+                    long users = e.getValue().size();
+                    long clicks = e.getValue().stream().mapToLong(UserTestStatDetail::clicksCount).sum();
+                    return new VariantStat(e.getKey(), users, clicks, users > 0 ? (double) clicks / users : 0.0);
+                })
+                .toList();
     }
 }

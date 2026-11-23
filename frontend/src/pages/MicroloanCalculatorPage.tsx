@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { CURRENCY_CONFIGS, formatCurrency, getCurrencySymbol } from '../utils/format';
 import { useExperiment } from '../hooks/useExperiment';
-import { BUTTON_COLOR_VARIANTS, getMicroloanApplyButtonClasses } from '../utils/abTesting';
+import { BUTTON_COLOR_VARIANTS, getMicroloanApplyButtonClasses, getButtonColorStyle } from '../utils/abTesting';
 import { MicroloanApplicationModal } from '../components/MicroloanApplicationModal';
 
 interface MicroloanCalculatorPageProps {
@@ -183,10 +183,10 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
         } else {
           const fallbackRate: MicroloanRateDTO = {
             id: 1,
-            name: 'Стандарт',
-            baseDailyRate: 0.8,
-            minDayRequired: 7,
-            maxDayRequired: 30,
+            name: 'Турбо',
+            baseDailyRate: 2.0,
+            minDayRequired: 0,
+            maxDayRequired: 14,
           };
           setRates([fallbackRate]);
           setSelectedRate(fallbackRate);
@@ -807,6 +807,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
                   type="button"
                   onClick={handleStartApplication}
                   disabled={isAdmin}
+                  style={getButtonColorStyle(applyBtnColorVariant)}
                   className={`w-full py-3.5 ${applyBtnClasses} text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <CreditCard size={18} />
@@ -914,6 +915,7 @@ export const MicroloanCalculatorPage: React.FC<MicroloanCalculatorPageProps> = (
           }, 9000);
         }}
         applyBtnClasses={applyBtnClasses}
+        applyBtnStyle={getButtonColorStyle(applyBtnColorVariant)}
       />
     </div>
   );

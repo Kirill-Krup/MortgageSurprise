@@ -104,4 +104,34 @@ class AbTestControllerTest {
         assertThat(response.getBody()).isEqualTo(mockStats);
         verify(abTestAdapter).getStats("mortgage_calculate_button");
     }
+
+    @Test
+    @DisplayName("getAllExperiments should delegate to abTestAdapter")
+    void shouldGetAllExperiments() {
+        var exp = new com.surprise.mortgagesurprise.dto.abtest.ExperimentConfigDTO(
+                "mortgage_calculate_button", "Name", "Desc", List.of(), "ACTIVE", false, null, null
+        );
+        when(abTestAdapter.getAllExperiments()).thenReturn(List.of(exp));
+
+        var response = abTestController.getAllExperiments();
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).containsExactly(exp);
+        verify(abTestAdapter).getAllExperiments();
+    }
+
+    @Test
+    @DisplayName("saveExperiment should delegate to abTestAdapter")
+    void shouldSaveExperiment() {
+        var exp = new com.surprise.mortgagesurprise.dto.abtest.ExperimentConfigDTO(
+                "mortgage_calculate_button", "Name", "Desc", List.of(), "ACTIVE", false, null, null
+        );
+        when(abTestAdapter.saveExperiment(exp)).thenReturn(exp);
+
+        var response = abTestController.saveExperiment(exp);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isEqualTo(exp);
+        verify(abTestAdapter).saveExperiment(exp);
+    }
 }

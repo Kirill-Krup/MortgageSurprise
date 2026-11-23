@@ -38,6 +38,7 @@ interface MicroloanApplicationModalProps {
   onSavedPassportUpdate: (data: PassportData) => void;
   onSuccess: (applicationId: string) => void;
   applyBtnClasses: string;
+  applyBtnStyle?: React.CSSProperties;
 }
 
 interface ValidationErrors {
@@ -66,6 +67,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
   onSavedPassportUpdate,
   onSuccess,
   applyBtnClasses,
+  applyBtnStyle,
 }) => {
   const { t, language } = useLanguage();
 
@@ -558,6 +560,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 <button
                   type="button"
                   onClick={handleNextFromStep1}
+                  style={applyBtnStyle}
                   className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer`}
                 >
                   <span>{t('stepNext')}</span>
@@ -666,6 +669,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 <button
                   type="button"
                   onClick={handleNextFromStep2}
+                  style={applyBtnStyle}
                   className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer`}
                 >
                   <span>{t('stepNext')}</span>
@@ -783,6 +787,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 <button
                   type="submit"
                   disabled={isSubmitting}
+                  style={applyBtnStyle}
                   className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
                 >
                   {isSubmitting ? (

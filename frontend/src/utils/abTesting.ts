@@ -1,8 +1,8 @@
 import type { ExperimentConfig, ExperimentVariantConfig } from '../types';
 
-export type ButtonColorVariant = 'blue' | 'emerald';
+export type ButtonColorVariant = 'blue' | 'emerald' | 'purple' | 'amber' | 'red' | 'rose' | string;
 
-export const BUTTON_COLOR_VARIANTS: readonly ButtonColorVariant[] = ['blue', 'emerald'] as const;
+export const BUTTON_COLOR_VARIANTS: readonly ButtonColorVariant[] = ['blue', 'emerald', 'red', 'purple', 'amber'] as const;
 
 export const EXPERIMENT_CONFIGS_KEY = 'mortgage_surprise_ab_configs';
 export const STORAGE_PREFIX = 'mortgage_surprise_ab_';
@@ -189,6 +189,17 @@ export function getOrAssignExperimentVariant<T extends string>(
   userId?: string
 ): T {
   const fullKey = `${STORAGE_PREFIX}${experimentKey}`;
+
+  // Sticky assignment: if this client already received an assigned variant, keep it permanently
+  try {
+    const saved = localStorage.getItem(fullKey);
+    if (saved) {
+      return saved as T;
+    }
+  } catch {
+    // storage unavailable
+  }
+
   const config = getExperimentConfig(experimentKey);
 
   // If experiment has custom config with variants and status is ACTIVE
@@ -205,9 +216,7 @@ export function getOrAssignExperimentVariant<T extends string>(
     const assigned = selectWeightedVariant(seed, validVariants);
 
     try {
-      if (!userId) {
-        localStorage.setItem(fullKey, assigned);
-      }
+      localStorage.setItem(fullKey, assigned);
     } catch {
       // storage unavailable
     }
@@ -248,30 +257,66 @@ export function saveExperimentVariant(experimentKey: string, variant: string): v
 }
 
 /**
+ * Helper to get inline styling for buttons participating in color A/B test (supports HEX and RGB).
+ */
+export function getButtonColorStyle(variant: ButtonColorVariant | string | undefined): React.CSSProperties {
+  if (!variant) return {};
+  const v = variant.trim();
+  if (v.startsWith('#') || v.startsWith('rgb')) {
+    return {
+      backgroundColor: v,
+      borderColor: v,
+      boxShadow: `0 10px 15px -3px ${v}40, 0 4px 6px -4px ${v}30`,
+    };
+  }
+  return {};
+}
+
+/**
  * Helper to get styling classes for buttons participating in color A/B test.
  */
 export function getMortgageCalculateButtonClasses(variant: ButtonColorVariant | string): string {
-  if (variant === 'emerald') {
+  const v = (variant || '').toLowerCase();
+  if (v.includes('emerald') || v.includes('green')) {
     return 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-emerald-600/20';
   }
-  if (variant === 'purple') {
+  if (v.includes('purple') || v.includes('violet')) {
     return 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800 shadow-purple-600/20';
   }
-  if (variant === 'amber') {
+  if (v.includes('amber') || v.includes('orange') || v.includes('yellow')) {
     return 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-amber-600/20';
+  }
+  if (v.includes('red') || v.includes('rose')) {
+    return 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 shadow-rose-600/20';
+  }
+  if (v.includes('cyan') || v.includes('teal')) {
+    return 'bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 shadow-cyan-600/20';
+  }
+  if (v.includes('pink')) {
+    return 'bg-pink-600 hover:bg-pink-700 active:bg-pink-800 shadow-pink-600/20';
   }
   return 'bg-blue-700 hover:bg-blue-800 active:bg-blue-900 shadow-blue-700/20';
 }
 
 export function getMicroloanApplyButtonClasses(variant: ButtonColorVariant | string): string {
-  if (variant === 'emerald') {
+  const v = (variant || '').toLowerCase();
+  if (v.includes('emerald') || v.includes('green')) {
     return 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-emerald-600/20';
   }
-  if (variant === 'purple') {
+  if (v.includes('purple') || v.includes('violet')) {
     return 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800 shadow-purple-600/20';
   }
-  if (variant === 'amber') {
+  if (v.includes('amber') || v.includes('orange') || v.includes('yellow')) {
     return 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-amber-600/20';
+  }
+  if (v.includes('red') || v.includes('rose')) {
+    return 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 shadow-rose-600/20';
+  }
+  if (v.includes('cyan') || v.includes('teal')) {
+    return 'bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 shadow-cyan-600/20';
+  }
+  if (v.includes('pink')) {
+    return 'bg-pink-600 hover:bg-pink-700 active:bg-pink-800 shadow-pink-600/20';
   }
   return 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-blue-600/20';
 }
