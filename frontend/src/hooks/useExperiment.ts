@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getOrAssignExperimentVariant } from '../utils/abTesting';
+import { getOrAssignExperimentVariant, saveExperimentVariant, STORAGE_PREFIX } from '../utils/abTesting';
 import { useAuth } from '../context/AuthContext';
 import { abTestApi } from '../api/client';
 
@@ -22,10 +22,20 @@ export function useExperiment<T extends string>(
     }, [user?.id, experimentKey, variants]);
 
     // React to live changes in experiment configuration made by admin
+    // Sticky rule: If the user has already received a variant, their assigned variant stays permanently.
     useEffect(() => {
         const handleConfigChange = (e: Event) => {
             const customEvent = e as CustomEvent<{ id?: string }>;
             if (!customEvent.detail || customEvent.detail.id === experimentKey) {
+                const fullKey = `${STORAGE_PREFIX}${experimentKey}`;
+                try {
+                    const saved = localStorage.getItem(fullKey);
+                    if (saved) {
+                        return;
+                    }
+                } catch {
+                    // ignore
+                }
                 setVariant(getOrAssignExperimentVariant(experimentKey, variants, user?.id));
             }
         };
@@ -46,10 +56,8 @@ export function useExperiment<T extends string>(
         abTestApi.getVariant(experimentKey)
             .then((res) => {
                 if (!isMounted || !res?.color) return;
-                const assignedColor = res.color as T;
-                if (!variants || variants.includes(assignedColor)) {
-                    setVariant(assignedColor);
-                }
+                saveExperimentVariant(experimentKey, res.color);
+                setVariant(res.color as T);
             })
             .catch((err) => console.warn('[AB Testing] sync failed:', err));
         return () => { isMounted = false; };

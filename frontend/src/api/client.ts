@@ -2,6 +2,7 @@ import axios from 'axios';
 import type {
   AbTestStatsResponse,
   AbTestVariantResponse,
+  AdminLoanApplication,
   AdminLoanMonitoring,
   AdminStats,
   AdminUser,
@@ -399,6 +400,7 @@ export const abTestApi = {
     try {
       const res = await apiClient.get<ExperimentConfig[]>('/ab-test/experiments');
       if (Array.isArray(res.data) && res.data.length > 0) {
+        res.data.forEach((exp) => saveExperimentConfig(exp));
         return res.data;
       }
     } catch {
@@ -410,7 +412,10 @@ export const abTestApi = {
   getExperiment: async (id: string): Promise<ExperimentConfig | null> => {
     try {
       const res = await apiClient.get<ExperimentConfig>(`/ab-test/experiments/${encodeURIComponent(id)}`);
-      if (res.data) return res.data;
+      if (res.data) {
+        saveExperimentConfig(res.data);
+        return res.data;
+      }
     } catch {
       // Backend endpoint optional; fall back to local storage
     }
@@ -418,12 +423,15 @@ export const abTestApi = {
   },
 
   saveExperiment: async (config: ExperimentConfig): Promise<ExperimentConfig> => {
-    const savedLocal = saveExperimentConfig(config);
     try {
       const res = await apiClient.post<ExperimentConfig>('/ab-test/experiments', config);
-      return res.data || savedLocal;
-    } catch {
-      return savedLocal;
+      const saved = res.data || config;
+      saveExperimentConfig(saved);
+      return saved;
+    } catch (err) {
+      // If server error, save locally as fallback and re-throw if critical
+      saveExperimentConfig(config);
+      throw err;
     }
   },
 
@@ -544,6 +552,37 @@ export const passportApi = {
     await apiClient.delete('/profile/passport');
   },
 };
+
+export const loanApplicationApi = {
+  getApplications: async (): Promise<AdminLoanApplication[]> => {
+    try {
+      const res = await apiClient.get<AdminLoanApplication[]>('/admin/loan-applications');
+      return Array.isArray(res.data) ? res.data : [];
+    } catch (err) {
+      console.error('Failed to fetch loan applications:', err);
+      return [];
+    }
+  },
+
+  approve: async (id: string): Promise<{ success: boolean; applicationId: string; status: string; message: string }> => {
+    const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string }>(
+      `/admin/loan-applications/${id}/approve`
+    );
+    return res.data;
+  },
+
+  reject: async (
+    id: string,
+    reason?: string
+  ): Promise<{ success: boolean; applicationId: string; status: string; message: string; reason?: string }> => {
+    const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string; reason?: string }>(
+      `/admin/loan-applications/${id}/reject`,
+      { reason }
+    );
+    return res.data;
+  },
+};
+
 
 
 

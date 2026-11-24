@@ -17,6 +17,9 @@ import {
   Calendar,
   Building,
   User as UserIcon,
+  Globe,
+  MapPin,
+  Users,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 
@@ -38,6 +41,7 @@ interface MicroloanApplicationModalProps {
   onSavedPassportUpdate: (data: PassportData) => void;
   onSuccess: (applicationId: string) => void;
   applyBtnClasses: string;
+  applyBtnStyle?: React.CSSProperties;
 }
 
 interface ValidationErrors {
@@ -46,6 +50,10 @@ interface ValidationErrors {
   issueDate?: string;
   departmentCode?: string;
   issuedBy?: string;
+  age?: string;
+  country?: string;
+  city?: string;
+  gender?: string;
 }
 
 export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps> = ({
@@ -66,6 +74,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
   onSavedPassportUpdate,
   onSuccess,
   applyBtnClasses,
+  applyBtnStyle,
 }) => {
   const { t, language } = useLanguage();
 
@@ -76,6 +85,10 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
     issueDate: '',
     departmentCode: '',
     issuedBy: '',
+    age: '',
+    country: '',
+    city: '',
+    gender: 'Мужской',
   });
 
   const [errors, setErrors] = useState<ValidationErrors>({});
@@ -100,13 +113,17 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
       // Ignore
     }
 
-    if (savedPassport && (savedPassport.fullName || savedPassport.seriesNumber)) {
+    if (savedPassport && (savedPassport.fullName || savedPassport.seriesNumber || savedPassport.loanApplicationRequest)) {
       setPassportData({
         fullName: savedPassport.fullName || '',
         seriesNumber: savedPassport.seriesNumber || '',
         issueDate: savedPassport.issueDate || '',
         departmentCode: savedPassport.departmentCode || '',
         issuedBy: savedPassport.issuedBy || '',
+        age: savedPassport.loanApplicationRequest?.age ? String(savedPassport.loanApplicationRequest.age) : '',
+        country: savedPassport.loanApplicationRequest?.country || '',
+        city: savedPassport.loanApplicationRequest?.city || '',
+        gender: savedPassport.loanApplicationRequest?.gender || 'Мужской',
       });
       setAutoFilledSource('profile');
       setSaveToProfile(false);
@@ -175,6 +192,27 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
       if (words.length < 2 || !validLetters) {
         errs.fullName = t('validationFioRequired');
       }
+    }
+
+    const ageNum = parseInt(data.age, 10);
+    if (!data.age || isNaN(ageNum)) {
+      errs.age = language === 'ru' ? 'Укажите возраст' : 'Age is required';
+    } else if (ageNum < 18) {
+      errs.age = language === 'ru' ? 'Микрозаймы доступны с 18 лет' : 'Must be at least 18 years old';
+    } else if (ageNum > 120) {
+      errs.age = language === 'ru' ? 'Некорректный возраст' : 'Invalid age';
+    }
+
+    if (!data.gender?.trim()) {
+      errs.gender = language === 'ru' ? 'Выберите пол' : 'Gender is required';
+    }
+
+    if (!data.country?.trim()) {
+      errs.country = language === 'ru' ? 'Укажите страну' : 'Country is required';
+    }
+
+    if (!data.city?.trim()) {
+      errs.city = language === 'ru' ? 'Укажите город' : 'City is required';
     }
 
     const seriesDigits = data.seriesNumber.replace(/\D/g, '');
@@ -269,6 +307,12 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
       issueDate: passportData.issueDate || undefined,
       departmentCode: passportData.departmentCode.trim() || undefined,
       issuedBy: passportData.issuedBy.trim() || undefined,
+      loanApplicationRequest: {
+        age: parseInt(passportData.age, 10) || 18,
+        country: passportData.country.trim(),
+        city: passportData.city.trim(),
+        gender: passportData.gender.trim(),
+      },
     };
 
     // Save to User Profile if authenticated and checked
@@ -517,6 +561,127 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 )}
               </div>
 
+              {/* Age and Gender Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <Calendar size={14} className="text-blue-600 dark:text-blue-400" />
+                    <span>{language === 'ru' ? 'Возраст' : 'Age'} *</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={18}
+                    max={120}
+                    required
+                    placeholder="28"
+                    value={passportData.age}
+                    onChange={(e) => {
+                      setPassportData({ ...passportData, age: e.target.value });
+                      if (errors.age) setErrors((prev) => ({ ...prev, age: undefined }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs font-semibold text-slate-900 dark:text-white transition-colors focus:outline-none ${
+                      errors.age
+                        ? 'border-red-400 focus:ring-2 focus:ring-red-400/50'
+                        : 'border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500'
+                    }`}
+                  />
+                  {errors.age && (
+                    <p className="text-red-600 dark:text-red-400 text-[11px] mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.age}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <Users size={14} className="text-blue-600 dark:text-blue-400" />
+                    <span>{language === 'ru' ? 'Пол' : 'Gender'} *</span>
+                  </label>
+                  <select
+                    value={passportData.gender}
+                    onChange={(e) => {
+                      setPassportData({ ...passportData, gender: e.target.value });
+                      if (errors.gender) setErrors((prev) => ({ ...prev, gender: undefined }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs font-semibold text-slate-900 dark:text-white transition-colors focus:outline-none ${
+                      errors.gender
+                        ? 'border-red-400 focus:ring-2 focus:ring-red-400/50'
+                        : 'border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500'
+                    }`}
+                  >
+                    <option value="Мужской">{language === 'ru' ? 'Мужской' : 'Male'}</option>
+                    <option value="Женский">{language === 'ru' ? 'Женский' : 'Female'}</option>
+                    <option value="Другой">{language === 'ru' ? 'Другой' : 'Other'}</option>
+                  </select>
+                  {errors.gender && (
+                    <p className="text-red-600 dark:text-red-400 text-[11px] mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.gender}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Country and City Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <Globe size={14} className="text-blue-600 dark:text-blue-400" />
+                    <span>{language === 'ru' ? 'Страна' : 'Country'} *</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={language === 'ru' ? 'Россия' : 'Country'}
+                    value={passportData.country}
+                    onChange={(e) => {
+                      setPassportData({ ...passportData, country: e.target.value });
+                      if (errors.country) setErrors((prev) => ({ ...prev, country: undefined }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs font-semibold text-slate-900 dark:text-white transition-colors focus:outline-none ${
+                      errors.country
+                        ? 'border-red-400 focus:ring-2 focus:ring-red-400/50'
+                        : 'border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500'
+                    }`}
+                  />
+                  {errors.country && (
+                    <p className="text-red-600 dark:text-red-400 text-[11px] mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.country}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <MapPin size={14} className="text-blue-600 dark:text-blue-400" />
+                    <span>{language === 'ru' ? 'Город' : 'City'} *</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={language === 'ru' ? 'Москва' : 'City'}
+                    value={passportData.city}
+                    onChange={(e) => {
+                      setPassportData({ ...passportData, city: e.target.value });
+                      if (errors.city) setErrors((prev) => ({ ...prev, city: undefined }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border rounded-xl text-xs font-semibold text-slate-900 dark:text-white transition-colors focus:outline-none ${
+                      errors.city
+                        ? 'border-red-400 focus:ring-2 focus:ring-red-400/50'
+                        : 'border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-blue-500'
+                    }`}
+                  />
+                  {errors.city && (
+                    <p className="text-red-600 dark:text-red-400 text-[11px] mt-1 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      {errors.city}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
                   <FileText size={14} className="text-blue-600 dark:text-blue-400" />
@@ -558,6 +723,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 <button
                   type="button"
                   onClick={handleNextFromStep1}
+                  style={applyBtnStyle}
                   className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer`}
                 >
                   <span>{t('stepNext')}</span>
@@ -666,6 +832,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 <button
                   type="button"
                   onClick={handleNextFromStep2}
+                  style={applyBtnStyle}
                   className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer`}
                 >
                   <span>{t('stepNext')}</span>
@@ -694,6 +861,19 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                     <span className="text-slate-500 dark:text-slate-400 block">{t('passportSeriesNumber')}:</span>
                     <span className="font-mono font-bold text-slate-900 dark:text-white">
                       {passportData.seriesNumber}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 block">{language === 'ru' ? 'Анкета' : 'Profile'}:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {passportData.age ? `${passportData.age} ${language === 'ru' ? 'лет' : 'y/o'}` : ''}
+                      {passportData.gender ? ` · ${passportData.gender}` : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 block">{language === 'ru' ? 'Локация' : 'Location'}:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
+                      {[passportData.country, passportData.city].filter(Boolean).join(', ') || '—'}
                     </span>
                   </div>
                   <div>
@@ -783,6 +963,7 @@ export const MicroloanApplicationModal: React.FC<MicroloanApplicationModalProps>
                 <button
                   type="submit"
                   disabled={isSubmitting}
+                  style={applyBtnStyle}
                   className={`flex-1 py-2.5 ${applyBtnClasses} text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60`}
                 >
                   {isSubmitting ? (

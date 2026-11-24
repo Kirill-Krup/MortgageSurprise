@@ -30,6 +30,7 @@ import { getApiErrorMessage } from '../utils/errors';
 import {
   BUTTON_COLOR_VARIANTS,
   getMortgageCalculateButtonClasses,
+  getButtonColorStyle,
 } from '../utils/abTesting';
 
 interface CalculatorPageProps {
@@ -665,6 +666,7 @@ export const CalculatorPage: React.FC<CalculatorPageProps> = ({
                 type="button"
                 onClick={() => calculateMortgage({ audit: true })}
                 disabled={loading || user?.role === 'ROLE_ADMIN'}
+                style={getButtonColorStyle(mortgageCalcBtnVariant)}
                 className={`w-full py-3.5 ${mortgageCalcBtnClasses} text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {loading ? (

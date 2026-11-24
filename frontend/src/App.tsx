@@ -21,13 +21,13 @@ interface AppLocation {
 }
 
 const PROFILE_SECTIONS: ProfileSection[] = ['overview', 'microloans', 'scenarios', 'compare', 'history'];
-const ADMIN_SECTIONS: AdminSection[] = ['overview', 'users', 'loans', 'products', 'rates', 'journal', 'abtest'];
+const ADMIN_SECTIONS: AdminSection[] = ['overview', 'users', 'loans', 'applications', 'products', 'rates', 'journal', 'abtest'];
 
 const parseHash = (): AppLocation => {
   const raw = window.location.hash.replace('#', '').toLowerCase();
   const [head, sub] = raw.split('/');
   if (head === 'admin') {
-    const adminSection = sub === 'applications' ? 'loans' : (sub as AdminSection);
+    const adminSection = sub as AdminSection;
     return {
       tab: 'admin',
       profile: 'overview',

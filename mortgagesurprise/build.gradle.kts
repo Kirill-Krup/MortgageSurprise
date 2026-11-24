@@ -2,6 +2,8 @@ plugins {
 	java
 	id("org.springframework.boot") version "4.1.2"
 	id("io.spring.dependency-management") version "1.1.7"
+    kotlin("jvm") version "2.3.0"
+    id("io.qameta.allure") version "3.0.0"
 }
 
 group = "com.surprise"
@@ -65,6 +67,16 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("ch.martinelli.oss:testcontainers-mailpit:1.3.0")
     testImplementation("org.wiremock:wiremock-standalone:3.12.1")
+
+    testImplementation("org.assertj:assertj-core:3.26.0")
+    testImplementation("com.codeborne:selenide:7.3.2")
+    testImplementation("com.squareup.retrofit2:retrofit:2.11.0")
+    testImplementation("com.squareup.retrofit2:converter-jackson:2.11.0")
+    testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    testImplementation("io.qameta.allure:allure-junit5:2.27.0")
+    testImplementation("io.qameta.allure:allure-selenide:2.27.0")
+    testImplementation("io.qameta.allure:allure-okhttp3:2.27.0")
 }
 
 tasks.withType<Test> {

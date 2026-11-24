@@ -25,6 +25,7 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleBusiness(BusinessException ex, HttpServletRequest request) {
         var pd = problem(ex.getCode());
         pd.setInstance(URI.create(request.getRequestURI()));
+        pd.setDetail(ex.getMessage());
         return pd;
     }
 
@@ -68,6 +69,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ProblemDetail handleResourceNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        var pd = problem(ErrorCode.NOT_FOUND);
+        pd.setInstance(URI.create(request.getRequestURI()));
+        pd.setDetail(ex.getMessage());
+        return pd;
+    }
+
+    @ExceptionHandler(MicroLoanRateNotFoundException.class)
+    public ProblemDetail handleMicroLoanRateNotFound(MicroLoanRateNotFoundException ex, HttpServletRequest request) {
         var pd = problem(ErrorCode.NOT_FOUND);
         pd.setInstance(URI.create(request.getRequestURI()));
         pd.setDetail(ex.getMessage());

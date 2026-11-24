@@ -17,7 +17,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class UserAbTestVariant {
+public class UserAbTestVariant extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -26,6 +26,17 @@ public class UserAbTestVariant {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Column(name = "experiment_name", nullable = false, length = 100)
+    private String experimentName;
+
+    // No cascade: deleting an assignment must never delete the variant definition.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "ab_test_variant_id", nullable = false)
     private AbTestVariant abTestVariant;
+
+    public UserAbTestVariant(UUID userId, AbTestVariant abTestVariant) {
+        this.userId = userId;
+        this.abTestVariant = abTestVariant;
+        this.experimentName = abTestVariant.getExperimentName();
+    }
 }

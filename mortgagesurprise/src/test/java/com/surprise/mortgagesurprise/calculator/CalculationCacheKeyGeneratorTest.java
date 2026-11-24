@@ -37,7 +37,6 @@ class CalculationCacheKeyGeneratorTest {
         @Test
         @DisplayName("Should generate identical 64-character SHA-256 keys for matching mortgage requests")
         void generateKey_shouldReturnDeterministicHash_whenMortgageRequestsMatch() {
-            // Arrange
             CalculationRequest req1 = new CalculationRequest(
                     TestConstants.PROPERTY_PRICE,
                     TestConstants.DOWN_PAYMENT,
@@ -60,11 +59,9 @@ class CalculationCacheKeyGeneratorTest {
                     List.of()
             );
 
-            // Act
             String key1 = keyGenerator.generateKey(req1);
             String key2 = keyGenerator.generateKey(req2);
 
-            // Assert
             assertThat(key1)
                     .isNotNull()
                     .hasSize(64)
@@ -74,7 +71,6 @@ class CalculationCacheKeyGeneratorTest {
         @Test
         @DisplayName("Should produce different keys when mortgage calculation parameters differ")
         void generateKey_shouldReturnDifferentHashes_whenMortgageParametersDiffer() {
-            // Arrange
             CalculationRequest req1 = new CalculationRequest(
                     TestConstants.PROPERTY_PRICE,
                     TestConstants.DOWN_PAYMENT,
@@ -95,21 +91,17 @@ class CalculationCacheKeyGeneratorTest {
                     List.of()
             );
 
-            // Act
             String key1 = keyGenerator.generateKey(req1);
             String key2 = keyGenerator.generateKey(req2);
 
-            // Assert
             assertThat(key1).isNotEqualTo(key2);
         }
 
         @Test
         @DisplayName("Should throw IllegalArgumentException when mortgage request is null")
         void generateKey_shouldThrowIllegalArgumentException_whenMortgageRequestIsNull() {
-            // Arrange
             CalculationRequest nullRequest = null;
 
-            // Act & Assert
             assertThatThrownBy(() -> keyGenerator.generateKey(nullRequest))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Calculation request cannot be null");
@@ -123,7 +115,6 @@ class CalculationCacheKeyGeneratorTest {
         @Test
         @DisplayName("Should generate deterministic keys for identical microloan requests")
         void generateKey_shouldReturnDeterministicHash_whenMicroloanRequestsMatch() {
-            // Arrange
             LocalDate date = LocalDate.of(2026, 6, 1);
             MicroloanCalculationRequest req1 = new MicroloanCalculationRequest(
                     TestConstants.MICROLOAN_AMOUNT,
@@ -147,11 +138,9 @@ class CalculationCacheKeyGeneratorTest {
                     Currency.RUB
             );
 
-            // Act
             String key1 = keyGenerator.generateKey(req1, TestConstants.BASE_DAILY_RATE, TestConstants.BANK_INTEREST);
             String key2 = keyGenerator.generateKey(req2, TestConstants.BASE_DAILY_RATE, TestConstants.BANK_INTEREST);
 
-            // Assert
             assertThat(key1)
                     .isNotNull()
                     .hasSize(64)
@@ -174,21 +163,17 @@ class CalculationCacheKeyGeneratorTest {
                     Currency.RUB
             );
 
-            // Act
             String key1 = keyGenerator.generateKey(request, new BigDecimal("0.8000"), new BigDecimal("2000.0000"));
             String key2 = keyGenerator.generateKey(request, new BigDecimal("0.9000"), new BigDecimal("2000.0000"));
 
-            // Assert
             assertThat(key1).isNotEqualTo(key2);
         }
 
         @Test
         @DisplayName("Should throw IllegalArgumentException when microloan request is null")
         void generateKey_shouldThrowIllegalArgumentException_whenMicroloanRequestIsNull() {
-            // Arrange
             MicroloanCalculationRequest nullRequest = null;
 
-            // Act & Assert
             assertThatThrownBy(() -> keyGenerator.generateKey(nullRequest, BigDecimal.ONE, BigDecimal.TEN))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Microloan calculation request cannot be null");

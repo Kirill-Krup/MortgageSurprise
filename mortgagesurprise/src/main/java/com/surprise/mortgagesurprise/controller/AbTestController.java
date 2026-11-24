@@ -4,6 +4,7 @@ import com.surprise.mortgagesurprise.adapter.AbTestAdapter;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestAssignmentRequest;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestAssignmentResponse;
 import com.surprise.mortgagesurprise.dto.abtest.AbTestStatsResponse;
+import com.surprise.mortgagesurprise.dto.abtest.ExperimentConfigDTO;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/ab-test")
@@ -41,5 +44,28 @@ public class AbTestController {
             @RequestParam(defaultValue = "mortgage_calculate_button") String experimentName
     ) {
         return ResponseEntity.ok(abTestAdapter.getStats(experimentName));
+    }
+
+    @GetMapping("/experiments")
+    public ResponseEntity<List<ExperimentConfigDTO>> getAllExperiments() {
+        return ResponseEntity.ok(abTestAdapter.getAllExperiments());
+    }
+
+    @GetMapping("/experiments/{id}")
+    public ResponseEntity<ExperimentConfigDTO> getExperiment(@PathVariable String id) {
+        return ResponseEntity.ok(abTestAdapter.getExperiment(id));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/experiments")
+    public ResponseEntity<ExperimentConfigDTO> saveExperiment(@Valid @RequestBody ExperimentConfigDTO request) {
+        return ResponseEntity.ok(abTestAdapter.saveExperiment(request));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/experiments/{id}")
+    public ResponseEntity<Void> deleteExperiment(@PathVariable String id) {
+        abTestAdapter.deleteExperiment(id);
+        return ResponseEntity.noContent().build();
     }
 }

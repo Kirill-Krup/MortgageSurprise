@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.controller;
 
 import com.surprise.mortgagesurprise.adapter.AuthAdapter;
+import com.surprise.mortgagesurprise.dto.ErrorCode;
 import com.surprise.mortgagesurprise.dto.auth.*;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
@@ -82,8 +83,7 @@ public class AuthController {
             HttpServletResponse response
     ) {
         AuthResponse authResponse = oAuth2CodeStore.consume(request.code())
-                .orElseThrow(() -> new BusinessException(
-                        "Invalid or expired OAuth2 code"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_OAUTH2_CODE));
         setAuthCookies(response, authResponse);
         return ResponseEntity.ok(authResponse);
     }
