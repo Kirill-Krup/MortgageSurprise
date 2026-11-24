@@ -2,12 +2,14 @@ package com.idfinance.credit_scoring_service.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
 
 @Entity
 @Getter
 @Setter
+@NoArgsConstructor
 @Table(name = "age_rules")
 @SoftDelete(columnName = "is_active")
 public class AgeRule {
@@ -27,4 +29,11 @@ public class AgeRule {
 
     @Column(name = "credit_score")
     private Float creditScore;
+
+    public AgeRule(Integer minAge, Integer maxAge, RuleType ruleType, Float creditScore) {
+        this.minAge = minAge;
+        this.maxAge = maxAge;
+        this.ruleType = ruleType;
+        this.creditScore = creditScore;
+    }
 }

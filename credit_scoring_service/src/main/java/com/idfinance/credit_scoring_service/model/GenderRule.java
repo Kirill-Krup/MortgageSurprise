@@ -3,15 +3,18 @@ package com.idfinance.credit_scoring_service.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
 
 @Entity
 @Getter
 @Setter
+@NoArgsConstructor
 @Table(name = "gender_rules")
 @SoftDelete(columnName = "is_active")
 public class GenderRule {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -25,4 +28,10 @@ public class GenderRule {
 
     @Column(name = "credit_score")
     private Float creditScore;
+
+    public GenderRule(String name, RuleType ruleType, Float creditScore) {
+        this.name = name;
+        this.ruleType = ruleType;
+        this.creditScore = creditScore;
+    }
 }

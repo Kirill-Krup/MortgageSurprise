@@ -2,12 +2,14 @@ package com.idfinance.credit_scoring_service.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
 
 @Entity
 @Getter
 @Setter
+@NoArgsConstructor
 @Table(name = "city_rules")
 @SoftDelete(columnName = "is_active")
 public class CityRule {
@@ -24,4 +26,10 @@ public class CityRule {
 
     @Column(name = "credit_score")
     private Float creditScore;
+
+    public CityRule(String cityName, RuleType ruleType, Float creditScore) {
+        this.cityName = cityName;
+        this.ruleType = ruleType;
+        this.creditScore = creditScore;
+    }
 }
