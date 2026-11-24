@@ -2,6 +2,7 @@ import axios from 'axios';
 import type {
   AbTestStatsResponse,
   AbTestVariantResponse,
+  AdminLoanApplication,
   AdminLoanMonitoring,
   AdminStats,
   AdminUser,
@@ -551,6 +552,37 @@ export const passportApi = {
     await apiClient.delete('/profile/passport');
   },
 };
+
+export const loanApplicationApi = {
+  getApplications: async (): Promise<AdminLoanApplication[]> => {
+    try {
+      const res = await apiClient.get<AdminLoanApplication[]>('/admin/loan-applications');
+      return Array.isArray(res.data) ? res.data : [];
+    } catch (err) {
+      console.error('Failed to fetch loan applications:', err);
+      return [];
+    }
+  },
+
+  approve: async (id: string): Promise<{ success: boolean; applicationId: string; status: string; message: string }> => {
+    const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string }>(
+      `/admin/loan-applications/${id}/approve`
+    );
+    return res.data;
+  },
+
+  reject: async (
+    id: string,
+    reason?: string
+  ): Promise<{ success: boolean; applicationId: string; status: string; message: string; reason?: string }> => {
+    const res = await apiClient.post<{ success: boolean; applicationId: string; status: string; message: string; reason?: string }>(
+      `/admin/loan-applications/${id}/reject`,
+      { reason }
+    );
+    return res.data;
+  },
+};
+
 
 
 

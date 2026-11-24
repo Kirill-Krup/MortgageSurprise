@@ -46,6 +46,18 @@ public class UserPassportData {
     @Column(name = "issued_by", length = 255)
     private String issuedBy;
 
+    @Column(name = "age")
+    private Integer age;
+
+    @Column(name = "country", length = 100)
+    private String country;
+
+    @Column(name = "city", length = 100)
+    private String city;
+
+    @Column(name = "gender", length = 32)
+    private String gender;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

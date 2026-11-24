@@ -39,6 +39,9 @@ import {
   Calendar,
   Check,
   ArrowRight,
+  Globe,
+  MapPin,
+  Users,
 } from 'lucide-react';
 
 type ProfileTab = 'overview' | 'microloans' | 'scenarios' | 'history';
@@ -152,6 +155,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         issueDate: passportData.issueDate || '',
         departmentCode: passportData.departmentCode || '',
         issuedBy: passportData.issuedBy || '',
+        loanApplicationRequest: passportData.loanApplicationRequest
+          ? {
+              age: passportData.loanApplicationRequest.age,
+              country: passportData.loanApplicationRequest.country || '',
+              city: passportData.loanApplicationRequest.city || '',
+              gender: passportData.loanApplicationRequest.gender || 'Мужской',
+            }
+          : {
+              age: 25,
+              country: 'Россия',
+              city: 'Москва',
+              gender: 'Мужской',
+            },
       });
     } else {
       setPassportForm({
@@ -160,6 +176,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         issueDate: '',
         departmentCode: '',
         issuedBy: '',
+        loanApplicationRequest: {
+          age: 25,
+          country: 'Россия',
+          city: 'Москва',
+          gender: 'Мужской',
+        },
       });
     }
     setPassportModalOpen(true);
@@ -178,6 +200,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         issueDate: passportForm.issueDate || undefined,
         departmentCode: passportForm.departmentCode || undefined,
         issuedBy: passportForm.issuedBy || undefined,
+        loanApplicationRequest: passportForm.loanApplicationRequest?.age
+          ? {
+              age: Number(passportForm.loanApplicationRequest.age),
+              country: passportForm.loanApplicationRequest.country?.trim() || '',
+              city: passportForm.loanApplicationRequest.city?.trim() || '',
+              gender: passportForm.loanApplicationRequest.gender?.trim() || 'Мужской',
+            }
+          : undefined,
       });
       setPassportData(saved);
       setPassportModalOpen(false);
@@ -813,6 +843,46 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <div className="sm:col-span-2 lg:col-span-4 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
                         <span className="text-slate-400 block mb-0.5">{t('issuedBy')}</span>
                         <span className="text-slate-700 dark:text-slate-300">{passportData.issuedBy}</span>
+                      </div>
+                    )}
+                    {passportData.loanApplicationRequest && (
+                      <div className="sm:col-span-2 lg:col-span-4 pt-3 border-t border-slate-200/60 dark:border-slate-800/60 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <span className="text-slate-400 block mb-0.5 flex items-center gap-1">
+                            <Calendar size={12} className="text-blue-500" />
+                            {language === 'ru' ? 'Возраст' : 'Age'}
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {passportData.loanApplicationRequest.age ? `${passportData.loanApplicationRequest.age} ${language === 'ru' ? 'лет' : 'y/o'}` : '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block mb-0.5 flex items-center gap-1">
+                            <Users size={12} className="text-blue-500" />
+                            {language === 'ru' ? 'Пол' : 'Gender'}
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {passportData.loanApplicationRequest.gender || '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block mb-0.5 flex items-center gap-1">
+                            <Globe size={12} className="text-blue-500" />
+                            {language === 'ru' ? 'Страна' : 'Country'}
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {passportData.loanApplicationRequest.country || '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block mb-0.5 flex items-center gap-1">
+                            <MapPin size={12} className="text-blue-500" />
+                            {language === 'ru' ? 'Город' : 'City'}
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {passportData.loanApplicationRequest.city || '—'}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2042,6 +2112,112 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     onChange={(e) => setPassportForm({ ...passportForm, issuedBy: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+              </div>
+
+              {/* Questionnaire details (age, gender, country, city) */}
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                  {language === 'ru' ? 'Анкета заемщика' : 'Borrower Questionnaire'}
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <Calendar size={12} className="text-blue-500" />
+                      {language === 'ru' ? 'Возраст' : 'Age'}
+                    </label>
+                    <input
+                      type="number"
+                      min={18}
+                      max={120}
+                      placeholder="25"
+                      value={passportForm.loanApplicationRequest?.age ?? ''}
+                      onChange={(e) =>
+                        setPassportForm({
+                          ...passportForm,
+                          loanApplicationRequest: {
+                            age: e.target.value ? Number(e.target.value) : 18,
+                            country: passportForm.loanApplicationRequest?.country || '',
+                            city: passportForm.loanApplicationRequest?.city || '',
+                            gender: passportForm.loanApplicationRequest?.gender || 'Мужской',
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <Users size={12} className="text-blue-500" />
+                      {language === 'ru' ? 'Пол' : 'Gender'}
+                    </label>
+                    <select
+                      value={passportForm.loanApplicationRequest?.gender || 'Мужской'}
+                      onChange={(e) =>
+                        setPassportForm({
+                          ...passportForm,
+                          loanApplicationRequest: {
+                            age: passportForm.loanApplicationRequest?.age || 18,
+                            country: passportForm.loanApplicationRequest?.country || '',
+                            city: passportForm.loanApplicationRequest?.city || '',
+                            gender: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Мужской">{language === 'ru' ? 'Мужской' : 'Male'}</option>
+                      <option value="Женский">{language === 'ru' ? 'Женский' : 'Female'}</option>
+                      <option value="Другой">{language === 'ru' ? 'Другой' : 'Other'}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <Globe size={12} className="text-blue-500" />
+                      {language === 'ru' ? 'Страна' : 'Country'}
+                    </label>
+                    <input
+                      placeholder={language === 'ru' ? 'Россия' : 'Country'}
+                      value={passportForm.loanApplicationRequest?.country || ''}
+                      onChange={(e) =>
+                        setPassportForm({
+                          ...passportForm,
+                          loanApplicationRequest: {
+                            age: passportForm.loanApplicationRequest?.age || 18,
+                            country: e.target.value,
+                            city: passportForm.loanApplicationRequest?.city || '',
+                            gender: passportForm.loanApplicationRequest?.gender || 'Мужской',
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <MapPin size={12} className="text-blue-500" />
+                      {language === 'ru' ? 'Город' : 'City'}
+                    </label>
+                    <input
+                      placeholder={language === 'ru' ? 'Москва' : 'City'}
+                      value={passportForm.loanApplicationRequest?.city || ''}
+                      onChange={(e) =>
+                        setPassportForm({
+                          ...passportForm,
+                          loanApplicationRequest: {
+                            age: passportForm.loanApplicationRequest?.age || 18,
+                            country: passportForm.loanApplicationRequest?.country || '',
+                            city: e.target.value,
+                            gender: passportForm.loanApplicationRequest?.gender || 'Мужской',
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3 pt-3">

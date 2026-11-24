@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.dto.profile;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -19,5 +20,12 @@ public record PassportDataDTO(
         String departmentCode,
 
         @Size(max = 255)
-        String issuedBy
-) {}
+        String issuedBy,
+
+        @Valid
+        LoanApplicationRequest loanApplicationRequest
+) {
+    public PassportDataDTO(String fullName, String seriesNumber, String issueDate, String departmentCode, String issuedBy) {
+        this(fullName, seriesNumber, issueDate, departmentCode, issuedBy, null);
+    }
+}

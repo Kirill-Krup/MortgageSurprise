@@ -344,11 +344,40 @@ export interface UserActivityRecord {
   timestamp: string;
 }
 
+export interface LoanApplicationRequest {
+  age: number;
+  country: string;
+  city: string;
+  gender: string;
+}
+
 export interface PassportData {
   fullName: string;
   seriesNumber: string;
   issueDate?: string;
   departmentCode?: string;
   issuedBy?: string;
+  loanApplicationRequest?: LoanApplicationRequest;
+}
+
+export interface AdminLoanApplication {
+  id: string;
+  userId?: string;
+  userEmail: string;
+  fullName: string;
+  amount: number;
+  termDays: number;
+  purpose?: string;
+  microloanType?: string;
+  totalRepayment: number;
+  currency: string;
+  scoring: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+  age?: number;
+  country?: string;
+  city?: string;
+  gender?: string;
+  passportSeriesNumber?: string;
 }
 

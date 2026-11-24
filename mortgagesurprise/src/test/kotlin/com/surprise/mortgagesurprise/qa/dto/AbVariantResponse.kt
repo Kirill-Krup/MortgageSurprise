@@ -4,6 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class AbVariantResponse(
-    val experimentName: String,
-    val color: String
+    val experimentName: String = "",
+    val color: String = ""
 )

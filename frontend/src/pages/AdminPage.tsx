@@ -5,6 +5,7 @@ import {
   adminManagementApi,
   bankOfferApi,
   calculatorApi,
+  loanApplicationApi,
   microloanRateApi,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +13,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import type {
   AbTestStatsResponse,
+  AdminLoanApplication,
   AdminLoanMonitoring,
   AdminStats,
   AdminUser,
@@ -36,6 +38,7 @@ import {
   ChevronRight,
   Clock,
   Coins,
+  FileCheck,
   FlaskConical,
   Globe,
   Landmark,
@@ -51,6 +54,8 @@ import {
   RefreshCw,
   ScrollText,
   Search,
+  ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Sun,
   Target,
@@ -58,9 +63,10 @@ import {
   TrendingUp,
   Users,
   X,
+  XCircle,
 } from 'lucide-react';
 
-export type AdminSection = 'overview' | 'users' | 'loans' | 'products' | 'rates' | 'journal' | 'abtest';
+export type AdminSection = 'overview' | 'users' | 'loans' | 'applications' | 'products' | 'rates' | 'journal' | 'abtest';
 
 export interface AdminPageProps {
   section?: AdminSection;
@@ -167,6 +173,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   const [loanCategoryFilter, setLoanCategoryFilter] = useState<'ALL' | 'MICROLOAN' | 'MORTGAGE'>('ALL');
   const [loanPage, setLoanPage] = useState(1);
 
+  // Loan Applications & Scoring state (Requirement 2)
+  const [applicationsList, setApplicationsList] = useState<AdminLoanApplication[]>([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [appSearch, setAppSearch] = useState('');
+  const [appStatusFilter, setAppStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [processingAppId, setProcessingAppId] = useState<string | null>(null);
+  const [appPage, setAppPage] = useState(1);
+
   // Filter States: Bank Offers
   const [offerQuery, setOfferQuery] = useState('');
   const [currency, setCurrency] = useState<'ALL' | Currency>('ALL');
@@ -246,6 +260,138 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
     }
   };
 
+  const loadApplications = async () => {
+    setApplicationsLoading(true);
+    try {
+      const data = await loanApplicationApi.getApplications();
+      setApplicationsList(Array.isArray(data) ? data : []);
+    } catch {
+      setApplicationsList([]);
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
+  const handleApproveApplication = async (app: AdminLoanApplication) => {
+    if (app.scoring <= 0.5) {
+      setError(
+        language === 'ru'
+          ? `Одобрение невозможно: скоринговый балл (${app.scoring}) меньше или равен 0.5!`
+          : `Approval impossible: scoring score (${app.scoring}) is less than or equal to 0.5!`
+      );
+      return;
+    }
+    setProcessingAppId(app.id);
+    try {
+      await loanApplicationApi.approve(app.id);
+      setApplicationsList((prev) =>
+        prev.map((item) => (item.id === app.id ? { ...item, status: 'APPROVED' } : item))
+      );
+      setToastMessage(
+        language === 'ru'
+          ? `Заявка ${app.id} одобрена (Скоринг: ${(app.scoring * 100).toFixed(0)}%)`
+          : `Application ${app.id} approved (Score: ${(app.scoring * 100).toFixed(0)}%)`
+      );
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Не удалось одобрить заявку'));
+    } finally {
+      setProcessingAppId(null);
+    }
+  };
+
+  const handleRejectApplication = async (app: AdminLoanApplication) => {
+    const reason = window.prompt(
+      language === 'ru' ? 'Укажите причину отклонения заявки:' : 'Enter rejection reason:',
+      language === 'ru' ? 'Низкий скоринговый балл' : 'Low credit score'
+    );
+    if (reason === null) return;
+    setProcessingAppId(app.id);
+    try {
+      await loanApplicationApi.reject(app.id, reason);
+      setApplicationsList((prev) =>
+        prev.map((item) => (item.id === app.id ? { ...item, status: 'REJECTED' } : item))
+      );
+      setToastMessage(
+        language === 'ru' ? `Заявка ${app.id} отклонена` : `Application ${app.id} rejected`
+      );
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Не удалось отклонить заявку'));
+    } finally {
+      setProcessingAppId(null);
+    }
+  };
+
+  const loadDemoApplications = () => {
+    const demoApps: AdminLoanApplication[] = [
+      {
+        id: 'APP-10291',
+        userEmail: 'alex.petrov@example.com',
+        fullName: 'Петров Алексей Сергеевич',
+        amount: 25000,
+        termDays: 14,
+        purpose: 'Ремонт бытовой техники',
+        microloanType: 'BASIC_NEEDS',
+        totalRepayment: 27800,
+        currency: 'RUB',
+        scoring: 0.82,
+        status: 'PENDING',
+        createdAt: new Date(Date.now() - 3600000).toISOString(),
+        age: 31,
+        country: 'Россия',
+        city: 'Москва',
+        gender: 'Мужской',
+        passportSeriesNumber: '4519 881234',
+      },
+      {
+        id: 'APP-10292',
+        userEmail: 'elena.sidorova@example.com',
+        fullName: 'Сидорова Елена Викторовна',
+        amount: 50000,
+        termDays: 30,
+        purpose: 'Покупка нового смартфона',
+        microloanType: 'VANITY',
+        totalRepayment: 62000,
+        currency: 'RUB',
+        scoring: 0.38,
+        status: 'PENDING',
+        createdAt: new Date(Date.now() - 7200000).toISOString(),
+        age: 21,
+        country: 'Россия',
+        city: 'Санкт-Петербург',
+        gender: 'Женский',
+        passportSeriesNumber: '4016 112345',
+      },
+      {
+        id: 'APP-10293',
+        userEmail: 'dmitry.kozlov@example.com',
+        fullName: 'Козлов Дмитрий Иванович',
+        amount: 15000,
+        termDays: 10,
+        purpose: 'Срочные медицинские анализы',
+        microloanType: 'BASIC_NEEDS',
+        totalRepayment: 16200,
+        currency: 'RUB',
+        scoring: 0.65,
+        status: 'PENDING',
+        createdAt: new Date(Date.now() - 14400000).toISOString(),
+        age: 44,
+        country: 'Беларусь',
+        city: 'Минск',
+        gender: 'Мужской',
+        passportSeriesNumber: '4512 654321',
+      },
+    ];
+    setApplicationsList(demoApps);
+    setToastMessage(
+      language === 'ru'
+        ? 'Загружены тестовые заявки (с баллами 0.82, 0.38 и 0.65) для проверки скоринга'
+        : 'Demo applications loaded (scores 0.82, 0.38, and 0.65) for scoring verification'
+    );
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
   const loadOffers = async () => {
     setOffersState('loading');
     try {
@@ -320,6 +466,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
     loadStats();
     loadUsers();
     loadLoans();
+    loadApplications();
     loadOffers();
     loadRates();
     loadLogs();
@@ -716,6 +863,27 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
   const safeLoanPage = Math.min(loanPage, loanPageCount);
   const pageLoans = filteredLoans.slice((safeLoanPage - 1) * loanPageSize, safeLoanPage * loanPageSize);
 
+  // Filtered Loan Applications
+  const filteredApplications = useMemo(() => {
+    const q = appSearch.trim().toLowerCase();
+    return applicationsList.filter((app) => {
+      const matchesSearch =
+        !q ||
+        app.id.toLowerCase().includes(q) ||
+        app.fullName.toLowerCase().includes(q) ||
+        app.userEmail.toLowerCase().includes(q) ||
+        (app.city && app.city.toLowerCase().includes(q)) ||
+        (app.country && app.country.toLowerCase().includes(q));
+      const matchesStatus = appStatusFilter === 'ALL' || app.status === appStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [applicationsList, appSearch, appStatusFilter]);
+
+  const appPageSize = 6;
+  const appPageCount = Math.max(1, Math.ceil(filteredApplications.length / appPageSize));
+  const safeAppPage = Math.min(appPage, appPageCount);
+  const pageApplications = filteredApplications.slice((safeAppPage - 1) * appPageSize, safeAppPage * appPageSize);
+
   // Filtered Bank Offers
   const filteredOffers = useMemo(() => {
     const needle = offerQuery.trim().toLowerCase();
@@ -1015,6 +1183,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       icon: <Coins size={18} />,
     },
     {
+      id: 'applications' as const,
+      label: language === 'ru' ? 'Заявки (Скоринг)' : 'Applications (Scoring)',
+      icon: <FileCheck size={18} />,
+    },
+    {
       id: 'products' as const,
       label: t('adminNavProducts'),
       icon: <Landmark size={18} />,
@@ -1037,6 +1210,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         return t('adminSectionUsers');
       case 'loans':
         return t('adminSectionLoans');
+      case 'applications':
+        return language === 'ru' ? 'Заявки на микрозаймы и скоринг' : 'Microloan Applications & Scoring';
       case 'products':
       case 'rates':
         return t('adminProductsTitle');
@@ -1056,6 +1231,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         return t('adminSectionUsersDesc');
       case 'loans':
         return t('adminSectionLoansDesc');
+      case 'applications':
+        return language === 'ru'
+          ? 'Одобрение заявок на микрозаймы: решение принимается на основе скорингового балла (порог > 0.5)'
+          : 'Microloan application approval: decisions are made based on scoring evaluation (threshold > 0.5)';
       case 'products':
       case 'rates':
         return t('adminProductsDesc');
@@ -1583,6 +1762,51 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                     </div>
                   </div>
 
+                  {/* Microloan Applications & Scoring Widget */}
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                        <FileCheck size={16} className="text-blue-600 dark:text-blue-400" />
+                        <span>{language === 'ru' ? 'Заявки на микрозаймы' : 'Loan Applications'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigateTo('applications')}
+                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <span>{language === 'ru' ? 'Все заявки' : 'All applications'}</span>
+                        <span>&gt;</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'ru' ? 'Ожидают решения' : 'Pending review'}:
+                        </span>
+                        <span className="font-extrabold text-amber-600 dark:text-amber-400">
+                          {applicationsList.filter((a) => a.status === 'PENDING').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'ru' ? 'Одобрено (скоринг > 0.5)' : 'Approved (> 0.5)'}:
+                        </span>
+                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                          {applicationsList.filter((a) => a.status === 'APPROVED').length}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {language === 'ru' ? 'Порог скоринга' : 'Scoring threshold'}:
+                        </span>
+                        <span className="font-bold text-blue-600 dark:text-blue-400">
+                          &gt; 0.5
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* A/B Testing Overview Widget */}
                   <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
@@ -1875,9 +2099,34 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
             </div>
           )}
 
-          {/* VIEW: LOANS & REPAYMENT MONITORING (No Approvals, Observational Only) */}
+          {/* VIEW: LOANS & REPAYMENT MONITORING */}
           {section === 'loans' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div className="space-y-4">
+              {/* Tab Switcher */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigateTo('loans')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                >
+                  {t('adminNavLoans')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('applications')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5"
+                >
+                  <FileCheck size={14} className="text-blue-500" />
+                  <span>{language === 'ru' ? 'Заявки на микрозаймы (Скоринг)' : 'Microloan Applications (Scoring)'}</span>
+                  {applicationsList.filter((a) => a.status === 'PENDING').length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                      {applicationsList.filter((a) => a.status === 'PENDING').length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
               <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                 <div className="relative flex-1">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -2063,6 +2312,344 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
                       {num}
                     </button>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+          {/* VIEW: LOAN APPLICATIONS & SCORING APPROVAL */}
+          {section === 'applications' && (
+            <div className="space-y-5">
+              {/* Subnav switcher */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigateTo('loans')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  {t('adminNavLoans')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateTo('applications')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer bg-blue-600 text-white shadow-md shadow-blue-600/20 flex items-center gap-1.5"
+                >
+                  <FileCheck size={14} />
+                  <span>{language === 'ru' ? 'Заявки на микрозаймы (Скоринг)' : 'Microloan Applications (Scoring)'}</span>
+                  {applicationsList.filter((a) => a.status === 'PENDING').length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-white/20 text-white">
+                      {applicationsList.filter((a) => a.status === 'PENDING').length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Scoring Rules Explanation Banner */}
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-blue-950/40 rounded-2xl border border-blue-200/80 dark:border-blue-900/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-blue-600 text-white shrink-0 mt-0.5 sm:mt-0">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <div className="text-xs">
+                    <div className="font-extrabold text-slate-900 dark:text-white">
+                      {language === 'ru' ? 'Правило скоринга и одобрения заявок' : 'Scoring & Approval Rule'}
+                    </div>
+                    <div className="text-slate-600 dark:text-slate-300 mt-0.5">
+                      {language === 'ru'
+                        ? 'Одобрение микрозаймов возможно только при скоринговом балле выше 0.5 (> 0.5). При значении ≤ 0.5 кнопка одобрения автоматически блокируется системой.'
+                        : 'Microloan approval is permitted only when the scoring score exceeds 0.5 (> 0.5). For scores ≤ 0.5, approval is automatically locked.'}
+                    </div>
+                  </div>
+                </div>
+                {applicationsList.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={loadDemoApplications}
+                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm shadow-blue-600/20 flex items-center gap-1.5"
+                  >
+                    <Plus size={14} />
+                    <span>{language === 'ru' ? 'Загрузить тестовые данные' : 'Load Demo Applications'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Applications Card & Table */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+                  <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={appSearch}
+                      onChange={(e) => {
+                        setAppSearch(e.target.value);
+                        setAppPage(1);
+                      }}
+                      placeholder={
+                        language === 'ru'
+                          ? 'Поиск по ID, ФИО, email, городу или стране...'
+                          : 'Search by ID, applicant name, email, city or country...'
+                      }
+                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-medium focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={appStatusFilter}
+                      onChange={(e) => {
+                        setAppStatusFilter(e.target.value as any);
+                        setAppPage(1);
+                      }}
+                      className="px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">{language === 'ru' ? 'Все статусы' : 'All Statuses'}</option>
+                      <option value="PENDING">{language === 'ru' ? 'На рассмотрении' : 'Pending'}</option>
+                      <option value="APPROVED">{language === 'ru' ? 'Одобрено' : 'Approved'}</option>
+                      <option value="REJECTED">{language === 'ru' ? 'Отклонено' : 'Rejected'}</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={loadApplications}
+                      className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                      title={language === 'ru' ? 'Обновить данные' : 'Refresh data'}
+                    >
+                      <RefreshCw size={15} className={applicationsLoading ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                    <thead className="bg-slate-50/75 dark:bg-slate-950/50 text-[11px] uppercase tracking-wider font-bold text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                      <tr>
+                        <th className="px-5 py-3.5">{language === 'ru' ? 'Заявитель' : 'Applicant'}</th>
+                        <th className="px-5 py-3.5">{language === 'ru' ? 'Анкета & Локация' : 'Profile & Location'}</th>
+                        <th className="px-5 py-3.5">{language === 'ru' ? 'Условия займа' : 'Loan Terms'}</th>
+                        <th className="px-5 py-3.5 min-w-[200px]">{language === 'ru' ? 'Скоринг заемщика' : 'Scoring Evaluation'}</th>
+                        <th className="px-5 py-3.5">{language === 'ru' ? 'Статус' : 'Status'}</th>
+                        <th className="px-5 py-3.5 text-right">{language === 'ru' ? 'Действия' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {applicationsLoading ? (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">
+                            {language === 'ru' ? 'Загрузка заявок на микрозаймы...' : 'Loading loan applications...'}
+                          </td>
+                        </tr>
+                      ) : pageApplications.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">
+                            <div className="max-w-md mx-auto space-y-3">
+                              <FileCheck size={36} className="mx-auto text-slate-300 dark:text-slate-700" />
+                              <div className="font-bold text-slate-700 dark:text-slate-300">
+                                {language === 'ru' ? 'Нет активных заявок на микрозаймы' : 'No active loan applications'}
+                              </div>
+                              <p className="text-xs text-slate-400">
+                                {language === 'ru'
+                                  ? 'Все заявки обработаны. Новые заявки поступят сюда после прохождения скоринга.'
+                                  : 'All applications have been processed. New applications will arrive here once scored.'}
+                              </p>
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={loadDemoApplications}
+                                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20 cursor-pointer"
+                                >
+                                  {language === 'ru'
+                                    ? 'Загрузить тестовые заявки (для проверки скоринга)'
+                                    : 'Load test applications (to test scoring rules)'}
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        pageApplications.map((app) => {
+                          const canApprove = app.scoring > 0.5;
+                          const isProcessing = processingAppId === app.id;
+                          return (
+                            <tr key={app.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                              <td className="px-5 py-3.5">
+                                <div className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
+                                  {app.id}
+                                </div>
+                                <div className="font-bold text-slate-900 dark:text-white mt-0.5">
+                                  {app.fullName}
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  {app.userEmail}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                  <Clock size={10} />
+                                  <span>{new Date(app.createdAt).toLocaleDateString()}</span>
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-3.5">
+                                <div className="font-semibold text-slate-800 dark:text-slate-200">
+                                  {app.age ? `${app.age} ${language === 'ru' ? 'лет' : 'y/o'}` : '—'}
+                                  {app.gender ? ` · ${app.gender}` : ''}
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                                  <Globe size={11} className="text-slate-400 shrink-0" />
+                                  <span className="truncate max-w-[180px]">
+                                    {[app.city, app.country].filter(Boolean).join(', ') || '—'}
+                                  </span>
+                                </div>
+                                {app.passportSeriesNumber && (
+                                  <div className="font-mono text-[10px] text-slate-400 mt-0.5">
+                                    Паспорт: {app.passportSeriesNumber}
+                                  </div>
+                                )}
+                              </td>
+
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div className="font-extrabold text-slate-900 dark:text-white">
+                                  {formatCurrency(app.amount, (app.currency as Currency) || 'RUB')}
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  {app.termDays} {language === 'ru' ? 'дней' : 'days'} &bull;{' '}
+                                  <span className="font-medium text-slate-600 dark:text-slate-300">
+                                    {app.microloanType === 'VANITY'
+                                      ? language === 'ru' ? 'Импульсивный' : 'Vanity'
+                                      : language === 'ru' ? 'Базовые нужды' : 'Basic Needs'}
+                                  </span>
+                                </div>
+                                {app.purpose && (
+                                  <div className="text-[11px] text-slate-500 truncate max-w-[150px] mt-0.5" title={app.purpose}>
+                                    {app.purpose}
+                                  </div>
+                                )}
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  {language === 'ru' ? 'К возврату' : 'Total'}: {formatCurrency(app.totalRepayment, (app.currency as Currency) || 'RUB')}
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                                  <span className={canApprove ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                                    Скоринг: {(app.scoring * 100).toFixed(0)}% ({app.scoring.toFixed(2)})
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-2.5 rounded-full transition-all duration-500 ${
+                                      canApprove
+                                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                                        : 'bg-gradient-to-r from-rose-500 to-amber-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, Math.max(5, app.scoring * 100))}%` }}
+                                  />
+                                </div>
+                                <div className="mt-1.5">
+                                  {canApprove ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                      <CheckCircle2 size={11} />
+                                      {language === 'ru' ? 'Скоринг > 0.5 (Одобрение разрешено)' : 'Score > 0.5 (Approval Allowed)'}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                                      <ShieldAlert size={11} />
+                                      {language === 'ru' ? 'Скоринг ≤ 0.5 (Одобрение недоступно)' : 'Score ≤ 0.5 (Approval Blocked)'}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${
+                                  app.status === 'APPROVED'
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                    : app.status === 'REJECTED'
+                                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                                      : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                                }`}>
+                                  {app.status === 'APPROVED'
+                                    ? language === 'ru' ? 'Одобрено' : 'Approved'
+                                    : app.status === 'REJECTED'
+                                      ? language === 'ru' ? 'Отклонено' : 'Rejected'
+                                      : language === 'ru' ? 'На рассмотрении' : 'Pending'}
+                                </span>
+                              </td>
+
+                              <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                                {app.status === 'PENDING' ? (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      disabled={!canApprove || isProcessing}
+                                      onClick={() => handleApproveApplication(app)}
+                                      title={
+                                        canApprove
+                                          ? language === 'ru' ? 'Одобрить заявку' : 'Approve application'
+                                          : language === 'ru' ? 'Одобрение заблокировано: скоринг ≤ 0.5' : 'Approval blocked: scoring ≤ 0.5'
+                                      }
+                                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                                        canApprove
+                                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20'
+                                          : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-60'
+                                      }`}
+                                    >
+                                      <CheckCircle2 size={13} />
+                                      <span>{language === 'ru' ? 'Одобрить' : 'Approve'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      disabled={isProcessing}
+                                      onClick={() => handleRejectApplication(app)}
+                                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 cursor-pointer flex items-center gap-1"
+                                      title={language === 'ru' ? 'Отклонить заявку' : 'Reject application'}
+                                    >
+                                      <XCircle size={13} />
+                                      <span>{language === 'ru' ? 'Отклонить' : 'Reject'}</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-400 font-medium">
+                                    {app.status === 'APPROVED'
+                                      ? language === 'ru' ? 'Решение: Одобрено' : 'Decision: Approved'
+                                      : language === 'ru' ? 'Решение: Отклонено' : 'Decision: Rejected'}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Applications Pagination */}
+                <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                  <div>
+                    {filteredApplications.length === 0
+                      ? '0 из 0'
+                      : `${(safeAppPage - 1) * appPageSize + 1}–${Math.min(
+                          safeAppPage * appPageSize,
+                          filteredApplications.length
+                        )} из ${filteredApplications.length}`}
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: appPageCount }, (_, i) => i + 1).slice(0, 5).map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setAppPage(num)}
+                        className={`w-7 h-7 rounded-lg font-bold text-xs cursor-pointer ${
+                          num === safeAppPage
+                            ? 'bg-blue-600 text-white'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

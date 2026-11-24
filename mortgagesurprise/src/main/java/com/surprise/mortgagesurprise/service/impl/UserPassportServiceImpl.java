@@ -1,6 +1,7 @@
 package com.surprise.mortgagesurprise.service.impl;
 
 import com.surprise.mortgagesurprise.dto.ErrorCode;
+import com.surprise.mortgagesurprise.dto.profile.LoanApplicationRequest;
 import com.surprise.mortgagesurprise.dto.profile.PassportDataDTO;
 import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.model.entity.UserPassportData;
@@ -29,12 +30,22 @@ public class UserPassportServiceImpl implements UserPassportService {
     public Optional<PassportDataDTO> getPassportData(UUID userId) {
         return repository.findByUserId(userId).map(entity -> {
             String decryptedSeriesNumber = encryptionService.decrypt(entity.getSeriesNumberEncrypted());
+            LoanApplicationRequest loanApp = null;
+            if (entity.getAge() != null || entity.getCountry() != null || entity.getCity() != null || entity.getGender() != null) {
+                loanApp = new LoanApplicationRequest(
+                        entity.getAge(),
+                        entity.getCountry(),
+                        entity.getCity(),
+                        entity.getGender()
+                );
+            }
             return new PassportDataDTO(
                     entity.getFullName(),
                     decryptedSeriesNumber,
                     entity.getIssueDate(),
                     entity.getDepartmentCode(),
-                    entity.getIssuedBy()
+                    entity.getIssuedBy(),
+                    loanApp
             );
         });
     }
@@ -64,6 +75,13 @@ public class UserPassportServiceImpl implements UserPassportService {
         entity.setIssueDate(dto.issueDate());
         entity.setDepartmentCode(dto.departmentCode());
         entity.setIssuedBy(dto.issuedBy());
+
+        if (dto.loanApplicationRequest() != null) {
+            entity.setAge(dto.loanApplicationRequest().age());
+            entity.setCountry(dto.loanApplicationRequest().country() != null ? dto.loanApplicationRequest().country().trim() : null);
+            entity.setCity(dto.loanApplicationRequest().city() != null ? dto.loanApplicationRequest().city().trim() : null);
+            entity.setGender(dto.loanApplicationRequest().gender() != null ? dto.loanApplicationRequest().gender().trim() : null);
+        }
 
         repository.save(entity);
         log.info("Saved encrypted passport data for user {}", userId);
