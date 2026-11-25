@@ -1,9 +1,8 @@
 package com.idfinance.credit_scoring_service.domain.credit_rule;
 
-import com.idfinance.credit_scoring_service.adapter.LocationConfigAdapter;
-import com.idfinance.credit_scoring_service.domain.rule_set.CityRuleSet;
 import com.idfinance.credit_scoring_service.domain.rule_set.CountryRuleSet;
 import com.idfinance.credit_scoring_service.dto.LoanApplicationRequest;
+import com.idfinance.credit_scoring_service.provider.RuleProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -12,15 +11,13 @@ import java.util.Set;
 
 @Slf4j
 @RequiredArgsConstructor
-public final class LocationBusinessRule extends CreditBusinessRule {
+public final class CountryBusinessRule extends CreditBusinessRule {
 
-    private final LocationConfigAdapter locationConfigAdapter;
-    private Set<CityRuleSet> cityRuleSet = new HashSet<>();
+    private final RuleProvider<CountryRuleSet> countryRuleSetRuleProvider;
     private Set<CountryRuleSet> countryRuleSets = new HashSet<>();
 
     @Override
     public Float handle(LoanApplicationRequest loanApplicationRequest) {
-        String city = loanApplicationRequest.city();
         String country = loanApplicationRequest.country();
         updateCountryRules();
         for (var rule : countryRuleSets) {
@@ -30,14 +27,7 @@ public final class LocationBusinessRule extends CreditBusinessRule {
             }
         }
         log.info("No country rules matched");
-        updateCityRules();
-        for (var rule : cityRuleSet) {
-            if (rule.apply(city)) {
-                this.creditScore += rule.creditScore();
-                return handleNext(loanApplicationRequest);
-            }
-        }
-        log.info("No city rules matched");
+
         return handleNext(loanApplicationRequest);
     }
 
@@ -46,11 +36,7 @@ public final class LocationBusinessRule extends CreditBusinessRule {
         return 3;
     }
 
-    private void updateCityRules() {
-        this.cityRuleSet = locationConfigAdapter.findAllCity();
-    }
-
     private void updateCountryRules() {
-        this.countryRuleSets = locationConfigAdapter.findAllCountry();
+        this.countryRuleSets = countryRuleSetRuleProvider.getRules();
     }
 }

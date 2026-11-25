@@ -1,8 +1,8 @@
 package com.idfinance.credit_scoring_service.domain.credit_rule;
 
-import com.idfinance.credit_scoring_service.adapter.GenderConfigAdapter;
 import com.idfinance.credit_scoring_service.domain.rule_set.GenderRuleSet;
 import com.idfinance.credit_scoring_service.dto.LoanApplicationRequest;
+import com.idfinance.credit_scoring_service.provider.RuleProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,7 +13,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public final class GenderBusinessRule extends CreditBusinessRule {
 
-    private final GenderConfigAdapter genderConfigAdapter;
+    private final RuleProvider<GenderRuleSet> genderRuleSetRuleProvider;
     private Set<GenderRuleSet> ruleSet = new HashSet<>();
 
     @Override
@@ -36,6 +36,6 @@ public final class GenderBusinessRule extends CreditBusinessRule {
     }
 
     private void updateRuleSet() {
-        this.ruleSet = genderConfigAdapter.findAll();
+        this.ruleSet = genderRuleSetRuleProvider.getRules();
     }
 }

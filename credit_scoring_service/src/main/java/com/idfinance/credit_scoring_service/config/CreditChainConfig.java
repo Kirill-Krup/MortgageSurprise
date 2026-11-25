@@ -1,10 +1,12 @@
 package com.idfinance.credit_scoring_service.config;
 
-import com.idfinance.credit_scoring_service.adapter.AgeConfigAdapter;
-import com.idfinance.credit_scoring_service.adapter.GenderConfigAdapter;
-import com.idfinance.credit_scoring_service.adapter.LocationConfigAdapter;
 import com.idfinance.credit_scoring_service.domain.credit_rule.CreditChainFactory;
 import com.idfinance.credit_scoring_service.domain.credit_rule.CreditRuleChain;
+import com.idfinance.credit_scoring_service.domain.rule_set.AgeRuleSet;
+import com.idfinance.credit_scoring_service.domain.rule_set.CityRuleSet;
+import com.idfinance.credit_scoring_service.domain.rule_set.CountryRuleSet;
+import com.idfinance.credit_scoring_service.domain.rule_set.GenderRuleSet;
+import com.idfinance.credit_scoring_service.provider.RuleProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,10 +14,12 @@ import org.springframework.context.annotation.Configuration;
 public class CreditChainConfig {
 
     @Bean
-    public CreditRuleChain creditRuleChain(AgeConfigAdapter ageConfigAdapter,
-                                           GenderConfigAdapter genderConfigAdapter,
-                                           LocationConfigAdapter locationConfigAdapter) {
-        return new CreditChainFactory(ageConfigAdapter, genderConfigAdapter, locationConfigAdapter)
+    public CreditRuleChain creditRuleChain(RuleProvider<AgeRuleSet> ageRuleSetRuleProvider,
+                                           RuleProvider<GenderRuleSet> genderRuleSetRuleProvider,
+                                           RuleProvider<CountryRuleSet> countryRuleSetRuleProvider,
+                                           RuleProvider<CityRuleSet> cityRuleSetRuleProvider) {
+        return new CreditChainFactory(ageRuleSetRuleProvider, genderRuleSetRuleProvider,
+                countryRuleSetRuleProvider, cityRuleSetRuleProvider)
                 .create();
     }
 }

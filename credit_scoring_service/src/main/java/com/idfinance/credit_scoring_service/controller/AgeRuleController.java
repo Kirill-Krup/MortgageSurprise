@@ -1,45 +1,41 @@
 package com.idfinance.credit_scoring_service.controller;
 
+import com.idfinance.credit_scoring_service.facade.AgeRuleFacade;
 import com.idfinance.credit_scoring_service.domain.rule_set.AgeRuleSet;
 import com.idfinance.credit_scoring_service.dto.AgeRuleRequest;
-import com.idfinance.credit_scoring_service.service.AgeRuleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("api/v1/rules/age-rules")
 public class AgeRuleController {
 
-    private final AgeRuleService ageRuleService;
+    private final AgeRuleFacade ageRuleFacade;
 
     @GetMapping
-    public ResponseEntity<List<AgeRuleSet>> findAll() {
-        return ResponseEntity.ok(ageRuleService.findAll()
-                .stream()
-                .map(AgeRuleSet::from)
-                .collect(Collectors.toList()));
+    public ResponseEntity<Set<AgeRuleSet>> findAll() {
+        return ResponseEntity.ok(ageRuleFacade.findAll());
     }
 
     @PostMapping
     public ResponseEntity<AgeRuleSet> save(@RequestBody AgeRuleRequest ageRuleRequest) {
-        return ResponseEntity.ok(AgeRuleSet.from(ageRuleService.save(ageRuleRequest)));
+        return ResponseEntity.ok(ageRuleFacade.save(ageRuleRequest));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<AgeRuleSet> update(@RequestBody AgeRuleRequest ageRuleRequest,
                                              @PathVariable Integer id) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(AgeRuleSet.from(ageRuleService.update(ageRuleRequest, id)));
+                .body(ageRuleFacade.update(ageRuleRequest, id));
     }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Integer id) {
-        ageRuleService.deleteById(id);
+        ageRuleFacade.deleteById(id);
     }
 }

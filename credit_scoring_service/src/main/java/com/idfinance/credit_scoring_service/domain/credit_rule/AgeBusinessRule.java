@@ -1,8 +1,8 @@
 package com.idfinance.credit_scoring_service.domain.credit_rule;
 
-import com.idfinance.credit_scoring_service.adapter.AgeConfigAdapter;
 import com.idfinance.credit_scoring_service.domain.rule_set.AgeRuleSet;
 import com.idfinance.credit_scoring_service.dto.LoanApplicationRequest;
+import com.idfinance.credit_scoring_service.provider.RuleProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,7 +13,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public final class AgeBusinessRule extends CreditBusinessRule {
 
-    private final AgeConfigAdapter ageConfigAdapter;
+    private final RuleProvider<AgeRuleSet> ageRuleSetRuleProvider;
     private Set<AgeRuleSet> ruleSet = new HashSet<>();
 
     @Override
@@ -36,6 +36,6 @@ public final class AgeBusinessRule extends CreditBusinessRule {
     }
 
     private void updateRuleSet() {
-        this.ruleSet = ageConfigAdapter.findAll();
+        this.ruleSet = ageRuleSetRuleProvider.getRules();
     }
 }

@@ -3,7 +3,8 @@ package com.idfinance.credit_scoring_service.domain.rule_set;
 import com.idfinance.credit_scoring_service.model.GenderRule;
 import com.idfinance.credit_scoring_service.model.RuleType;
 
-public record GenderRuleSet(String gender, RuleType ruleType, Float creditScore) implements RuleSet<String> {
+public record GenderRuleSet(Integer id, String gender, RuleType ruleType, Float creditScore) implements RuleSet<String>,
+        Identifiable<Integer> {
 
     @Override
     public boolean apply(String s) {
@@ -19,7 +20,12 @@ public record GenderRuleSet(String gender, RuleType ruleType, Float creditScore)
     }
 
     public static GenderRuleSet from(GenderRule genderRule) {
-        return new GenderRuleSet(genderRule.getName(), genderRule.getRuleType(),
+        return new GenderRuleSet(genderRule.getId(), genderRule.getName(), genderRule.getRuleType(),
                 genderRule.getCreditScore());
+    }
+
+    @Override
+    public Integer getId() {
+        return id;
     }
 }
