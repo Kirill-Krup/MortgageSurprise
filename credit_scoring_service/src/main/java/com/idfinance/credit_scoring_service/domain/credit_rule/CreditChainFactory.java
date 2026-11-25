@@ -17,10 +17,9 @@ public class CreditChainFactory implements HandlerChainFactory<CreditRuleChain> 
     @Override
     public CreditRuleChain create() {
         return CreditChainBuilder.builder()
-                .addBusinessRule(new AgeBusinessRule(ageConfigAdapter.findAll()))
-                .addBusinessRule(new GenderBusinessRule(genderConfigAdapter.findAll()))
-                .addBusinessRule(new LocationBusinessRule(locationConfigAdapter.findAllCity(),
-                        locationConfigAdapter.findAllCountry()))
+                .addBusinessRule(new AgeBusinessRule(ageConfigAdapter))
+                .addBusinessRule(new GenderBusinessRule(genderConfigAdapter))
+                .addBusinessRule(new LocationBusinessRule(locationConfigAdapter))
                 .build();
     }
 
