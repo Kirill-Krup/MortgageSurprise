@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("api/v1/age-rule")
+@RequestMapping("api/v1/rules/age-rules")
 public class AgeRuleController {
 
     private final AgeRuleService ageRuleService;

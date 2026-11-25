@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("api/v1/country-rule")
+@RequestMapping("api/v1/rules/country-rules")
 public class CountryRuleController {
 
     private final CountryRuleService countryRuleService;

@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("api/v1/gender-rule")
+@RequestMapping("api/v1/rules/gender-rules")
 public class GenderRuleController {
 
     private final GenderRuleService genderRuleService;

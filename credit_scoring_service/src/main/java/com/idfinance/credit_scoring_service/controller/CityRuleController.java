@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("api/v1/city-rule")
+@RequestMapping("api/v1/rules/city-rules")
 public class CityRuleController {
 
     private final CityRuleService cityRuleService;
