@@ -3,6 +3,7 @@ package com.idfinance.credit_scoring_service.service;
 import com.idfinance.credit_scoring_service.dto.AgeRuleRequest;
 import com.idfinance.credit_scoring_service.model.AgeRule;
 
+import java.util.List;
 import java.util.Set;
 
 public interface AgeRuleService {
@@ -13,4 +14,8 @@ public interface AgeRuleService {
     AgeRule update(AgeRuleRequest ageRuleRequest, Integer id);
 
     void deleteById(Integer id);
+
+    List<Integer> findAllIds();
+
+    Set<AgeRule> findAllById(List<Integer> missing);
 }

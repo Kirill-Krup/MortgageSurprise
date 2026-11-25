@@ -8,9 +8,9 @@ import java.util.Set;
 public interface CountryRuleFacade {
     Set<CountryRuleSet> findAll();
 
-    CountryRuleSet save(CountryRuleRequest genderRuleRequest);
+    CountryRuleSet save(CountryRuleRequest countryRuleRequest);
 
-    CountryRuleSet update(CountryRuleRequest genderRuleRequest, Integer id);
+    CountryRuleSet update(CountryRuleRequest countryRuleRequest, Integer id);
 
     void deleteById(Integer id);
 }

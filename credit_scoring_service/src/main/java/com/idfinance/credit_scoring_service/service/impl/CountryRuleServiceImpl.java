@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -43,5 +44,15 @@ public class CountryRuleServiceImpl implements CountryRuleService {
     @Transactional
     public void deleteById(Integer id) {
         countryRuleRepository.deleteById(id);
+    }
+
+    @Override
+    public Set<CountryRule> findAllById(List<Integer> missing) {
+        return new HashSet<>(countryRuleRepository.findAllById(missing));
+    }
+
+    @Override
+    public List<Integer> findAllIds() {
+        return countryRuleRepository.findAllIds();
     }
 }

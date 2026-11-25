@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -43,5 +44,15 @@ public class GenderRuleServiceImpl implements GenderRuleService {
     @Transactional
     public void deleteById(Integer id) {
         genderRuleRepository.deleteById(id);
+    }
+
+    @Override
+    public List<Integer> findAllIds() {
+        return genderRuleRepository.findAllIds();
+    }
+
+    @Override
+    public Set<GenderRule> findAllById(List<Integer> missing) {
+        return new HashSet<>(genderRuleRepository.findAllById(missing));
     }
 }

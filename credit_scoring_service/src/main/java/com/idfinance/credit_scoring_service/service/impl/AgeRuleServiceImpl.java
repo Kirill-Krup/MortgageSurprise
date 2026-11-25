@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -44,5 +45,15 @@ public class AgeRuleServiceImpl implements AgeRuleService {
     @Transactional
     public void deleteById(Integer id) {
         ageRuleRepository.deleteById(id);
+    }
+
+    @Override
+    public List<Integer> findAllIds() {
+        return ageRuleRepository.findAllIds();
+    }
+
+    @Override
+    public Set<AgeRule> findAllById(List<Integer> missing) {
+        return new HashSet<>(ageRuleRepository.findAllById(missing));
     }
 }

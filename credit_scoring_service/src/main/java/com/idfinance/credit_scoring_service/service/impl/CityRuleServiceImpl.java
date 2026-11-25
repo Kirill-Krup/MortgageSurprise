@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -43,5 +44,15 @@ public class CityRuleServiceImpl implements CityRuleService {
     @Transactional
     public void deleteById(Long id) {
         cityRuleRepository.deleteById(id);
+    }
+
+    @Override
+    public List<Long> findAllIds() {
+        return cityRuleRepository.findAllIds();
+    }
+
+    @Override
+    public Set<CityRule> findAllById(List<Long> missing) {
+        return new HashSet<>(cityRuleRepository.findAllById(missing));
     }
 }
