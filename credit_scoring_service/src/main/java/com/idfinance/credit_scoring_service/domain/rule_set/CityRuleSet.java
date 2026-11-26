@@ -7,15 +7,13 @@ public record CityRuleSet(Long id, String cityName, RuleType ruleType, Float cre
         implements RuleSet<String>, Identifiable<Long> {
     @Override
     public boolean apply(String s) {
-        switch (ruleType) {
-            case INCLUSIVE -> {
-                return s.trim().equals(cityName);
-            }
-            case EXCLUSIVE -> {
-                return !(s.trim().equals(cityName));
-            }
+        if (s == null || cityName == null || ruleType == null) {
+            return false;
         }
-        return false;
+        return switch (ruleType) {
+            case INCLUSIVE -> s.trim().equalsIgnoreCase(cityName.trim());
+            case EXCLUSIVE -> !s.trim().equalsIgnoreCase(cityName.trim());
+        };
     }
 
     public static CityRuleSet from(CityRule cityRule) {

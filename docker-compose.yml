@@ -163,10 +163,63 @@ services:
       - tempo
       - loki
 
+  banksimulator:
+    build:
+      context: .
+      dockerfile: banksimulator/Dockerfile
+    container_name: mortgagesurprise-banksimulator
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mortgagesurprise}?currentSchema=banksimulator
+      DB_HOST: ${POSTGRES_HOST:-postgres}
+      DB_PORT: ${POSTGRES_PORT:-5432}
+      DB_NAME: ${POSTGRES_DB:-mortgagesurprise}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_FLYWAY_CREATE_SCHEMAS: "true"
+      DOC_HMAC_SECRET: ${DOC_HMAC_SECRET}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  credit-scoring-service:
+    build:
+      context: ./credit_scoring_service
+      dockerfile: Dockerfile
+    container_name: mortgagesurprise-credit-scoring
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mortgagesurprise}?currentSchema=credit_scoring
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-mortgagesurprise}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_FLYWAY_CREATE_SCHEMAS: "true"
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_SECRET: ${JWT_SECRET}
+      DOC_HMAC_SECRET: ${DOC_HMAC_SECRET}
+      SALT: ${SALT}
+      PASSPORT_AES_KEY: ${PASSPORT_AES_KEY}
+      CREDIT_SCORING_URL: ${CREDIT_SCORING_URL}
+      BANK_SYSTEM_URL: ${BANK_SYSTEM_URL}
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   app:
     build:
-      context: ./mortgagesurprise
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: mortgagesurprise/Dockerfile
     container_name: mortgagesurprise-app
     restart: unless-stopped
     environment:
@@ -189,11 +242,16 @@ services:
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      JWT_SECRET: ${JWT_SECRET:-b1895958f13f06265e33731ef87e976909f0d5a0491a0fa006d79a6d08a3b1f3}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-dummy-google-client-id}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-dummy-google-client-secret}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dummy-github-client-id}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dummy-github-client-secret}
+      JWT_SECRET: ${JWT_SECRET}
+      DOC_HMAC_SECRET: ${DOC_HMAC_SECRET}
+      SALT: ${SALT}
+      PASSPORT_AES_KEY: ${PASSPORT_AES_KEY}
+      CREDIT_SCORING_URL: ${CREDIT_SCORING_URL}
+      BANK_SYSTEM_URL: ${BANK_SYSTEM_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
       OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://loki:3100/otlp/v1/logs
     ports:
@@ -201,6 +259,7 @@ services:
     extra_hosts:
       - "github.com:140.82.121.4"
       - "api.github.com:140.82.121.5"
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,6 +274,10 @@ services:
       tempo:
         condition: service_started
       loki:
+        condition: service_started
+      banksimulator:
+        condition: service_started
+      credit-scoring-service:
         condition: service_started
     networks:
       default:

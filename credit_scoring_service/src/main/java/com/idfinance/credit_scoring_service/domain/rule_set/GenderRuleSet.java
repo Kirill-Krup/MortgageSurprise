@@ -8,15 +8,13 @@ public record GenderRuleSet(Integer id, String gender, RuleType ruleType, Float 
 
     @Override
     public boolean apply(String s) {
-        switch (ruleType) {
-            case INCLUSIVE -> {
-                return s.trim().equals(gender);
-            }
-            case EXCLUSIVE -> {
-                return !(s.trim().equals(gender));
-            }
+        if (s == null || gender == null || ruleType == null) {
+            return false;
         }
-        return false;
+        return switch (ruleType) {
+            case INCLUSIVE -> s.trim().equalsIgnoreCase(gender.trim());
+            case EXCLUSIVE -> !s.trim().equalsIgnoreCase(gender.trim());
+        };
     }
 
     public static GenderRuleSet from(GenderRule genderRule) {

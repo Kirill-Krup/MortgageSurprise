@@ -8,14 +8,15 @@ public abstract class CreditBusinessRule implements HandlerLink<Float, LoanAppli
         Ordered {
 
     protected CreditBusinessRule next;
-    protected Float creditScore;
 
     @Override
     public final CreditBusinessRule link(CreditBusinessRule first, CreditBusinessRule... chain) {
         CreditBusinessRule head = first;
         for (var nextInChain : chain) {
-            head.next = nextInChain;
-            head = nextInChain;
+            if (nextInChain != null && nextInChain != head) {
+                head.next = nextInChain;
+                head = nextInChain;
+            }
         }
         return first;
     }
@@ -23,13 +24,8 @@ public abstract class CreditBusinessRule implements HandlerLink<Float, LoanAppli
     @Override
     public final Float handleNext(LoanApplicationRequest loanApplicationRequest) {
         if (next == null) {
-            return creditScore;
+            return 0f;
         }
-        next.setCreditScore(creditScore);
         return next.handle(loanApplicationRequest);
-    }
-
-    private void setCreditScore(Float creditScore) {
-        this.creditScore = creditScore;
     }
 }

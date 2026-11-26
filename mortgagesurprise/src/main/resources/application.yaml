@@ -160,3 +160,7 @@ twelvedata:
 bank:
   simulator:
     url: ${BANK_SYSTEM_URL:http://localhost:8082/api/v1}
+
+credit:
+  scoring:
+    url: ${CREDIT_SCORING_URL:http://localhost:8083/api/v1}

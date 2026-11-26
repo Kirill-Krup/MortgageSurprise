@@ -8,15 +8,13 @@ public record AgeRuleSet(Integer id, Integer minAge, Integer maxAge, RuleType ru
 
     @Override
     public boolean apply(Integer integer) {
-        switch (ruleType) {
-            case INCLUSIVE -> {
-                return minAge <= integer && integer <= maxAge;
-            }
-            case EXCLUSIVE -> {
-                return minAge >= integer && integer >= maxAge;
-            }
+        if (integer == null || minAge == null || maxAge == null || ruleType == null) {
+            return false;
         }
-        return false;
+        return switch (ruleType) {
+            case INCLUSIVE -> minAge <= integer && integer <= maxAge;
+            case EXCLUSIVE -> integer < minAge || integer > maxAge;
+        };
     }
 
     public static AgeRuleSet from(AgeRule ageRule) {

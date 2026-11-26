@@ -14,16 +14,19 @@ import java.util.Set;
 public final class AgeBusinessRule extends CreditBusinessRule {
 
     private final RuleProvider<AgeRuleSet> ageRuleSetRuleProvider;
-    private Set<AgeRuleSet> ruleSet = new HashSet<>();
 
     @Override
     public Float handle(LoanApplicationRequest application) {
+        if (application == null || application.age() == null) {
+            log.info("No age provided in application");
+            return handleNext(application);
+        }
         int age = application.age();
-        updateRuleSet();
+        Set<AgeRuleSet> ruleSet = ageRuleSetRuleProvider.getRules();
         for (var rule : ruleSet) {
             if (rule.apply(age)) {
-                this.creditScore += rule.creditScore();
-                return handleNext(application);
+                float score = rule.creditScore() != null ? rule.creditScore() : 0f;
+                return score + handleNext(application);
             }
         }
         log.info("No age rules matched");
@@ -33,9 +36,5 @@ public final class AgeBusinessRule extends CreditBusinessRule {
     @Override
     public int getOrder() {
         return 1;
-    }
-
-    private void updateRuleSet() {
-        this.ruleSet = ageRuleSetRuleProvider.getRules();
     }
 }

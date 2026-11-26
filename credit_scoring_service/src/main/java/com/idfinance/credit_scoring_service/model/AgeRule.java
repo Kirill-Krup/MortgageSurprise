@@ -5,13 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
+import org.hibernate.annotations.SoftDeleteType;
 
 @Entity
 @Getter
 @Setter
 @NoArgsConstructor
 @Table(name = "age_rules")
-@SoftDelete(columnName = "is_active")
+@SoftDelete(columnName = "is_active", strategy = SoftDeleteType.ACTIVE)
 public class AgeRule {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,7 +28,7 @@ public class AgeRule {
     @Column(name = "rule_type")
     private RuleType ruleType;
 
-    @Column(name = "credit_score")
+    @Column(name = "credit_scoring")
     private Float creditScore;
 
     public AgeRule(Integer minAge, Integer maxAge, RuleType ruleType, Float creditScore) {

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -46,6 +47,7 @@ public class JwtTokenProvider {
                 .subject(email)
                 .claim("userId", userId.toString())
                 .claim("role", role)
+                .claim("roles", role != null ? List.of(role) : List.of())
                 .claim("type", "ACCESS")
                 .issuedAt(now)
                 .expiration(expiry)

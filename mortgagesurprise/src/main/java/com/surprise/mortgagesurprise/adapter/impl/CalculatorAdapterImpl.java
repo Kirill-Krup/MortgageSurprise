@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.adapter.impl;
 
+import com.surprise.common.dto.scoring.CreditDecisionResponse;
 import com.surprise.mortgagesurprise.adapter.CalculatorAdapter;
 import com.surprise.mortgagesurprise.dto.audit.MicroloanApplicationRequest;
 import com.surprise.mortgagesurprise.dto.audit.MicroloanApplicationResponse;
@@ -10,9 +11,11 @@ import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanCalculati
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.BankSimulatorIntegrationService;
 import com.surprise.mortgagesurprise.service.CalculatorService;
+import com.surprise.mortgagesurprise.service.CreditScoringIntegrationService;
 import com.surprise.mortgagesurprise.service.MicroloanService;
 import com.surprise.mortgagesurprise.service.UserAuditService;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -29,15 +32,18 @@ public class CalculatorAdapterImpl implements CalculatorAdapter {
     private final MicroloanService microloanService;
     private final UserAuditService userAuditService;
     private final BankSimulatorIntegrationService bankSimulatorIntegrationService;
+    private final CreditScoringIntegrationService creditScoringIntegrationService;
 
     public CalculatorAdapterImpl(CalculatorService calculatorService,
                                  MicroloanService microloanService,
                                  UserAuditService userAuditService,
-                                 BankSimulatorIntegrationService bankSimulatorIntegrationService) {
+                                 BankSimulatorIntegrationService bankSimulatorIntegrationService,
+                                 CreditScoringIntegrationService creditScoringIntegrationService) {
         this.calculatorService = calculatorService;
         this.microloanService = microloanService;
         this.userAuditService = userAuditService;
         this.bankSimulatorIntegrationService = bankSimulatorIntegrationService;
+        this.creditScoringIntegrationService = creditScoringIntegrationService;
     }
 
     @Override
@@ -85,6 +91,28 @@ public class CalculatorAdapterImpl implements CalculatorAdapter {
         var appId = isApplicationIdExists(request)
                 ? request.applicationId()
                 : "MS-" + (int) (10000 + Math.random() * 90000);
+
+        var blacklistOpt = bankSimulatorIntegrationService.checkBlacklist(userDetails.getId());
+        if (blacklistOpt.isPresent() && (blacklistOpt.get().blacklisted() || blacklistOpt.get().hardBlock())) {
+            String reason = blacklistOpt.get().reasons() != null && !blacklistOpt.get().reasons().isEmpty()
+                    ? String.join("; ", blacklistOpt.get().reasons())
+                    : "Applicant is blacklisted";
+            return new MicroloanApplicationResponse(false, appId, "REJECTED", reason);
+        }
+
+        String role = userDetails.getAuthorities().stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("ROLE_USER");
+        CreditDecisionResponse scoringDecision = creditScoringIntegrationService.evaluateScoring(
+                userDetails.getId(), userDetails.getUsername(), role);
+        if (scoringDecision == null || !scoringDecision.approved()) {
+            String reason = scoringDecision != null && scoringDecision.reason() != null
+                    ? scoringDecision.reason()
+                    : "Credit scoring rejected the application";
+            return new MicroloanApplicationResponse(false, appId, "REJECTED", reason);
+        }
+
         var finalRequest = new MicroloanApplicationRequest(
                 request.amount(),
                 request.termDays(),

@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: banksimulator-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mortgagesurprise}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - banksimulator_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-mortgagesurprise}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  banksimulator:
+    build:
+      context: ..
+      dockerfile: banksimulator/Dockerfile
+    container_name: banksimulator-app
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-8082}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-mortgagesurprise}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DOC_HMAC_SECRET: ${DOC_HMAC_SECRET:-c3VwZXItc2VjcmV0LWtleS1mb3ItaG1hYy10ZXN0aW5nLW9ubHktMTIzNDU2Nzg5MA}
+    ports:
+      - "${SERVER_PORT:-8082}:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  banksimulator_postgres_data:

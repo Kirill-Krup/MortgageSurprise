@@ -5,13 +5,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.SoftDelete;
+import org.hibernate.annotations.SoftDeleteType;
 
 @Entity
 @Getter
 @Setter
 @NoArgsConstructor
 @Table(name = "country_rules")
-@SoftDelete(columnName = "is_active")
+@SoftDelete(columnName = "is_active", strategy = SoftDeleteType.ACTIVE)
 public class CountryRule {
 
     @Id
@@ -25,7 +26,7 @@ public class CountryRule {
     @Column(name = "rule_type")
     private RuleType ruleType;
 
-    @Column(name = "credit_score")
+    @Column(name = "credit_scoring")
     private Float creditScore;
 
     public CountryRule(String countryCode, RuleType ruleType, Float creditScore) {
