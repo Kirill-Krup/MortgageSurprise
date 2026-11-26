@@ -381,3 +381,59 @@ export interface AdminLoanApplication {
   passportSeriesNumber?: string;
 }
 
+export type ScoringRuleType = 'INCLUSIVE' | 'EXCLUSIVE';
+
+export interface AgeRule {
+  id: number;
+  minAge: number;
+  maxAge: number;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface AgeRuleRequest {
+  minAge: number;
+  maxAge: number;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface GenderRule {
+  id: number;
+  gender: string;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface GenderRuleRequest {
+  name: string;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface CountryRule {
+  id: number;
+  countryName: string;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface CountryRuleRequest {
+  countryCode: string;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface CityRule {
+  id: number;
+  cityName: string;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+
+export interface CityRuleRequest {
+  cityName: string;
+  ruleType: ScoringRuleType;
+  creditScore: number;
+}
+

@@ -14,16 +14,19 @@ import java.util.Set;
 public class CityBusinessRule extends CreditBusinessRule {
 
     private final RuleProvider<CityRuleSet> cityRuleSetRuleProvider;
-    private Set<CityRuleSet> cityRuleSet = new HashSet<>();
 
     @Override
     public Float handle(LoanApplicationRequest loanApplicationRequest) {
+        if (loanApplicationRequest == null || loanApplicationRequest.city() == null) {
+            log.info("No city provided in application");
+            return handleNext(loanApplicationRequest);
+        }
         String city = loanApplicationRequest.city();
-        updateCityRules();
+        Set<CityRuleSet> cityRuleSet = cityRuleSetRuleProvider.getRules();
         for (var rule : cityRuleSet) {
             if (rule.apply(city)) {
-                this.creditScore += rule.creditScore();
-                return handleNext(loanApplicationRequest);
+                float score = rule.creditScore() != null ? rule.creditScore() : 0f;
+                return score + handleNext(loanApplicationRequest);
             }
         }
         log.info("No city rules matched");
@@ -33,9 +36,5 @@ public class CityBusinessRule extends CreditBusinessRule {
     @Override
     public int getOrder() {
         return 4;
-    }
-
-    private void updateCityRules() {
-        this.cityRuleSet = cityRuleSetRuleProvider.getRules();
     }
 }

@@ -14,16 +14,19 @@ import java.util.Set;
 public final class CountryBusinessRule extends CreditBusinessRule {
 
     private final RuleProvider<CountryRuleSet> countryRuleSetRuleProvider;
-    private Set<CountryRuleSet> countryRuleSets = new HashSet<>();
 
     @Override
     public Float handle(LoanApplicationRequest loanApplicationRequest) {
+        if (loanApplicationRequest == null || loanApplicationRequest.country() == null) {
+            log.info("No country provided in application");
+            return handleNext(loanApplicationRequest);
+        }
         String country = loanApplicationRequest.country();
-        updateCountryRules();
+        Set<CountryRuleSet> countryRuleSets = countryRuleSetRuleProvider.getRules();
         for (var rule : countryRuleSets) {
             if (rule.apply(country)) {
-                this.creditScore += rule.creditScore();
-                return handleNext(loanApplicationRequest);
+                float score = rule.creditScore() != null ? rule.creditScore() : 0f;
+                return score + handleNext(loanApplicationRequest);
             }
         }
         log.info("No country rules matched");
@@ -34,9 +37,5 @@ public final class CountryBusinessRule extends CreditBusinessRule {
     @Override
     public int getOrder() {
         return 3;
-    }
-
-    private void updateCountryRules() {
-        this.countryRuleSets = countryRuleSetRuleProvider.getRules();
     }
 }

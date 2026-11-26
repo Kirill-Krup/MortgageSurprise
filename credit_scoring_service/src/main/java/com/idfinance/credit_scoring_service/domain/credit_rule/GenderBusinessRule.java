@@ -14,16 +14,19 @@ import java.util.Set;
 public final class GenderBusinessRule extends CreditBusinessRule {
 
     private final RuleProvider<GenderRuleSet> genderRuleSetRuleProvider;
-    private Set<GenderRuleSet> ruleSet = new HashSet<>();
 
     @Override
     public Float handle(LoanApplicationRequest loanApplicationRequest) {
+        if (loanApplicationRequest == null || loanApplicationRequest.gender() == null) {
+            log.info("No gender provided in application");
+            return handleNext(loanApplicationRequest);
+        }
         String gender = loanApplicationRequest.gender();
-        updateRuleSet();
+        Set<GenderRuleSet> ruleSet = genderRuleSetRuleProvider.getRules();
         for (var rule : ruleSet) {
             if (rule.apply(gender)) {
-                this.creditScore += rule.creditScore();
-                return handleNext(loanApplicationRequest);
+                float score = rule.creditScore() != null ? rule.creditScore() : 0f;
+                return score + handleNext(loanApplicationRequest);
             }
         }
         log.info("No gender rules matched");
@@ -33,9 +36,5 @@ public final class GenderBusinessRule extends CreditBusinessRule {
     @Override
     public int getOrder() {
         return 2;
-    }
-
-    private void updateRuleSet() {
-        this.ruleSet = genderRuleSetRuleProvider.getRules();
     }
 }

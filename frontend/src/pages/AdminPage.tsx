@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AdminScoringRulesSection } from '../components/AdminScoringRulesSection';
 import {
   abTestApi,
   adminAuditApi,
@@ -66,7 +67,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
-export type AdminSection = 'overview' | 'users' | 'loans' | 'applications' | 'products' | 'rates' | 'journal' | 'abtest';
+export type AdminSection = 'overview' | 'users' | 'loans' | 'applications' | 'scoring' | 'products' | 'rates' | 'journal' | 'abtest';
 
 export interface AdminPageProps {
   section?: AdminSection;
@@ -1188,6 +1189,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
       icon: <FileCheck size={18} />,
     },
     {
+      id: 'scoring' as const,
+      label: language === 'ru' ? 'Правила скоринга' : 'Scoring Rules',
+      icon: <SlidersHorizontal size={18} />,
+    },
+    {
       id: 'products' as const,
       label: t('adminNavProducts'),
       icon: <Landmark size={18} />,
@@ -1212,6 +1218,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         return t('adminSectionLoans');
       case 'applications':
         return language === 'ru' ? 'Заявки на микрозаймы и скоринг' : 'Microloan Applications & Scoring';
+      case 'scoring':
+        return language === 'ru' ? 'Правила кредитного скоринга' : 'Credit Scoring Rules';
       case 'products':
       case 'rates':
         return t('adminProductsTitle');
@@ -1235,6 +1243,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
         return language === 'ru'
           ? 'Одобрение заявок на микрозаймы: решение принимается на основе скорингового балла (порог > 0.5)'
           : 'Microloan application approval: decisions are made based on scoring evaluation (threshold > 0.5)';
+      case 'scoring':
+        return language === 'ru'
+          ? 'Настройка весов (score) для возраста, пола, страны и города в credit_scoring_service'
+          : 'Configure credit score weights for age, gender, country, and city in credit_scoring_service';
       case 'products':
       case 'rates':
         return t('adminProductsDesc');
@@ -3054,6 +3066,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ section: externalSection, 
               </div>
             </div>
           )}
+
+          {/* VIEW: SCORING RULES */}
+          {section === 'scoring' && <AdminScoringRulesSection />}
 
           {/* VIEW: A/B TESTING */}
           {section === 'abtest' && (

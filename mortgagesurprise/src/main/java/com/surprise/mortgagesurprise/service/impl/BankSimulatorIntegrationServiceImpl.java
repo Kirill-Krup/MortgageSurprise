@@ -1,9 +1,12 @@
 package com.surprise.mortgagesurprise.service.impl;
 
+import com.surprise.common.dto.simulator.BlacklistCheckRequest;
+import com.surprise.common.dto.simulator.BlacklistCheckResponse;
 import com.surprise.common.dto.simulator.CreateSubjectRequest;
 import com.surprise.common.dto.simulator.DocumentType;
 import com.surprise.common.dto.simulator.RegisterEventRequest;
 import com.surprise.common.dto.simulator.TrustEventType;
+import com.surprise.mortgagesurprise.client.BankSimulatorBlacklistClient;
 import com.surprise.mortgagesurprise.client.BankSimulatorSubjectClient;
 import com.surprise.mortgagesurprise.client.BankSimulatorTrustEventClient;
 import com.surprise.mortgagesurprise.model.entity.UserPassportData;
@@ -26,9 +29,30 @@ public class BankSimulatorIntegrationServiceImpl implements BankSimulatorIntegra
 
     private static final String EVENT_SOURCE = "mortgagesurprise";
 
+    private final BankSimulatorBlacklistClient blacklistClient;
     private final BankSimulatorSubjectClient subjectClient;
     private final BankSimulatorTrustEventClient trustEventClient;
     private final UserPassportDataRepository passportDataRepository;
+
+    @Override
+    public Optional<BlacklistCheckResponse> checkBlacklist(UUID userId) {
+        Optional<String> documentHashOpt = resolvePassportHash(userId);
+        if (documentHashOpt.isEmpty()) {
+            log.warn("Cannot check blacklist in banksimulator for user {}: passport data is not filled", userId);
+            return Optional.empty();
+        }
+
+        try {
+            BlacklistCheckRequest request = BlacklistCheckRequest.builder()
+                    .documentType(DocumentType.PASSPORT)
+                    .documentHash(documentHashOpt.get())
+                    .build();
+            return Optional.ofNullable(blacklistClient.check(request));
+        } catch (Exception e) {
+            log.error("Failed to check blacklist in banksimulator for user {}", userId, e);
+            return Optional.empty();
+        }
+    }
 
     @Override
     public void ensureSubjectCreatedForFirstMicroloan(UUID userId) {

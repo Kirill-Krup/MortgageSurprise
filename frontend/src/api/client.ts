@@ -6,12 +6,20 @@ import type {
   AdminLoanMonitoring,
   AdminStats,
   AdminUser,
+  AgeRule,
+  AgeRuleRequest,
   AuthResponse,
   BankOffer,
   BankOfferRequest,
   CalculationRequest,
   CalculationResponse,
+  CityRule,
+  CityRuleRequest,
+  CountryRule,
+  CountryRuleRequest,
   ExperimentConfig,
+  GenderRule,
+  GenderRuleRequest,
   MicroloanCalculationRequest,
   MicroloanCalculationResponse,
   MicroloanConfig,
@@ -580,6 +588,72 @@ export const loanApplicationApi = {
       { reason }
     );
     return res.data;
+  },
+};
+
+export const scoringRulesApi = {
+  getAgeRules: async (): Promise<AgeRule[]> => {
+    const res = await apiClient.get<AgeRule[]>('/admin/scoring-rules/age');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+  createAgeRule: async (data: AgeRuleRequest): Promise<AgeRule> => {
+    const res = await apiClient.post<AgeRule>('/admin/scoring-rules/age', data);
+    return res.data;
+  },
+  updateAgeRule: async (id: number, data: AgeRuleRequest): Promise<AgeRule> => {
+    const res = await apiClient.put<AgeRule>(`/admin/scoring-rules/age/${id}`, data);
+    return res.data;
+  },
+  deleteAgeRule: async (id: number): Promise<void> => {
+    await apiClient.delete(`/admin/scoring-rules/age/${id}`);
+  },
+
+  getGenderRules: async (): Promise<GenderRule[]> => {
+    const res = await apiClient.get<GenderRule[]>('/admin/scoring-rules/gender');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+  createGenderRule: async (data: GenderRuleRequest): Promise<GenderRule> => {
+    const res = await apiClient.post<GenderRule>('/admin/scoring-rules/gender', data);
+    return res.data;
+  },
+  updateGenderRule: async (id: number, data: GenderRuleRequest): Promise<GenderRule> => {
+    const res = await apiClient.put<GenderRule>(`/admin/scoring-rules/gender/${id}`, data);
+    return res.data;
+  },
+  deleteGenderRule: async (id: number): Promise<void> => {
+    await apiClient.delete(`/admin/scoring-rules/gender/${id}`);
+  },
+
+  getCountryRules: async (): Promise<CountryRule[]> => {
+    const res = await apiClient.get<CountryRule[]>('/admin/scoring-rules/country');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+  createCountryRule: async (data: CountryRuleRequest): Promise<CountryRule> => {
+    const res = await apiClient.post<CountryRule>('/admin/scoring-rules/country', data);
+    return res.data;
+  },
+  updateCountryRule: async (id: number, data: CountryRuleRequest): Promise<CountryRule> => {
+    const res = await apiClient.put<CountryRule>(`/admin/scoring-rules/country/${id}`, data);
+    return res.data;
+  },
+  deleteCountryRule: async (id: number): Promise<void> => {
+    await apiClient.delete(`/admin/scoring-rules/country/${id}`);
+  },
+
+  getCityRules: async (): Promise<CityRule[]> => {
+    const res = await apiClient.get<CityRule[]>('/admin/scoring-rules/city');
+    return Array.isArray(res.data) ? res.data : [];
+  },
+  createCityRule: async (data: CityRuleRequest): Promise<CityRule> => {
+    const res = await apiClient.post<CityRule>('/admin/scoring-rules/city', data);
+    return res.data;
+  },
+  updateCityRule: async (id: number, data: CityRuleRequest): Promise<CityRule> => {
+    const res = await apiClient.put<CityRule>(`/admin/scoring-rules/city/${id}`, data);
+    return res.data;
+  },
+  deleteCityRule: async (id: number): Promise<void> => {
+    await apiClient.delete(`/admin/scoring-rules/city/${id}`);
   },
 };
 

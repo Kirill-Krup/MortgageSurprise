@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/banksimulator/banksimulator.iml" filepath="$PROJECT_DIR$/banksimulator/banksimulator.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.surprise.mortgagesurprise.main.iml" filepath="$PROJECT_DIR$/.idea/modules/com.surprise.mortgagesurprise.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.surprise.mortgagesurprise.test.iml" filepath="$PROJECT_DIR$/.idea/modules/com.surprise.mortgagesurprise.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/-1492390251/common-lib.main.iml" filepath="$PROJECT_DIR$/.idea/modules/-1492390251/common-lib.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/mortgagesurprise.main.iml" filepath="$PROJECT_DIR$/.idea/modules/mortgagesurprise.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/mortgagesurprise.test.iml" filepath="$PROJECT_DIR$/.idea/modules/mortgagesurprise.test.iml" />
     </modules>

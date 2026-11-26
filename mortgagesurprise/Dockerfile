@@ -1,8 +1,9 @@
 FROM gradle:9-jdk25 AS builder
 WORKDIR /build
-COPY settings.gradle.kts build.gradle.kts ./
-RUN gradle --no-daemon dependencies --configuration runtimeClasspath
-COPY src ./src
+COPY common-lib /common-lib
+COPY mortgagesurprise/settings.gradle.kts mortgagesurprise/build.gradle.kts ./
+RUN gradle --no-daemon dependencies --configuration runtimeClasspath || true
+COPY mortgagesurprise/src ./src
 RUN gradle --no-daemon build -x test
 FROM eclipse-temurin:25-jre
 WORKDIR /app

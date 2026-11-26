@@ -7,15 +7,13 @@ public record CountryRuleSet(Integer id, String countryName, RuleType ruleType, 
         implements RuleSet<String>, Identifiable<Integer> {
     @Override
     public boolean apply(String s) {
-        switch (ruleType) {
-            case INCLUSIVE -> {
-                return s.trim().equals(countryName);
-            }
-            case EXCLUSIVE -> {
-                return !(s.trim().equals(countryName));
-            }
+        if (s == null || countryName == null || ruleType == null) {
+            return false;
         }
-        return false;
+        return switch (ruleType) {
+            case INCLUSIVE -> s.trim().equalsIgnoreCase(countryName.trim());
+            case EXCLUSIVE -> !s.trim().equalsIgnoreCase(countryName.trim());
+        };
     }
 
     public static CountryRuleSet from(CountryRule countryRule) {
