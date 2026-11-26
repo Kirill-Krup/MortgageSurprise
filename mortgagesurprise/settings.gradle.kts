@@ -7,3 +7,5 @@ pluginManagement {
 
 rootProject.name = "mortgagesurprise"
 
+includeBuild("../common-lib")
+

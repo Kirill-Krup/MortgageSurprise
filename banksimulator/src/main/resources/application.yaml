@@ -1,0 +1,47 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: banksimulator
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:mortgagesurprise}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+trust:
+  blacklist-threshold: 300
+  default-initial-score: 700
+  hmac-secret: ${DOC_HMAC_SECRET:dev-hmac-secret-key-change-in-production-min-32-chars!}
+  rules:
+    PAYMENT_ON_TIME: 15
+    PAYMENT_DELAY: -20
+    OVERDUE_30_DAYS: -50
+    OVERDUE_60_DAYS: -100
+    OVERDUE_90_DAYS: -200
+    LOAN_CLOSED: 50

@@ -319,8 +319,13 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 progressPercent = Math.min(100.0, Math.max(0.0, progressPercent));
             }
 
+            String metaStatus = doc.getMetadata() != null && doc.getMetadata().get("status") != null
+                    ? String.valueOf(doc.getMetadata().get("status"))
+                    : null;
             String status;
-            if (daysElapsed > termDays) {
+            if ("PAID_OFF".equalsIgnoreCase(metaStatus)) {
+                status = "PAID_OFF";
+            } else if (daysElapsed > termDays) {
                 status = "OVERDUE";
             } else if (remainingPeriods == 0) {
                 status = "PAID_OFF";

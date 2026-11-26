@@ -16,4 +16,7 @@ public interface CalculatorAdapter {
 
     MicroloanApplicationResponse applyMicroloan(MicroloanApplicationRequest request,
                                                 CustomUserDetails userDetails);
+
+    MicroloanApplicationResponse repayMicroloan(String applicationId,
+                                                CustomUserDetails userDetails);
 }

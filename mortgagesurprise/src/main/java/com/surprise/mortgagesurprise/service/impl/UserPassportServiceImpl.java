@@ -8,7 +8,7 @@ import com.surprise.mortgagesurprise.model.entity.UserPassportData;
 import com.surprise.mortgagesurprise.repository.jpa.UserPassportDataRepository;
 import com.surprise.mortgagesurprise.service.UserPassportService;
 import com.surprise.mortgagesurprise.util.AesEncryptionService;
-import com.surprise.mortgagesurprise.util.Sha256Encoder;
+import com.surprise.mortgagesurprise.util.HmacSha256Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +24,7 @@ public class UserPassportServiceImpl implements UserPassportService {
 
     private final UserPassportDataRepository repository;
     private final AesEncryptionService encryptionService;
+    private final HmacSha256Service hmacSha256Service;
 
     @Override
     @Transactional(readOnly = true)
@@ -53,8 +54,8 @@ public class UserPassportServiceImpl implements UserPassportService {
     @Override
     @Transactional
     public PassportDataDTO saveOrUpdatePassportData(UUID userId, PassportDataDTO dto) {
-        String normalized = dto.seriesNumber().replaceAll("\\s+", "").trim();
-        String passportHash = Sha256Encoder.toSha256(normalized);
+        String normalized = dto.seriesNumber().replaceAll("[\\s-]+", "").toUpperCase().trim();
+        String passportHash = hmacSha256Service.hash(normalized);
 
         if (repository.existsByPassportHashAndUserIdNot(passportHash, userId)) {
             throw new BusinessException(ErrorCode.PASSPORT_ALREADY_LINKED);

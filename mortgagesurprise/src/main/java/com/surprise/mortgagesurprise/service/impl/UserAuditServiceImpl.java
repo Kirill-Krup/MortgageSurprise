@@ -30,7 +30,6 @@ public class UserAuditServiceImpl implements UserAuditService {
     private final UserActionAuditMongoRepository auditRepository;
 
     private boolean shouldAudit(UUID userId, boolean isAdmin) {
-        // Audit only authorized users who are NOT administrators
         return userId != null && !isAdmin;
     }
 
@@ -328,5 +327,33 @@ public class UserAuditServiceImpl implements UserAuditService {
             log.error("Failed to fetch audits for user {}", userId, e);
             return List.of();
         }
+    }
+
+    @Override
+    public boolean hasMicroloanApplications(UUID userId) {
+        if (userId == null) {
+            return false;
+        }
+        return auditRepository.existsByUserIdAndActionTypeIn(
+                userId,
+                List.of(UserAuditActionType.MICROLOAN_APPLICATION, UserAuditActionType.MICROLOAN_APPLIED)
+        );
+    }
+
+    @Override
+    public java.util.Optional<UserActionAuditDocument> findMicroloanApplication(UUID userId, String applicationId) {
+        if (userId == null || applicationId == null || applicationId.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return auditRepository.findFirstByUserIdAndApplicationIdAndActionTypeIn(
+                userId,
+                applicationId.trim(),
+                List.of(UserAuditActionType.MICROLOAN_APPLICATION, UserAuditActionType.MICROLOAN_APPLIED)
+        );
+    }
+
+    @Override
+    public UserActionAuditDocument saveAudit(UserActionAuditDocument doc) {
+        return auditRepository.save(doc);
     }
 }
