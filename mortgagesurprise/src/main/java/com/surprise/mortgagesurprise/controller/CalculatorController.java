@@ -42,6 +42,12 @@ public class CalculatorController {
         return ResponseEntity.ok(calculatorAdapter.applyMicroloan(request, userDetails));
     }
 
+    @PostMapping("/microloan/{applicationId}/repay")
+    public ResponseEntity<MicroloanApplicationResponse> repayMicroloan(@PathVariable String applicationId,
+                                                                       @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(calculatorAdapter.repayMicroloan(applicationId, userDetails));
+    }
+
     @GetMapping("/schedules/{scheduleId}")
     public ResponseEntity<PaymentScheduleDocument> getSchedule(@PathVariable String scheduleId) {
         return ResponseEntity.ok(calculatorService.getScheduleById(scheduleId));

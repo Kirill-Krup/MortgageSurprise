@@ -5,7 +5,7 @@ import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.model.entity.UserPassportData;
 import com.surprise.mortgagesurprise.repository.jpa.UserPassportDataRepository;
 import com.surprise.mortgagesurprise.util.AesEncryptionService;
-import com.surprise.mortgagesurprise.util.Sha256Encoder;
+import com.surprise.mortgagesurprise.util.HmacSha256Service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +32,9 @@ class UserPassportServiceImplTest {
 
     @Spy
     private AesEncryptionService encryptionService = new AesEncryptionService("v8y/B?E(H+MbQeThWmZq4t7w!z%C*F-J");
+
+    @Spy
+    private HmacSha256Service hmacSha256Service = new HmacSha256Service("v8y/B?E(H+MbQeThWmZq4t7w!z%C*F-J");
 
     @InjectMocks
     private UserPassportServiceImpl passportService;
@@ -69,7 +72,7 @@ class UserPassportServiceImplTest {
         entity.setUserId(userId);
         entity.setFullName(sampleDto.fullName());
         entity.setSeriesNumberEncrypted(encryptionService.encrypt(sampleDto.seriesNumber()));
-        entity.setPassportHash(Sha256Encoder.toSha256("4515123456"));
+        entity.setPassportHash(hmacSha256Service.hash("4515123456"));
         entity.setIssueDate(sampleDto.issueDate());
         entity.setDepartmentCode(sampleDto.departmentCode());
         entity.setIssuedBy(sampleDto.issuedBy());
@@ -99,7 +102,7 @@ class UserPassportServiceImplTest {
         verify(repository).save(argThat(entity -> {
             assertThat(entity.getFullName()).isEqualTo(sampleDto.fullName());
             assertThat(entity.getSeriesNumberEncrypted()).isNotEqualTo(sampleDto.seriesNumber());
-            assertThat(entity.getPassportHash()).isEqualTo(Sha256Encoder.toSha256("4515123456"));
+            assertThat(entity.getPassportHash()).isEqualTo(hmacSha256Service.hash("4515123456"));
             return true;
         }));
     }

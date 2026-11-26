@@ -10,6 +10,7 @@ import com.surprise.mortgagesurprise.model.document.UserActionAuditDocument;
 import com.surprise.mortgagesurprise.model.enums.UserAuditActionType;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface UserAuditService {
@@ -31,4 +32,10 @@ public interface UserAuditService {
     List<UserActionAuditDocument> getAuditsByAction(UserAuditActionType actionType);
 
     List<UserActionAuditDocument> getAuditsForUser(UUID userId);
+
+    boolean hasMicroloanApplications(UUID userId);
+
+    Optional<UserActionAuditDocument> findMicroloanApplication(UUID userId, String applicationId);
+
+    UserActionAuditDocument saveAudit(UserActionAuditDocument doc);
 }

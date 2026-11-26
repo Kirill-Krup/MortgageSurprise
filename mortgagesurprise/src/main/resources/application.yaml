@@ -78,6 +78,13 @@ spring:
           auth: ${SMTP_AUTH:false}
           starttls:
             enable: ${SMTP_STARTTLS_ENABLE:false}
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 2000
+            read-timeout: 3000
 
 app:
   jwt:
@@ -149,3 +156,7 @@ twelvedata:
   base-url: https://api.twelvedata.com
   symbols: USD/RUB,EUR/RUB,BYN/RUB
   cron: "0 0 9 * * *"
+
+bank:
+  simulator:
+    url: ${BANK_SYSTEM_URL:http://localhost:8082/api/v1}

@@ -21,6 +21,7 @@ repositories {
 }
 
 dependencies {
+	implementation("com.surprise:common-lib")
 	implementation("org.springframework.boot:spring-boot-starter-amqp")
 	implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
 	implementation("org.springframework.boot:spring-boot-starter-security")
