@@ -105,10 +105,8 @@ class AdminDashboardServiceImplTest {
     void updateUserStatus_ModifiesAndSavesUser() {
         when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(userRepository.findAll()).thenReturn(List.of(testUser));
-        when(scenarioRepository.findAll()).thenReturn(List.of());
-        when(auditRepository.findByActionTypeOrderByTimestampDesc(UserAuditActionType.MICROLOAN_APPLICATION))
-                .thenReturn(List.of());
+        when(scenarioRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+        when(auditRepository.findByUserIdOrderByTimestampDesc(userId)).thenReturn(List.of());
 
         AdminUserDto updated = service.updateUserStatus(userId, false);
 

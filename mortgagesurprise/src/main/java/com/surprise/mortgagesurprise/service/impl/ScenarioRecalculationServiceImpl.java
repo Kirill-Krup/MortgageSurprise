@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -53,7 +55,7 @@ public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationSe
                 recalculateScenario(scenario, event);
             } catch (Exception e) {
                 log.error("Error occurred while recalculating scenario {}: {}", scenario.getId(), e.getMessage());
-                throw new RuntimeException("Failed to recalculate scenario " + scenario.getId(), e);
+                throw new IllegalStateException("Failed to recalculate scenario " + scenario.getId(), e);
             }
         }
     }
@@ -91,6 +93,19 @@ public class ScenarioRecalculationServiceImpl implements ScenarioRecalculationSe
                 "RATE_UPDATE_ALERT",
                 Instant.now()
         );
-        messageProducer.send(notificationEvent);
+        sendAfterCommit(notificationEvent);
+    }
+
+    private void sendAfterCommit(EmailNotificationEvent notificationEvent) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    messageProducer.send(notificationEvent);
+                }
+            });
+        } else {
+            messageProducer.send(notificationEvent);
+        }
     }
 }

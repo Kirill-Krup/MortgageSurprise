@@ -2,15 +2,16 @@ package com.bank.simulator.service;
 
 import com.bank.simulator.config.TrustProperties;
 import com.bank.simulator.dto.AddDocumentRequest;
-import com.surprise.common.dto.simulator.CreateSubjectRequest;
 import com.bank.simulator.dto.HardBlockRequest;
-import com.surprise.common.dto.simulator.SubjectResponse;
+import com.bank.simulator.mapper.SubjectMapper;
 import com.bank.simulator.model.Subject;
-import com.bank.simulator.model.SubjectDocument;
 import com.bank.simulator.repository.SubjectDocumentRepository;
 import com.bank.simulator.repository.SubjectRepository;
+import com.bank.simulator.service.impl.SubjectServiceImpl;
+import com.surprise.common.dto.simulator.CreateSubjectRequest;
 import com.surprise.common.dto.simulator.DocumentType;
 import com.surprise.common.dto.simulator.RiskLevel;
+import com.surprise.common.dto.simulator.SubjectResponse;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -48,7 +49,8 @@ class SubjectServiceTest {
     @BeforeEach
     void setUp() {
         TrustProperties properties = new TrustProperties(300, 700, "secret", Map.of());
-        subjectService = new SubjectService(subjectRepository, documentRepository, properties);
+        SubjectMapper subjectMapper = new SubjectMapper(properties);
+        subjectService = new SubjectServiceImpl(subjectRepository, documentRepository, properties, subjectMapper);
     }
 
     @Test

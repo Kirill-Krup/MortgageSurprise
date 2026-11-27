@@ -3,6 +3,7 @@ package com.bank.simulator.service;
 import com.bank.simulator.config.TrustProperties;
 import com.bank.simulator.model.Subject;
 import com.bank.simulator.repository.SubjectRepository;
+import com.bank.simulator.service.impl.BlacklistCheckServiceImpl;
 import com.surprise.common.dto.simulator.BlacklistCheckRequest;
 import com.surprise.common.dto.simulator.BlacklistCheckResponse;
 import com.surprise.common.dto.simulator.DocumentType;
@@ -40,7 +41,7 @@ class BlacklistCheckServiceTest {
     @BeforeEach
     void setUp() {
         trustProperties = new TrustProperties(300, 700, "secret", Map.of());
-        blacklistCheckService = new BlacklistCheckService(subjectRepository, trustProperties, documentHashService);
+        blacklistCheckService = new BlacklistCheckServiceImpl(subjectRepository, trustProperties, documentHashService);
     }
 
     @Test
@@ -194,11 +195,11 @@ class BlacklistCheckServiceTest {
     @Test
     @DisplayName("Calculates RiskLevel accurately across score boundaries and hardBlock flag")
     void calculateRiskLevel_BoundaryValues_ReturnsExpectedLevels() {
-        assertThat(BlacklistCheckService.calculateRiskLevel(0, false)).isEqualTo(RiskLevel.HIGH);
-        assertThat(BlacklistCheckService.calculateRiskLevel(299, false)).isEqualTo(RiskLevel.HIGH);
-        assertThat(BlacklistCheckService.calculateRiskLevel(300, false)).isEqualTo(RiskLevel.MEDIUM);
-        assertThat(BlacklistCheckService.calculateRiskLevel(599, false)).isEqualTo(RiskLevel.MEDIUM);
-        assertThat(BlacklistCheckService.calculateRiskLevel(600, false)).isEqualTo(RiskLevel.LOW);
-        assertThat(BlacklistCheckService.calculateRiskLevel(900, true)).isEqualTo(RiskLevel.HIGH);
+        assertThat(trustProperties.calculateRiskLevel(0, false)).isEqualTo(RiskLevel.HIGH);
+        assertThat(trustProperties.calculateRiskLevel(299, false)).isEqualTo(RiskLevel.HIGH);
+        assertThat(trustProperties.calculateRiskLevel(300, false)).isEqualTo(RiskLevel.MEDIUM);
+        assertThat(trustProperties.calculateRiskLevel(599, false)).isEqualTo(RiskLevel.MEDIUM);
+        assertThat(trustProperties.calculateRiskLevel(600, false)).isEqualTo(RiskLevel.LOW);
+        assertThat(trustProperties.calculateRiskLevel(900, true)).isEqualTo(RiskLevel.HIGH);
     }
 }

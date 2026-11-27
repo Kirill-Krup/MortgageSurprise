@@ -131,7 +131,7 @@ public class UserAuditServiceImpl implements UserAuditService {
         }
 
         try {
-            String typeLabel = "VANITY".equalsIgnoreCase(response.microloanType().name())
+            String typeLabel = response.microloanType() != null && "VANITY".equalsIgnoreCase(response.microloanType().name())
                     ? "Luxury Maximum"
                     : "Basic Minimum";
 
@@ -327,6 +327,19 @@ public class UserAuditServiceImpl implements UserAuditService {
             log.error("Failed to fetch audits for user {}", userId, e);
             return List.of();
         }
+    }
+
+    @Override
+    public List<UserActionAuditDocument> getAuditsForUser(UUID userId, UserAuditActionType action) {
+        List<UserActionAuditDocument> audits = getAuditsForUser(userId);
+        if (action == null || audits.isEmpty()) {
+            return audits;
+        }
+        UserAuditActionType canonicalTarget = action.canonical();
+        return audits.stream()
+                .filter(a -> a != null && a.getActionType() != null &&
+                        (a.getActionType() == action || a.getActionType().canonical() == canonicalTarget))
+                .toList();
     }
 
     @Override

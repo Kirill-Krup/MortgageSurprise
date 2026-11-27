@@ -33,6 +33,8 @@ public interface UserAuditService {
 
     List<UserActionAuditDocument> getAuditsForUser(UUID userId);
 
+    List<UserActionAuditDocument> getAuditsForUser(UUID userId, UserAuditActionType action);
+
     boolean hasMicroloanApplications(UUID userId);
 
     Optional<UserActionAuditDocument> findMicroloanApplication(UUID userId, String applicationId);

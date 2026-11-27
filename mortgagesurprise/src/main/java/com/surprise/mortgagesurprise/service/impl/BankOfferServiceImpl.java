@@ -11,6 +11,8 @@ import com.surprise.mortgagesurprise.service.BankOfferService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -62,7 +64,7 @@ public class BankOfferServiceImpl implements BankOfferService {
 
         BankOffer updated = bankOfferRepository.save(offer);
 
-        if (oldRate.compareTo(newRate) != 0) {
+        if (hasRateChanged(oldRate, newRate)) {
             RateChangedEvent event = new RateChangedEvent(
                     updated.getId(),
                     updated.getBankName(),
@@ -70,10 +72,33 @@ public class BankOfferServiceImpl implements BankOfferService {
                     newRate,
                     Instant.now()
             );
-            messageSender.send(event);
+            sendAfterCommit(event);
         }
 
         return BankOfferResponse.from(updated);
+    }
+
+    private boolean hasRateChanged(BigDecimal oldRate, BigDecimal newRate) {
+        if (oldRate == null && newRate == null) {
+            return false;
+        }
+        if (oldRate == null || newRate == null) {
+            return true;
+        }
+        return oldRate.compareTo(newRate) != 0;
+    }
+
+    private void sendAfterCommit(RateChangedEvent event) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    messageSender.send(event);
+                }
+            });
+        } else {
+            messageSender.send(event);
+        }
     }
 
     @Override

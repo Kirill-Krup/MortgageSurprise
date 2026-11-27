@@ -16,10 +16,11 @@ import com.surprise.mortgagesurprise.service.CalculatorService;
 import com.surprise.mortgagesurprise.service.CreditScoringIntegrationService;
 import com.surprise.mortgagesurprise.service.MicroloanService;
 import com.surprise.mortgagesurprise.service.UserAuditService;
+import com.surprise.mortgagesurprise.service.impl.MicroloanApplicationServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -53,8 +54,22 @@ class CalculatorAdapterImplMicroloanTest {
     @Mock
     private CreditScoringIntegrationService creditScoringIntegrationService;
 
-    @InjectMocks
     private CalculatorAdapterImpl calculatorAdapter;
+
+    @BeforeEach
+    void setUp() {
+        var microloanApplicationService = new MicroloanApplicationServiceImpl(
+                userAuditService,
+                bankSimulatorIntegrationService,
+                creditScoringIntegrationService
+        );
+        calculatorAdapter = new CalculatorAdapterImpl(
+                calculatorService,
+                microloanService,
+                microloanApplicationService,
+                userAuditService
+        );
+    }
 
     private CustomUserDetails user(UUID id) {
         User u = new User("user@example.com", "pass", "Ivan", "Ivanov", Role.ROLE_USER);

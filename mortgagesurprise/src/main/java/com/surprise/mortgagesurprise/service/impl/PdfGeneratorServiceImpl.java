@@ -9,6 +9,7 @@ import com.lowagie.text.pdf.PdfWriter;
 import com.surprise.mortgagesurprise.dto.calculator.PaymentScheduleItem;
 import com.surprise.mortgagesurprise.model.document.PaymentScheduleDocument;
 import com.surprise.mortgagesurprise.service.PdfGeneratorService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
@@ -16,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
 @Service
+@Slf4j
 public class PdfGeneratorServiceImpl implements PdfGeneratorService {
 
     @Override
@@ -99,7 +101,8 @@ public class PdfGeneratorServiceImpl implements PdfGeneratorService {
                 byte[] fontBytes = is.readAllBytes();
                 return BaseFont.createFont(bold ? "arialbd.ttf" : "arial.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontBytes, null);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("Failed to load PDF font {}, falling back to Helvetica: {}", resourcePath, e.getMessage());
         }
         try {
             return BaseFont.createFont(bold ? BaseFont.HELVETICA_BOLD : BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);

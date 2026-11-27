@@ -2,6 +2,7 @@ package com.bank.simulator.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -19,6 +20,9 @@ import java.util.UUID;
 @Builder
 @EqualsAndHashCode(of = "id")
 public class Subject {
+
+    public static final int MIN_TRUST_SCORE = 0;
+    public static final int MAX_TRUST_SCORE = 1000;
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -48,6 +52,7 @@ public class Subject {
     private Instant updatedAt;
 
     @Builder.Default
+    @BatchSize(size = 50)
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SubjectDocument> documents = new ArrayList<>();
 
@@ -59,5 +64,24 @@ public class Subject {
     public void removeDocument(SubjectDocument document) {
         documents.remove(document);
         document.setSubject(null);
+    }
+
+    public int applyScoreDelta(int delta) {
+        this.trustScore = Math.clamp((long) this.trustScore + delta, MIN_TRUST_SCORE, MAX_TRUST_SCORE);
+        return this.trustScore;
+    }
+
+    public void applyHardBlock(String reason) {
+        this.hardBlock = true;
+        this.blockReason = reason;
+    }
+
+    public void clearHardBlock() {
+        this.hardBlock = false;
+        this.blockReason = null;
+    }
+
+    public boolean isBlacklisted(int blacklistThreshold) {
+        return this.hardBlock || this.trustScore < blacklistThreshold;
     }
 }

@@ -17,6 +17,8 @@ public enum ErrorCode {
     INVALID_OAUTH2_CODE(HttpStatus.UNAUTHORIZED, "Invalid or expired OAuth2 code"),
     AB_TEST_INVALID_DISTRIBUTION(HttpStatus.BAD_REQUEST, "A/B test variant probabilities must sum to 100"),
     AB_TEST_VARIANT_EXISTS(HttpStatus.CONFLICT, "A/B test variant already exists"),
+    ADMIN_CONFIGURER_ONLY(HttpStatus.CONFLICT, "Administrator acts solely as system configurator and" +
+                                                                " cannot calculate or apply for loans"),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Validation failed");
 
     public final HttpStatus status;

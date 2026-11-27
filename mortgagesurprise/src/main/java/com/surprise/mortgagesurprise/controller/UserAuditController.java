@@ -5,6 +5,7 @@ import com.surprise.mortgagesurprise.model.document.UserActionAuditDocument;
 import com.surprise.mortgagesurprise.model.enums.UserAuditActionType;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
 import com.surprise.mortgagesurprise.service.UserAuditService;
+import com.surprise.mortgagesurprise.util.CredentialValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -28,10 +28,11 @@ public class UserAuditController {
             @Valid @RequestBody BankOfferSelectionRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        if (userDetails != null && !isAdmin(userDetails)) {
+        boolean shouldLog = userDetails != null && !CredentialValidator.isAdmin(userDetails);
+        if (shouldLog) {
             userAuditService.auditBankOfferSelected(userDetails.getId(), userDetails.getUsername(), false, request);
         }
-        return ResponseEntity.ok(Map.of("success", true, "logged", userDetails != null && !isAdmin(userDetails)));
+        return ResponseEntity.ok(Map.of("success", true, "logged", shouldLog));
     }
 
     @GetMapping("/profile/activity")
@@ -43,18 +44,7 @@ public class UserAuditController {
         if (userDetails == null || userDetails.getId() == null) {
             return ResponseEntity.ok(List.of());
         }
-        List<UserActionAuditDocument> audits = userAuditService.getAuditsForUser(userDetails.getId());
-        if (audits == null) {
-            audits = List.of();
-        }
-        if (action != null) {
-            final UserAuditActionType canonicalTarget = action.canonical();
-            audits = audits.stream()
-                    .filter(a -> a != null && a.getActionType() != null &&
-                            (a.getActionType() == action || a.getActionType().canonical() == canonicalTarget))
-                    .toList();
-        }
-        return ResponseEntity.ok(audits);
+        return ResponseEntity.ok(userAuditService.getAuditsForUser(userDetails.getId(), action));
     }
 
     @GetMapping("/admin/audit/logs")
@@ -62,17 +52,9 @@ public class UserAuditController {
     public ResponseEntity<List<UserActionAuditDocument>> getAdminAuditLogs(
             @RequestParam(required = false) UserAuditActionType action
     ) {
-        List<UserActionAuditDocument> audits;
-        if (action != null) {
-            audits = userAuditService.getAuditsByAction(action);
-        } else {
-            audits = userAuditService.getAllAudits();
-        }
+        List<UserActionAuditDocument> audits = action != null
+                ? userAuditService.getAuditsByAction(action)
+                : userAuditService.getAllAudits();
         return ResponseEntity.ok(audits != null ? audits : List.of());
-    }
-
-    private boolean isAdmin(CustomUserDetails userDetails) {
-        return userDetails != null && userDetails.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 }
