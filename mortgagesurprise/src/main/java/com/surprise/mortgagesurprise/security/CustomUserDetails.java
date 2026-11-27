@@ -1,6 +1,9 @@
 package com.surprise.mortgagesurprise.security;
 
 import com.surprise.mortgagesurprise.model.entity.User;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -8,7 +11,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-
+@Getter
+@Setter
 public class CustomUserDetails implements UserDetails {
 
     private final UUID id;
@@ -23,14 +27,6 @@ public class CustomUserDetails implements UserDetails {
         this.password = user.getPassword();
         this.enabled = user.isEnabled();
         this.authorities = List.of(new SimpleGrantedAuthority(user.getRole().name()));
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getEmail() {
-        return email;
     }
 
     @Override
@@ -65,6 +61,10 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
+        return true;
+    }
+
+    public boolean isUserEnabled() {
         return enabled;
     }
 }

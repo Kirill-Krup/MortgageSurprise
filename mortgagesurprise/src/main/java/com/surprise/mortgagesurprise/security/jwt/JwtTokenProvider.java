@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -11,9 +12,11 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Component
+@Getter
 public class JwtTokenProvider {
 
     private final SecretKey secretKey;
@@ -21,10 +24,16 @@ public class JwtTokenProvider {
     private final long refreshTokenValidityMs;
 
     public JwtTokenProvider(
-            @Value("${app.jwt.secret:mortgagesurprise-default-secret-key-must-be-at-least-256-bits-long!}") String secret,
-            @Value("${app.jwt.access-token-expiration-ms:900000}") long accessTokenValidityMs, // 15 mins
-            @Value("${app.jwt.refresh-token-expiration-ms:604800000}") long refreshTokenValidityMs // 7 days
+            @Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.access-token-expiration-ms:900000}") long accessTokenValidityMs,
+            @Value("${app.jwt.refresh-token-expiration-ms:604800000}") long refreshTokenValidityMs
     ) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalArgumentException("JWT secret must be at least 256 bits");
+        }
+        if (accessTokenValidityMs <= 0 || refreshTokenValidityMs <= 0) {
+            throw new IllegalArgumentException("JWT token validity must be positive");
+        }
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenValidityMs = accessTokenValidityMs;
         this.refreshTokenValidityMs = refreshTokenValidityMs;
@@ -38,6 +47,8 @@ public class JwtTokenProvider {
                 .subject(email)
                 .claim("userId", userId.toString())
                 .claim("role", role)
+                .claim("roles", role != null ? List.of(role) : List.of())
+                .claim("type", "ACCESS")
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
@@ -58,10 +69,20 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public boolean validateToken(String token) {
+    public boolean validateAccessToken(String token) {
+        return hasTokenType(token, "ACCESS");
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return hasTokenType(token, "REFRESH");
+    }
+
+    private boolean hasTokenType(String token, String expectedType) {
         try {
-            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token);
-            return true;
+            Claims claims = Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
+            return expectedType.equals(claims.get("type", String.class))
+                    && claims.getSubject() != null
+                    && claims.get("userId", String.class) != null;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
@@ -74,14 +95,6 @@ public class JwtTokenProvider {
     public UUID getUserIdFromToken(String token) {
         String userIdStr = getClaims(token).get("userId", String.class);
         return UUID.fromString(userIdStr);
-    }
-
-    public String getRoleFromToken(String token) {
-        return getClaims(token).get("role", String.class);
-    }
-
-    public long getRefreshTokenValidityMs() {
-        return refreshTokenValidityMs;
     }
 
     private Claims getClaims(String token) {

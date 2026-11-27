@@ -1,0 +1,112 @@
+package com.surprise.mortgagesurprise.service.impl;
+
+import com.surprise.mortgagesurprise.config.CacheConfig;
+import com.surprise.mortgagesurprise.dto.calculator.microloan.MicroloanRateDTO;
+import com.surprise.mortgagesurprise.exception.MicroLoanRateNotFoundException;
+import com.surprise.mortgagesurprise.model.entity.MicroloanRate;
+import com.surprise.mortgagesurprise.repository.jpa.MicroloanRateRepository;
+import com.surprise.mortgagesurprise.service.MicroloanRateService;
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class MicroloanRateServiceImpl implements MicroloanRateService {
+
+    private final MicroloanRateRepository microloanRateRepository;
+    private final CaffeineCacheManager caffeineCacheManager;
+    private final EntityManager entityManager;
+
+    @Override
+    @Transactional(readOnly = true)
+    public MicroloanRate findById(Integer id) {
+        var result = microloanRateRepository.findById(id)
+                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan tariff with id " + id + " not found"));
+        entityManager.detach(result);
+        return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @Cacheable(cacheManager = "caffeineCacheManager", cacheNames = CacheConfig.MICROLOAN_RATES,
+            key = "#name")
+    public MicroloanRate findByName(String name) {
+        var opt = microloanRateRepository.findByName(name);
+        if (opt.isEmpty() && "Стандарт".equalsIgnoreCase(name)) {
+            opt = microloanRateRepository.findAll().stream().findFirst();
+        }
+        var result = opt.orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with this name not found"));
+        entityManager.detach(result);
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public List<MicroloanRate> findAll() {
+        var list = microloanRateRepository.findAll();
+        if (list.isEmpty()) {
+            var seeded = microloanRateRepository.save(new MicroloanRate("Стандарт", new BigDecimal("0.8000"), 7, 30));
+            return List.of(seeded);
+        }
+        return list;
+    }
+
+    @Override
+    @Transactional
+    public MicroloanRate save(MicroloanRateDTO dto) {
+        int minDay = dto.minDayRequired() != null ? dto.minDayRequired() : 7;
+        int maxDay = dto.maxDayRequired() != null ? dto.maxDayRequired() : 30;
+        var entity = microloanRateRepository.save(new MicroloanRate(dto.name(), dto.baseDailyRate(),
+                minDay, maxDay));
+        evictRateCache(entity.getName());
+        return entity;
+    }
+
+    @Override
+    @Transactional
+    public MicroloanRate update(MicroloanRateDTO dto, Integer id) {
+        var existingMicroloanRate = microloanRateRepository.findById(id)
+                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with this id not found"));
+        var oldName = existingMicroloanRate.getName();
+        existingMicroloanRate.setName(dto.name());
+        existingMicroloanRate.setBaseDailyRate(dto.baseDailyRate());
+        if (dto.minDayRequired() != null) {
+            existingMicroloanRate.setMinDayRequired(dto.minDayRequired());
+        }
+        if (dto.maxDayRequired() != null) {
+            existingMicroloanRate.setMaxDayRequired(dto.maxDayRequired());
+        }
+        var result = microloanRateRepository.save(existingMicroloanRate);
+        entityManager.detach(result);
+        evictRateCache(oldName);
+        evictRateCache(result.getName());
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void delete(Integer id) {
+        var existing = microloanRateRepository.findById(id)
+                .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with id " + id + " not found"));
+        var name = existing.getName();
+        microloanRateRepository.delete(existing);
+        evictRateCache(name);
+    }
+
+    private void evictRateCache(String name) {
+        if (name == null) {
+            return;
+        }
+        var cache = caffeineCacheManager.getCache(CacheConfig.MICROLOAN_RATES);
+        if (cache != null) {
+            cache.evict(name);
+        }
+    }
+}

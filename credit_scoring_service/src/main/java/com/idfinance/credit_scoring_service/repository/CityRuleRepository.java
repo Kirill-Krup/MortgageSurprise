@@ -1,0 +1,14 @@
+package com.idfinance.credit_scoring_service.repository;
+
+import com.idfinance.credit_scoring_service.model.CityRule;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface CityRuleRepository extends JpaRepository<CityRule, Long> {
+    @Query("select c.id from CityRule c")
+    List<Long> findAllIds();
+}

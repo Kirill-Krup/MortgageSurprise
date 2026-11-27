@@ -4,12 +4,15 @@ import com.surprise.mortgagesurprise.dto.bank.BankOfferRequest;
 import com.surprise.mortgagesurprise.dto.bank.BankOfferResponse;
 import com.surprise.mortgagesurprise.exception.ResourceNotFoundException;
 import com.surprise.mortgagesurprise.messaging.event.RateChangedEvent;
-import com.surprise.mortgagesurprise.messaging.producer.MessageProducer;
+import com.surprise.mortgagesurprise.messaging.sender.RabbitMqEventSender;
 import com.surprise.mortgagesurprise.model.entity.BankOffer;
 import com.surprise.mortgagesurprise.repository.jpa.BankOfferRepository;
 import com.surprise.mortgagesurprise.service.BankOfferService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -18,15 +21,11 @@ import java.util.UUID;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class BankOfferServiceImpl implements BankOfferService {
 
     private final BankOfferRepository bankOfferRepository;
-    private final MessageProducer messageProducer;
-
-    public BankOfferServiceImpl(BankOfferRepository bankOfferRepository, MessageProducer messageProducer) {
-        this.bankOfferRepository = bankOfferRepository;
-        this.messageProducer = messageProducer;
-    }
+    private final RabbitMqEventSender<RateChangedEvent> messageSender;
 
     @Override
     public BankOfferResponse createOffer(BankOfferRequest req) {
@@ -37,7 +36,8 @@ public class BankOfferServiceImpl implements BankOfferService {
                 req.minDownPaymentPercent(),
                 req.maxTermMonths(),
                 req.minLoanAmount(),
-                req.maxLoanAmount()
+                req.maxLoanAmount(),
+                req.currency()
         );
         BankOffer saved = bankOfferRepository.save(offer);
         return BankOfferResponse.from(saved);
@@ -58,10 +58,13 @@ public class BankOfferServiceImpl implements BankOfferService {
         offer.setMaxTermMonths(req.maxTermMonths());
         offer.setMinLoanAmount(req.minLoanAmount());
         offer.setMaxLoanAmount(req.maxLoanAmount());
+        if (req.currency() != null) {
+            offer.setCurrency(req.currency());
+        }
 
         BankOffer updated = bankOfferRepository.save(offer);
 
-        if (oldRate.compareTo(newRate) != 0) {
+        if (hasRateChanged(oldRate, newRate)) {
             RateChangedEvent event = new RateChangedEvent(
                     updated.getId(),
                     updated.getBankName(),
@@ -69,10 +72,33 @@ public class BankOfferServiceImpl implements BankOfferService {
                     newRate,
                     Instant.now()
             );
-            messageProducer.sendRateChangedEvent(event);
+            sendAfterCommit(event);
         }
 
         return BankOfferResponse.from(updated);
+    }
+
+    private boolean hasRateChanged(BigDecimal oldRate, BigDecimal newRate) {
+        if (oldRate == null && newRate == null) {
+            return false;
+        }
+        if (oldRate == null || newRate == null) {
+            return true;
+        }
+        return oldRate.compareTo(newRate) != 0;
+    }
+
+    private void sendAfterCommit(RateChangedEvent event) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    messageSender.send(event);
+                }
+            });
+        } else {
+            messageSender.send(event);
+        }
     }
 
     @Override

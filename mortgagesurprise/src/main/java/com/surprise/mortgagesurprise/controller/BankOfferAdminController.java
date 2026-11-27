@@ -4,6 +4,7 @@ import com.surprise.mortgagesurprise.dto.bank.BankOfferRequest;
 import com.surprise.mortgagesurprise.dto.bank.BankOfferResponse;
 import com.surprise.mortgagesurprise.service.BankOfferService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,14 +15,11 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin/bank-offers")
+@RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
 public class BankOfferAdminController {
 
     private final BankOfferService bankOfferService;
-
-    public BankOfferAdminController(BankOfferService bankOfferService) {
-        this.bankOfferService = bankOfferService;
-    }
 
     @PostMapping
     public ResponseEntity<BankOfferResponse> createOffer(@Valid @RequestBody BankOfferRequest request) {

@@ -13,4 +13,5 @@ public interface ScenarioService {
     ScenarioResponse getScenarioById(UUID userId, UUID scenarioId);
     ScenarioComparisonResponse compareScenarios(UUID userId, List<UUID> scenarioIds);
     void deleteScenario(UUID userId, UUID scenarioId);
+    void requestPdfExport(UUID userId, String userEmail, UUID scenarioId);
 }

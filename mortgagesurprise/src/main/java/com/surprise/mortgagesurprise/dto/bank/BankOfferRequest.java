@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.dto.bank;
 
+import com.surprise.mortgagesurprise.model.enums.Currency;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -27,5 +28,18 @@ public record BankOfferRequest(
         Integer maxTermMonths,
 
         BigDecimal minLoanAmount,
-        BigDecimal maxLoanAmount
-) {}
+        BigDecimal maxLoanAmount,
+        Currency currency
+) {
+    public BankOfferRequest {
+        if (currency == null) {
+            currency = Currency.RUB;
+        }
+    }
+
+    public BankOfferRequest(String bankName, String offerName, BigDecimal annualInterestRate,
+                            BigDecimal minDownPaymentPercent, Integer maxTermMonths,
+                            BigDecimal minLoanAmount, BigDecimal maxLoanAmount) {
+        this(bankName, offerName, annualInterestRate, minDownPaymentPercent, maxTermMonths, minLoanAmount, maxLoanAmount, Currency.RUB);
+    }
+}

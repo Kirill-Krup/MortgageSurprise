@@ -1,53 +1,102 @@
 package com.surprise.mortgagesurprise.controller;
 
-import com.surprise.mortgagesurprise.dto.auth.AuthResponse;
-import com.surprise.mortgagesurprise.dto.auth.LoginRequest;
-import com.surprise.mortgagesurprise.dto.auth.RefreshTokenRequest;
-import com.surprise.mortgagesurprise.dto.auth.RegisterRequest;
-import com.surprise.mortgagesurprise.service.AuthService;
+import com.surprise.mortgagesurprise.adapter.AuthAdapter;
+import com.surprise.mortgagesurprise.dto.ErrorCode;
+import com.surprise.mortgagesurprise.dto.auth.*;
+import com.surprise.mortgagesurprise.exception.BusinessException;
 import com.surprise.mortgagesurprise.security.CustomUserDetails;
+import com.surprise.mortgagesurprise.security.oauth2.OAuth2CodeStore;
+import com.surprise.mortgagesurprise.service.AuthService;
+import com.surprise.mortgagesurprise.service.impl.MagicLinkService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import static com.surprise.mortgagesurprise.util.CookieManager.clearAuthCookies;
+import static com.surprise.mortgagesurprise.util.CookieManager.setAuthCookies;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
-
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
+    private final AuthAdapter authAdapter;
+    private final MagicLinkService magicLinkService;
+    private final OAuth2CodeStore oAuth2CodeStore;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request, HttpServletResponse response) {
+        AuthResponse authResponse = authService.register(request);
+        setAuthCookies(response, authResponse);
+        return ResponseEntity.status(HttpStatus.CREATED).body(authResponse);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+        AuthResponse authResponse = authService.login(request);
+        setAuthCookies(response, authResponse);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        AuthResponse response = authService.refreshToken(request);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<AuthResponse> refresh(
+            @RequestBody(required = false) RefreshTokenRequest request,
+            @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie,
+            HttpServletResponse response
+    ) {
+        var authResponse = authAdapter.refresh(request, refreshTokenCookie);
+        setAuthCookies(response, authResponse);
+        return ResponseEntity.ok(authResponse);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getCurrentUser(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(authAdapter.getCurrentUser(userDetails));
+    }
+
+    @PostMapping("/magic-link")
+    public ResponseEntity<MagicLinkResponse> requestMagicLink(@Valid @RequestBody MagicLinkRequest request) {
+        return ResponseEntity.accepted()
+                .body(magicLinkService.requestLink(request.email()));
+    }
+
+    @PostMapping("/magic-link/verify")
+    public ResponseEntity<AuthResponse> verifyMagicLink(
+            @Valid @RequestBody MagicLinkVerifyRequest request,
+            HttpServletResponse response
+    ) {
+        AuthResponse authResponse = authService.createAuthResponse(magicLinkService.consume(request.token()));
+        setAuthCookies(response, authResponse);
+        return ResponseEntity.ok(authResponse);
+    }
+
+    @PostMapping("/oauth2/exchange")
+    public ResponseEntity<AuthResponse> exchangeOAuth2Code(
+            @Valid @RequestBody OAuth2CodeRequest request,
+            HttpServletResponse response
+    ) {
+        AuthResponse authResponse = oAuth2CodeStore.consume(request.code())
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_OAUTH2_CODE));
+        setAuthCookies(response, authResponse);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestBody(required = false) RefreshTokenRequest request
+            @RequestBody(required = false) RefreshTokenRequest request,
+            @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie,
+            HttpServletResponse response
     ) {
-        if (userDetails != null) {
-            authService.logout(userDetails.getId(), request != null ? request.refreshToken() : null);
-        }
+        authAdapter.logout(userDetails, request, refreshTokenCookie);
+        clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,5 +1,6 @@
 package com.surprise.mortgagesurprise.dto.calculator;
 
+import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -30,17 +31,54 @@ public record CalculationRequest(
         @NotNull(message = "Payment type is required (ANNUITY or DIFFERENTIATED)")
         PaymentType paymentType,
 
+        Currency currency,
+
         LocalDate startDate,
 
         @Valid
-        List<EarlyRepaymentRequest> earlyRepayments
+        List<EarlyRepaymentRequest> earlyRepayments,
+
+        Long bankOfferId,
+        String bankName,
+        String offerName,
+        Boolean audit
 ) {
     public CalculationRequest {
+        if (currency == null) {
+            currency = Currency.RUB;
+        }
         if (earlyRepayments == null) {
             earlyRepayments = List.of();
         }
         if (startDate == null) {
             startDate = LocalDate.now();
         }
+        if (audit == null) {
+            audit = false;
+        }
+    }
+
+    public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
+                              BigDecimal annualInterestRate, PaymentType paymentType,
+                              Currency currency, LocalDate startDate,
+                              List<EarlyRepaymentRequest> earlyRepayments) {
+        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
+                currency, startDate, earlyRepayments, null, null, null, false);
+    }
+
+    public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
+                              BigDecimal annualInterestRate, PaymentType paymentType,
+                              LocalDate startDate, List<EarlyRepaymentRequest> earlyRepayments) {
+        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
+                Currency.RUB, startDate, earlyRepayments, null, null, null, false);
+    }
+
+    public CalculationRequest(BigDecimal propertyPrice, BigDecimal downPayment, Integer termMonths,
+                              BigDecimal annualInterestRate, PaymentType paymentType,
+                              Currency currency, LocalDate startDate,
+                              List<EarlyRepaymentRequest> earlyRepayments,
+                              Long bankOfferId, String bankName, String offerName) {
+        this(propertyPrice, downPayment, termMonths, annualInterestRate, paymentType,
+                currency, startDate, earlyRepayments, bankOfferId, bankName, offerName, false);
     }
 }
