@@ -25,16 +25,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Публичные сервисные эндпоинты для скоринга, событий и фронтенда симулятора
                         .requestMatchers("/api/v1/blacklist/**").permitAll()
                         .requestMatchers("/api/v1/events/**").permitAll()
                         .requestMatchers("/api/v1/subjects/**").permitAll()
-                        // Служебные эндпоинты
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // Админские ручки под ролью ADMIN
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                        // Любые другие запросы требуют аутентификации
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults())

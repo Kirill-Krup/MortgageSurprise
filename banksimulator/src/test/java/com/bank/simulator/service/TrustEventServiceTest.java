@@ -5,9 +5,10 @@ import com.surprise.common.dto.simulator.RegisterEventRequest;
 import com.surprise.common.dto.simulator.TrustEventResponse;
 import com.bank.simulator.model.Subject;
 import com.bank.simulator.model.TrustEvent;
-import com.surprise.common.dto.simulator.TrustEventType;
 import com.bank.simulator.repository.SubjectRepository;
 import com.bank.simulator.repository.TrustEventRepository;
+import com.bank.simulator.service.impl.TrustEventServiceImpl;
+import com.surprise.common.dto.simulator.TrustEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class TrustEventServiceTest {
                         TrustEventType.OVERDUE_90_DAYS, -200
                 )
         );
-        trustEventService = new TrustEventService(subjectRepository, trustEventRepository, properties);
+        trustEventService = new TrustEventServiceImpl(subjectRepository, trustEventRepository, properties);
     }
 
     @Test

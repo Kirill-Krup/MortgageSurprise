@@ -3,33 +3,22 @@ package com.surprise.mortgagesurprise.calculator.strategy;
 import com.surprise.mortgagesurprise.calculator.CalculationContext;
 import com.surprise.mortgagesurprise.calculator.EarlyRepaymentProcessor;
 import com.surprise.mortgagesurprise.calculator.EarlyRepaymentResolution;
-import com.surprise.mortgagesurprise.dto.calculator.CalculationResult;
-import com.surprise.mortgagesurprise.dto.calculator.PaymentScheduleItem;
-import com.surprise.mortgagesurprise.model.enums.Currency;
 import com.surprise.mortgagesurprise.model.enums.PaymentType;
 import com.surprise.mortgagesurprise.model.enums.RepaymentStrategy;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Single responsibility: Calculate annuity mortgage payment schedules and statistics.
  */
 @Component
-@RequiredArgsConstructor
-public class AnnuityPaymentCalculationStrategy implements PaymentCalculationStrategy {
+public class AnnuityPaymentCalculationStrategy
+        extends AbstractPaymentCalculationStrategy<AnnuityPaymentCalculationStrategy.AnnuityState> {
 
-    public static final RoundingMode CURRENCY_ROUNDING = RoundingMode.HALF_UP;
-    public static final int CURRENCY_SCALE = 2;
-    private static final MathContext MC = new MathContext(16, RoundingMode.HALF_UP);
-
-    private final EarlyRepaymentProcessor earlyRepaymentProcessor;
+    public AnnuityPaymentCalculationStrategy(EarlyRepaymentProcessor earlyRepaymentProcessor) {
+        super(earlyRepaymentProcessor);
+    }
 
     @Override
     public PaymentType getSupportedPaymentType() {
@@ -37,102 +26,46 @@ public class AnnuityPaymentCalculationStrategy implements PaymentCalculationStra
     }
 
     @Override
-    public CalculationResult calculate(CalculationContext context) {
-        List<PaymentScheduleItem> schedule = new ArrayList<>();
-        BigDecimal currentBalance = context.loanAmount();
-        BigDecimal currentAnnuityPayment = computeAnnuityPayment(currentBalance, context.monthlyRate(), context.termMonths());
+    protected AnnuityState createInitialState(CalculationContext context) {
+        BigDecimal initialAnnuity = computeAnnuityPayment(
+                context.loanAmount(), context.monthlyRate(), context.termMonths());
+        return new AnnuityState(initialAnnuity);
+    }
 
-        BigDecimal totalInterest = BigDecimal.ZERO.setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
-        BigDecimal minPayment = null;
-        BigDecimal maxPayment = null;
-        BigDecimal firstMonthPayment = null;
-
-        int month = 1;
-        int maxLoopLimit = context.termMonths() * 2;
-
-        while (currentBalance.compareTo(BigDecimal.ZERO) > 0 && month <= maxLoopLimit) {
-            LocalDate paymentDate = context.startDate().plusMonths(month);
-            BigDecimal openingBalance = currentBalance;
-
-            BigDecimal interestPayment = openingBalance.multiply(context.monthlyRate(), MC).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
-
-            BigDecimal principalPayment;
-            BigDecimal plannedPayment = currentAnnuityPayment;
-
-            if (currentBalance.add(interestPayment).compareTo(plannedPayment) <= 0) {
-                principalPayment = currentBalance;
-            } else {
-                principalPayment = plannedPayment.subtract(interestPayment);
-                if (principalPayment.compareTo(currentBalance) > 0) {
-                    principalPayment = currentBalance;
-                }
-            }
-
-            BigDecimal balanceAfterRegular = openingBalance.subtract(principalPayment).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
-
-            EarlyRepaymentResolution earlyResolution = earlyRepaymentProcessor.resolve(
-                    context.request().earlyRepayments(), month, balanceAfterRegular);
-            BigDecimal earlyPayment = earlyResolution.actualAmount();
-            BigDecimal closingBalance = balanceAfterRegular.subtract(earlyPayment).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
-
-            BigDecimal totalMonthlyPayment = principalPayment.add(interestPayment).add(earlyPayment).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
-
-            schedule.add(new PaymentScheduleItem(
-                    month,
-                    paymentDate,
-                    openingBalance,
-                    principalPayment,
-                    interestPayment,
-                    earlyPayment,
-                    totalMonthlyPayment,
-                    closingBalance
-            ));
-
-            totalInterest = totalInterest.add(interestPayment);
-
-            if (firstMonthPayment == null) {
-                firstMonthPayment = totalMonthlyPayment;
-            }
-            if (minPayment == null || totalMonthlyPayment.compareTo(minPayment) < 0) {
-                minPayment = totalMonthlyPayment;
-            }
-            if (maxPayment == null || totalMonthlyPayment.compareTo(maxPayment) > 0) {
-                maxPayment = totalMonthlyPayment;
-            }
-
-            currentBalance = closingBalance;
-
-            if (closingBalance.compareTo(BigDecimal.ZERO) > 0 && earlyPayment.compareTo(BigDecimal.ZERO) > 0) {
-                if (earlyResolution.strategy() == RepaymentStrategy.REDUCE_PAYMENT) {
-                    int remainingMonths = context.termMonths() - month;
-                    if (remainingMonths > 0) {
-                        currentAnnuityPayment = computeAnnuityPayment(closingBalance, context.monthlyRate(), remainingMonths);
-                    }
-                }
-            }
-
-            month++;
+    @Override
+    protected BigDecimal calculatePrincipalPayment(
+            CalculationContext context,
+            AnnuityState state,
+            BigDecimal currentBalance,
+            BigDecimal interestPayment,
+            int month
+    ) {
+        BigDecimal plannedPayment = state.currentAnnuityPayment;
+        if (currentBalance.add(interestPayment).compareTo(plannedPayment) <= 0) {
+            return currentBalance;
         }
+        BigDecimal principalPayment = plannedPayment.subtract(interestPayment);
+        return principalPayment.compareTo(currentBalance) > 0 ? currentBalance : principalPayment;
+    }
 
-        int actualTermMonths = schedule.size();
-        BigDecimal totalPayment = context.loanAmount().add(totalInterest).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
-
-        return new CalculationResult(
-                context.propertyPrice(),
-                context.downPayment(),
-                context.loanAmount(),
-                context.termMonths(),
-                actualTermMonths,
-                context.annualRate(),
-                PaymentType.ANNUITY,
-                context.request().currency() != null ? context.request().currency() : Currency.RUB,
-                firstMonthPayment != null ? firstMonthPayment : BigDecimal.ZERO,
-                minPayment != null ? minPayment : BigDecimal.ZERO,
-                maxPayment != null ? maxPayment : BigDecimal.ZERO,
-                totalInterest,
-                totalPayment,
-                schedule
-        );
+    @Override
+    protected void onMonthCompleted(
+            CalculationContext context,
+            AnnuityState state,
+            BigDecimal closingBalance,
+            BigDecimal earlyPayment,
+            EarlyRepaymentResolution earlyResolution,
+            int month
+    ) {
+        if (closingBalance.compareTo(BigDecimal.ZERO) > 0
+                && earlyPayment.compareTo(BigDecimal.ZERO) > 0
+                && earlyResolution.strategy() == RepaymentStrategy.REDUCE_PAYMENT) {
+            int remainingMonths = context.termMonths() - month;
+            if (remainingMonths > 0) {
+                state.currentAnnuityPayment = computeAnnuityPayment(
+                        closingBalance, context.monthlyRate(), remainingMonths);
+            }
+        }
     }
 
     public BigDecimal computeAnnuityPayment(BigDecimal principal, BigDecimal monthlyRate, int months) {
@@ -150,5 +83,13 @@ public class AnnuityPaymentCalculationStrategy implements PaymentCalculationStra
         BigDecimal coefficient = numerator.divide(denominator, MC);
 
         return principal.multiply(coefficient, MC).setScale(CURRENCY_SCALE, CURRENCY_ROUNDING);
+    }
+
+    protected static final class AnnuityState {
+        private BigDecimal currentAnnuityPayment;
+
+        private AnnuityState(BigDecimal currentAnnuityPayment) {
+            this.currentAnnuityPayment = currentAnnuityPayment;
+        }
     }
 }

@@ -48,7 +48,7 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<MicroloanRate> findAll() {
         var list = microloanRateRepository.findAll();
         if (list.isEmpty()) {
@@ -65,10 +65,7 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
         int maxDay = dto.maxDayRequired() != null ? dto.maxDayRequired() : 30;
         var entity = microloanRateRepository.save(new MicroloanRate(dto.name(), dto.baseDailyRate(),
                 minDay, maxDay));
-        var cache = caffeineCacheManager.getCache(CacheConfig.MICROLOAN_RATES);
-        if (cache != null && entity.getName() != null) {
-            cache.evict(entity.getName());
-        }
+        evictRateCache(entity.getName());
         return entity;
     }
 
@@ -88,11 +85,8 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
         }
         var result = microloanRateRepository.save(existingMicroloanRate);
         entityManager.detach(result);
-        var cache = caffeineCacheManager.getCache(CacheConfig.MICROLOAN_RATES);
-        if (cache != null) {
-            cache.evict(oldName);
-            cache.evict(result.getName());
-        }
+        evictRateCache(oldName);
+        evictRateCache(result.getName());
         return result;
     }
 
@@ -103,8 +97,15 @@ public class MicroloanRateServiceImpl implements MicroloanRateService {
                 .orElseThrow(() -> new MicroLoanRateNotFoundException("Microloan with id " + id + " not found"));
         var name = existing.getName();
         microloanRateRepository.delete(existing);
+        evictRateCache(name);
+    }
+
+    private void evictRateCache(String name) {
+        if (name == null) {
+            return;
+        }
         var cache = caffeineCacheManager.getCache(CacheConfig.MICROLOAN_RATES);
-        if (cache != null && name != null) {
+        if (cache != null) {
             cache.evict(name);
         }
     }

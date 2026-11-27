@@ -1,6 +1,7 @@
 package com.bank.simulator.service;
 
 import com.bank.simulator.config.TrustProperties;
+import com.bank.simulator.service.impl.DocumentHashServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ class DocumentHashServiceTest {
                 "test-hmac-secret-key-at-least-32-chars!",
                 Map.of()
         );
-        documentHashService = new DocumentHashService(properties);
+        documentHashService = new DocumentHashServiceImpl(properties);
     }
 
     @Test
@@ -50,7 +51,7 @@ class DocumentHashServiceTest {
     @Test
     @DisplayName("Produces different hashes when HMAC secret differs")
     void hash_DifferentSecrets_ProducesDifferentHashes() {
-        DocumentHashService otherService = new DocumentHashService(
+        DocumentHashService otherService = new DocumentHashServiceImpl(
                 new TrustProperties(300, 700, "another-secret-key-for-testing-12345", Map.of())
         );
 

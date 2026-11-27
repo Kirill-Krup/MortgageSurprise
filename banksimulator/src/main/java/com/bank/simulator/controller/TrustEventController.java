@@ -5,7 +5,6 @@ import com.surprise.common.dto.simulator.TrustEventResponse;
 import com.bank.simulator.service.TrustEventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/events")
 @RequiredArgsConstructor
-@Slf4j
 public class TrustEventController {
 
     private final TrustEventService trustEventService;

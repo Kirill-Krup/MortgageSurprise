@@ -35,7 +35,6 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.amqp:spring-rabbit-stream")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
-	implementation("org.flywaydb:flyway-core")
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("org.springframework.cloud:spring-cloud-starter-openfeign:5.0.3")
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")

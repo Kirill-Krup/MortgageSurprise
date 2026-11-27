@@ -59,7 +59,7 @@ class UserAuditControllerTest {
     @Test
     @DisplayName("GET /api/v1/profile/activity returns 200 OK with empty list when user has no activity records")
     void getMyActivity_WhenNoAudits_ReturnsEmptyList() {
-        when(userAuditService.getAuditsForUser(testUserId)).thenReturn(Collections.emptyList());
+        when(userAuditService.getAuditsForUser(testUserId, null)).thenReturn(Collections.emptyList());
 
         ResponseEntity<List<UserActionAuditDocument>> response = userAuditController.getMyActivity(userDetails, null);
 
@@ -68,8 +68,8 @@ class UserAuditControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/profile/activity returns records and filters by action including aliases")
-    void getMyActivity_FiltersByActionAndAlias() {
+    @DisplayName("GET /api/v1/profile/activity delegates action filter to UserAuditService")
+    void getMyActivity_DelegatesFilterToService() {
         UserActionAuditDocument doc1 = new UserActionAuditDocument(
                 "doc-1", testUserId, "test@example.com", UserAuditActionType.MICROLOAN_APPLICATION,
                 "Applied for microloan", null, null, null, new BigDecimal("10000"), null, null, null,
@@ -83,18 +83,17 @@ class UserAuditControllerTest {
                 Currency.RUB, Map.of(), Instant.now()
         );
 
-        when(userAuditService.getAuditsForUser(testUserId)).thenReturn(List.of(doc1, doc2));
+        when(userAuditService.getAuditsForUser(testUserId, null)).thenReturn(List.of(doc1, doc2));
+        when(userAuditService.getAuditsForUser(testUserId, UserAuditActionType.MICROLOAN_APPLIED)).thenReturn(List.of(doc1));
+        when(userAuditService.getAuditsForUser(testUserId, UserAuditActionType.SCENARIO_CALCULATED)).thenReturn(List.of(doc2));
 
-        // No action filter -> all 2 records returned
         ResponseEntity<List<UserActionAuditDocument>> allRes = userAuditController.getMyActivity(userDetails, null);
         assertThat(allRes.getBody()).hasSize(2);
 
-        // Filter by MICROLOAN_APPLIED (alias for MICROLOAN_APPLICATION) -> returns doc1
         ResponseEntity<List<UserActionAuditDocument>> filterRes = userAuditController.getMyActivity(userDetails, UserAuditActionType.MICROLOAN_APPLIED);
         assertThat(filterRes.getBody()).hasSize(1);
         assertThat(filterRes.getBody().get(0).getId()).isEqualTo("doc-1");
 
-        // Filter by SCENARIO_CALCULATED (alias for MORTGAGE_CALCULATION) -> returns doc2
         ResponseEntity<List<UserActionAuditDocument>> filterRes2 = userAuditController.getMyActivity(userDetails, UserAuditActionType.SCENARIO_CALCULATED);
         assertThat(filterRes2.getBody()).hasSize(1);
         assertThat(filterRes2.getBody().get(0).getId()).isEqualTo("doc-2");
