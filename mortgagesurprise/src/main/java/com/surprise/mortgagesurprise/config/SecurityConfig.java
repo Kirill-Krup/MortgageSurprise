@@ -1,11 +1,14 @@
 package com.surprise.mortgagesurprise.config;
 
+import com.surprise.mortgagesurprise.security.CustomAccessDeniedHandler;
+import com.surprise.mortgagesurprise.security.CustomAuthenticationEntryPoint;
 import com.surprise.mortgagesurprise.security.jwt.JwtAuthenticationFilter;
 import com.surprise.mortgagesurprise.security.oauth2.OAuth2AuthenticationFailureHandler;
 import com.surprise.mortgagesurprise.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.surprise.mortgagesurprise.service.CustomUserDetailsService;
 import com.surprise.mortgagesurprise.service.impl.CustomOAuth2UserService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -33,18 +36,19 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@ConditionalOnProperty(name = "app.security.enabled", havingValue = "true", matchIfMissing = true)
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
-    private final com.surprise.mortgagesurprise.security.CustomAuthenticationEntryPoint authenticationEntryPoint;
-    private final com.surprise.mortgagesurprise.security.CustomAccessDeniedHandler accessDeniedHandler;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
     private final String frontendUrl;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           CustomUserDetailsService userDetailsService,
-                          com.surprise.mortgagesurprise.security.CustomAuthenticationEntryPoint authenticationEntryPoint,
-                          com.surprise.mortgagesurprise.security.CustomAccessDeniedHandler accessDeniedHandler,
+                          CustomAuthenticationEntryPoint authenticationEntryPoint,
+                          CustomAccessDeniedHandler accessDeniedHandler,
                           @Value("${app.frontend-url}") String frontendUrl) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
@@ -112,7 +116,7 @@ public class SecurityConfig {
     @Bean
     public org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
         var client = new org.springframework.security.oauth2.client.endpoint.RestClientAuthorizationCodeTokenResponseClient();
-        client.addHeadersConverter(grantRequest -> {
+        client.addHeadersConverter(_ -> {
             var headers = new org.springframework.http.HttpHeaders();
             headers.set(org.springframework.http.HttpHeaders.USER_AGENT, "MortgageSurprise-App/1.0");
             return headers;

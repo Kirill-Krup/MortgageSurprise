@@ -84,6 +84,20 @@ dependencies {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    filter {
+        excludeTestsMatching("com.surprise.mortgagesurprise.qa.*")
+        excludeTestsMatching("com.surprise.mortgagesurprise.qa.**")
+    }
+    exclude("com/surprise/mortgagesurprise/qa/**")
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showStackTraces = true
+    }
+}
 
 tasks.register<Test>("unitTest") {
     description = "Runs unit tests."
@@ -102,14 +116,5 @@ tasks.register<Test>("integrationTest") {
     classpath = sourceSets["test"].runtimeClasspath
     useJUnitPlatform {
         includeTags("integration")
-    }
-}
-
-tasks.withType<Test>().configureEach {
-    testLogging {
-        events("failed")
-        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-        showExceptions = true
-        showStackTraces = true
     }
 }

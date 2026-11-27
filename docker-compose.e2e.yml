@@ -96,6 +96,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-dummy-google-client-secret}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-dummy-github-client-id}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-dummy-github-client-secret}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-test}
     ports:
       - "8080:8080"
     extra_hosts:
